@@ -8,6 +8,15 @@ const availableMembers = [
   { name: "Nurul Kumala", initial: "H", color: "bg-amber-400" },
 ];
 
+const userAvatars = {
+  "A": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=32&h=32&q=80",
+  "M": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=32&h=32&q=80",
+  "N": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=32&h=32&q=80",
+  "B": "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=32&h=32&q=80",
+  "R": "https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=32&h=32&q=80",
+  "H": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=32&h=32&q=80",
+};
+
 export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingTask }) {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
@@ -50,7 +59,14 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
             </span>
           </h3>
           <button
-            onClick={() => setIsAddingTask(statusKey)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setIsAddingTask({
+                status: statusKey,
+                top: rect.bottom + 8,
+                right: window.innerWidth - rect.right
+              });
+            }}
             className="text-xs font-bold text-violet-600 hover:text-violet-700 active:scale-95 transition-all flex items-center gap-0.5 cursor-pointer"
           >
             <span>+</span> Tambah
@@ -100,7 +116,11 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
                     <td className="py-3">
                       <div className="flex -space-x-1">
                         {task.orang.map((m, i) => (
-                          <div key={i} className={`w-5 h-5 rounded-full border border-white ${["bg-violet-400","bg-emerald-400","bg-amber-400"][i%3]} flex items-center justify-center text-white text-[8px] font-bold shadow-sm`}>{m}</div>
+                          userAvatars[m] ? (
+                            <img key={i} src={userAvatars[m]} alt={m} className="w-5 h-5 rounded-full border border-white object-cover shadow-sm" />
+                          ) : (
+                            <div key={i} className={`w-5 h-5 rounded-full border border-white ${["bg-violet-400", "bg-emerald-400", "bg-amber-400"][i % 3]} flex items-center justify-center text-white text-[8px] font-bold shadow-sm`}>{m}</div>
+                          )
                         ))}
                       </div>
                     </td>

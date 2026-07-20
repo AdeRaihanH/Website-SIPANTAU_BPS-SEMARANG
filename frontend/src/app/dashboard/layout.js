@@ -14,6 +14,7 @@ export default function DashboardLayout({ children }) {
   // Profile states
   const [avatar, setAvatar] = useState("");
   const [userName, setUserName] = useState("User");
+  const [userRole, setUserRole] = useState("pemagang");
 
   const loadUserProfile = () => {
     const email = localStorage.getItem("sipantau_email");
@@ -23,6 +24,8 @@ export default function DashboardLayout({ children }) {
     }
     const name = localStorage.getItem("sipantau_name");
     setUserName(name || "User");
+    const role = localStorage.getItem("sipantau_role");
+    setUserRole(role ? role.toLowerCase() : "pemagang");
   };
 
   useEffect(() => {
@@ -46,12 +49,16 @@ export default function DashboardLayout({ children }) {
     };
   }, []);
 
-  const navItems = [
+  const baseNavItems = [
     { href: "/dashboard", label: "Beranda", icon: "🏠" },
     { href: "/dashboard/team", label: "Team", icon: "👥" },
   ];
 
-  const defaultAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80";
+  const navItems = userRole === "admin" 
+    ? [...baseNavItems, { href: "/dashboard/accounts", label: "Akun", icon: "✅" }] 
+    : baseNavItems;
+
+  const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || "User")}&background=f1f5f9&color=64748b&bold=true`;
 
   return (
     <div className="min-h-screen bg-[#f4f4f5] flex font-sans relative">
@@ -73,28 +80,45 @@ export default function DashboardLayout({ children }) {
 
             {showDropdown && (
               <div className="absolute left-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50">
-                <Link
-                  href="/dashboard/settings"
-                  onClick={() => setShowDropdown(false)}
-                  className="w-full px-4 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
-                >
-                  <span>Pengaturan</span>
-                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-                <button
-                  onClick={() => {
-                    if (confirm("Apakah Anda yakin ingin menghapus semua tugas?")) alert("Semua tugas berhasil dihapus!");
-                    setShowDropdown(false);
-                  }}
-                  className="w-full px-4 py-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50/50 flex items-center justify-between border-t border-slate-50 cursor-pointer"
-                >
-                  <span>Hapus Tugas</span>
-                  <svg className="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+                {userRole === "admin" ? (
+                  <button
+                    onClick={() => {
+                      setShowDropdown(false);
+                      setShowLogoutModal(true);
+                    }}
+                    className="w-full px-4 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50/50 flex items-center justify-between cursor-pointer"
+                  >
+                    <span>Keluar</span>
+                    <svg className="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                ) : (
+                  <>
+                    <Link
+                      href="/dashboard/settings"
+                      onClick={() => setShowDropdown(false)}
+                      className="w-full px-4 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
+                    >
+                      <span>Pengaturan</span>
+                      <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                    <button
+                      onClick={() => {
+                        if (confirm("Apakah Anda yakin ingin menghapus semua tugas?")) alert("Semua tugas berhasil dihapus!");
+                        setShowDropdown(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50/50 flex items-center justify-between border-t border-slate-50 cursor-pointer"
+                    >
+                      <span>Hapus Tugas</span>
+                      <svg className="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>

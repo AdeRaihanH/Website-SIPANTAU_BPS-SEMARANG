@@ -47,7 +47,7 @@ const getUserAvatar = (name) => {
   }
   if (name === "Myesha Azka") return "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=50&h=50&q=80";
   if (name === "Nurul Kumala") return "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=50&h=50&q=80";
-  return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=50&h=50&q=80";
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=f1f5f9&color=64748b&bold=true`;
 };
 
 export default function TabDashboard({ tasks = [] }) {
@@ -79,7 +79,7 @@ export default function TabDashboard({ tasks = [] }) {
   const logs = tasks
     .flatMap(t => (t.riwayat || []).map(r => ({ ...r, taskTitle: t.title })))
     .sort((a, b) => parseRelativeTime(a.time) - parseRelativeTime(b.time))
-    .slice(0, 5); // Show top 5 sorted activities
+    .slice(0, 20); // Show top 20 sorted activities for scrolling
 
   const priorityColors = {
     "Tertinggi": "bg-[#fca5a5]", // Soft pink/rose-300
@@ -101,6 +101,7 @@ export default function TabDashboard({ tasks = [] }) {
 
   return (
     <div className="space-y-6">
+
       {/* Stats Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -224,30 +225,30 @@ export default function TabDashboard({ tasks = [] }) {
       </div>
 
       {/* Log Aktivitas */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-xs sm:text-sm font-extrabold text-slate-800">Log Aktivitas</h3>
-          <p className="text-[10px] text-slate-400 font-medium">Informasi terbaru mengenai tugas yang telah dijadwalkan.</p>
+      <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="border-b border-slate-50 pb-4">
+          <h3 className="text-sm font-extrabold text-slate-800">Log Aktivitas Tim</h3>
+          <p className="text-[11px] text-slate-400 font-medium mt-1">Informasi terbaru mengenai aktivitas tugas di dalam tim ini.</p>
         </div>
 
-        <div className="divide-y divide-slate-50">
+        <div className="divide-y divide-slate-50/80 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
           {logs.length === 0 ? (
             <p className="text-center py-6 text-xs text-slate-400 font-semibold">Belum ada aktivitas tercatat</p>
           ) : (
             logs.map((log, index) => (
-              <div key={index} className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
+              <div key={index} className="flex items-center justify-between py-3.5">
+                <div className="flex items-center gap-3.5">
                   <img
                     src={getUserAvatar(log.name)}
                     alt="Avatar"
                     className="w-8 h-8 rounded-full object-cover border border-slate-100"
                   />
-                  <span className="text-xs text-slate-600 font-medium">
+                  <span className="text-[11px] text-slate-600 font-medium">
                     <strong className="text-slate-800 font-bold">{log.name}</strong> {log.text}{" "}
-                    <span className="text-violet-600 font-semibold hover:underline cursor-pointer">{log.taskTitle}</span>
+                    <span className="text-violet-600 font-bold hover:underline cursor-pointer">{log.taskTitle}</span>
                   </span>
                 </div>
-                <span className="text-[10px] font-semibold text-slate-400">{log.time}</span>
+                <span className="text-[10px] font-bold text-slate-400">{log.time}</span>
               </div>
             ))
           )}

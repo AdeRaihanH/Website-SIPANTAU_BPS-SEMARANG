@@ -62,9 +62,8 @@ export default function ShowcaseCarousel() {
             <button
               key={index}
               onClick={() => setActiveSlide(index)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                index === activeSlide ? "w-6 bg-white" : "w-2 bg-white/40 hover:bg-white/60"
-              }`}
+              className={`h-2 rounded-full transition-all duration-300 ${index === activeSlide ? "w-6 bg-white" : "w-2 bg-white/40 hover:bg-white/60"
+                }`}
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}
@@ -266,7 +265,7 @@ function AnalyticsMockup() {
               <span className="text-[7px] font-bold text-slate-700">Aktivitas Mingguan</span>
               <span className="text-[5px] text-slate-400">Update 5 mnt lalu</span>
             </div>
-            
+
             <div className="flex-1 flex items-end justify-between px-2 pt-3 pb-1 gap-2">
               <div className="flex-1 flex flex-col items-center gap-1">
                 <div className="w-full bg-indigo-200 rounded-t h-[40%]" />
@@ -340,7 +339,7 @@ function KanbanMockup() {
               <span className="px-1 py-0.5 rounded text-[5px] font-bold bg-indigo-50 text-indigo-700">Tugas</span>
               <span className="px-1 py-0.5 rounded text-[5px] font-bold bg-rose-50 text-rose-700">Tertinggi</span>
             </div>
-            
+
             <h4 className="text-[8.5px] font-extrabold text-slate-800 leading-tight">Pembuatan UI/UX Website</h4>
             <p className="text-[6px] text-slate-400 leading-tight">Membuat tampilan antarmuka website Kanban</p>
           </div>
@@ -390,7 +389,7 @@ function KanbanMockup() {
           <span className="text-[6.5px] font-bold text-slate-800">Diskusi Tugas</span>
           <span className="text-[5px] text-slate-400">3 komentar</span>
         </div>
-        
+
         <div className="space-y-1">
           {/* Comment 1 */}
           <div className="flex items-start gap-1">
