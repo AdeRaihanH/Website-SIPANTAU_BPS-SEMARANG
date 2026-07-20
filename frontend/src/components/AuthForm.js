@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { signUpUser, signInUser } from "../backend/auth";
 
 export default function AuthForm({ defaultRole = "pemagang" }) {
   const router = useRouter();
@@ -92,6 +93,7 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
           role: "pemagang",
           status: "approved"
         },
+
         {
           email: "mentor123@bps.go.id",
           password: "password123",
@@ -120,66 +122,50 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
 
 
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (isSignUp) {
-      // Basic fallback if empty
-      const finalRole = signUpRole || "pemagang";
-      const finalName = signUpName || "Pengguna Baru";
-      const finalEmail = signUpEmail || "baru@gmail.com";
+      try {
+        await signUpUser({
+          email: signUpEmail,
+          password: signUpPassword,
+          name: signUpName,
+          phone: signUpPhone,
+          address: signUpAddress,
+          institution: signUpInstitution,
+          major: signUpMajor,
+          role: signUpRole,
+        });
 
-      // Check user existence in mock database
-      const usersListStr = localStorage.getItem("sipantau_users") || "[]";
-      const usersList = JSON.parse(usersListStr);
-      
-      const newUser = {
-        email: finalEmail,
-        password: signUpPassword || "12345678",
-        name: finalName,
-        phone: signUpPhone || "08123456789",
-        address: signUpAddress || "-",
-        institution: signUpInstitution || "-",
-        major: signUpMajor || "-",
-        role: finalRole,
-        status: "pending" // New sign-ups are pending verification
-      };
-      
-      if (!usersList.find(u => u.email.toLowerCase() === finalEmail.toLowerCase())) {
-        usersList.push(newUser);
-        localStorage.setItem("sipantau_users", JSON.stringify(usersList));
+        alert("Pendaftaran berhasil! Silakan cek email jika verifikasi email diaktifkan.");
+        router.push("/");
+      } catch (error) {
+        alert(error.message);
       }
-
-      // Save active session state
-      localStorage.setItem("sipantau_role", finalRole);
-      localStorage.setItem("sipantau_name", finalName);
-      localStorage.setItem("sipantau_email", finalEmail);
-
-      // Redirect to verification view
-      router.push("/verification");
     } else {
-      // Validation for empty inputs
       if (!signInEmail || !signInPassword) {
         setLoginError(true);
         return;
       }
 
-      // Lookup user in mock database
-      const usersListStr = localStorage.getItem("sipantau_users") || "[]";
-      const usersList = JSON.parse(usersListStr);
-      const foundUser = usersList.find(u => u.email.toLowerCase() === signInEmail.toLowerCase() && u.password === signInPassword);
-
-      if (foundUser) {
-        localStorage.setItem("sipantau_role", foundUser.role);
-        localStorage.setItem("sipantau_name", foundUser.name);
-        localStorage.setItem("sipantau_email", foundUser.email);
+      try {
+        const { user, profile } = await signInUser(signInEmail, signInPassword);
         
-        if (foundUser.status === "pending" || foundUser.status === "rejected") {
+        // We can still optionally set localStorage for quick fallback,
+        // but ideally we rely on Supabase session
+        localStorage.setItem("sipantau_role", profile.role);
+        localStorage.setItem("sipantau_name", profile.full_name);
+        localStorage.setItem("sipantau_email", profile.email);
+
+        if (profile.status === "pending" || profile.status === "rejected") {
           router.push("/verification");
         } else {
           router.push("/dashboard");
         }
-      } else {
+      } catch (error) {
+        console.error("LOGIN ERROR:", error);
+        alert(error?.message || "Login gagal");
         setLoginError(true);
       }
     }

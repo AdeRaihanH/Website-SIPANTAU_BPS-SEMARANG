@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getAllUsers, updateUserStatus, updateUserProfile, deleteUsers } from "../../../backend/admin";
+import { getActiveUser, signUpUser } from "../../../backend/auth";
 
 export default function AccountsPage() {
+  const [activeAdminId, setActiveAdminId] = useState(null);
   const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
@@ -21,7 +24,7 @@ export default function AccountsPage() {
   });
 
   const handleEditStart = (user) => {
-    setEditingRow(user.email);
+    setEditingRow(user.id);
     setEditFormData({ ...user });
   };
 
@@ -30,24 +33,34 @@ export default function AccountsPage() {
     setEditFormData({});
   };
 
-  const handleEditSave = () => {
-    const updatedUsers = users.map(u =>
-      u.email === editingRow ? { ...u, ...editFormData } : u
-    );
-    setUsers(updatedUsers);
-    localStorage.setItem("sipantau_users", JSON.stringify(updatedUsers));
-    setEditingRow(null);
+  const handleEditSave = async () => {
+    try {
+      await updateUserProfile(editingRow, {
+        full_name: editFormData.full_name,
+        phone: editFormData.phone,
+        address: editFormData.address,
+        institution: editFormData.institution,
+        major: editFormData.major
+      });
+      const updatedUsers = users.map(u =>
+        u.id === editingRow ? { ...u, ...editFormData } : u
+      );
+      setUsers(updatedUsers);
+      setEditingRow(null);
+    } catch (e) {
+      alert("Gagal memperbarui profil: " + e.message);
+    }
   };
 
-  const loadUsers = () => {
-    if (typeof window !== "undefined") {
-      const usersStr = localStorage.getItem("sipantau_users") || "[]";
-      // Add a mock signup date for visual accuracy if missing
-      const parsed = JSON.parse(usersStr).map(u => ({
-        ...u,
-        signupDate: u.signupDate || "15 Juli 2026"
-      }));
-      setUsers(parsed);
+  const loadUsers = async () => {
+    try {
+      const activeUser = await getActiveUser();
+      if (activeUser) setActiveAdminId(activeUser.id);
+      
+      const dbUsers = await getAllUsers();
+      setUsers(dbUsers);
+    } catch (e) {
+      console.error("Gagal memuat pengguna:", e);
     }
   };
 
@@ -55,59 +68,60 @@ export default function AccountsPage() {
     loadUsers();
   }, []);
 
-  const handleAddAccount = () => {
+  const handleAddAccount = async () => {
     if (!newAccount.name || !newAccount.email) return;
     
-    const usersStr = localStorage.getItem("sipantau_users") || "[]";
-    const parsed = JSON.parse(usersStr);
-    
-    if (parsed.find(u => u.email === newAccount.email)) {
-      alert("Email sudah terdaftar!");
-      return;
+    try {
+      await signUpUser({
+        email: newAccount.email,
+        password: "password123",
+        name: newAccount.name,
+        phone: "-",
+        address: "-",
+        institution: newAccount.role === "mentor" ? "BPS Kota Semarang" : (newAccount.institution || "-"),
+        major: "-",
+        role: newAccount.role
+      });
+      
+      // Reload users list
+      await loadUsers();
+      
+      setShowAddModal(false);
+      setNewAccount({ name: "", email: "", role: "pemagang", institution: "" });
+    } catch (e) {
+      alert("Gagal menambahkan akun: " + e.message);
     }
-
-    const newUser = {
-      email: newAccount.email,
-      password: "password123", // default password
-      name: newAccount.name,
-      phone: "-",
-      address: "-",
-      institution: newAccount.role === "mentor" ? "BPS Kota Semarang" : (newAccount.institution || "-"),
-      role: newAccount.role,
-      status: "approved",
-      signupDate: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-    };
-
-    const updatedUsers = [...parsed, newUser];
-    localStorage.setItem("sipantau_users", JSON.stringify(updatedUsers));
-    setUsers(updatedUsers);
-    
-    setShowAddModal(false);
-    setNewAccount({ name: "", email: "", role: "pemagang", institution: "" });
   };
 
-  const handleUpdateStatus = (email, newStatus) => {
-    const updatedUsers = users.map(user => {
-      if (user.email === email) {
-        return { ...user, status: newStatus };
-      }
-      return user;
-    });
-    setUsers(updatedUsers);
-    localStorage.setItem("sipantau_users", JSON.stringify(updatedUsers));
-    setExpandedRow(null); // Close expanded row on action
+  const handleUpdateStatus = async (userId, newStatus) => {
+    if (!activeAdminId) return;
+    try {
+      await updateUserStatus(activeAdminId, userId, newStatus);
+      const updatedUsers = users.map(user => {
+        if (user.id === userId) {
+          return { ...user, status: newStatus };
+        }
+        return user;
+      });
+      setUsers(updatedUsers);
+      setExpandedRow(null);
+    } catch (e) {
+      alert("Gagal memperbarui status: " + e.message);
+    }
   };
 
   const filteredUsers = users.filter(user => {
     // Filter by tab
     if (activeTab === "Belum Diverifikasi" && user.status !== "pending") return false;
-    if (activeTab === "Sudah Diverifikasi" && user.status !== "approved") return false;
+    if (activeTab === "Sudah Diverifikasi" && user.status !== "active") return false;
     if (activeTab === "Ditolak" && user.status !== "rejected") return false;
 
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      if (!user.name.toLowerCase().includes(query) && !user.institution.toLowerCase().includes(query)) {
+      const n = (user.full_name || user.email || "").toLowerCase();
+      const i = (user.institution || "").toLowerCase();
+      if (!n.includes(query) && !i.includes(query)) {
         return false;
       }
     }
@@ -119,7 +133,7 @@ export default function AccountsPage() {
     switch (status) {
       case "pending":
         return <span className="px-3 py-1 bg-amber-100 text-amber-500 rounded-full text-[10px] font-bold">Menunggu</span>;
-      case "approved":
+      case "active":
         return <span className="px-3 py-1 bg-emerald-100 text-emerald-500 rounded-full text-[10px] font-bold">Disetujui</span>;
       case "rejected":
         return <span className="px-3 py-1 bg-rose-100 text-rose-500 rounded-full text-[10px] font-bold">Ditolak</span>;
@@ -130,26 +144,31 @@ export default function AccountsPage() {
 
   const pendingCount = users.filter(u => u.status === "pending").length;
 
-  const toggleSelect = (email) => {
-    if (selectedUsers.includes(email)) {
-      setSelectedUsers(selectedUsers.filter(e => e !== email));
+  const toggleSelect = (userId) => {
+    if (selectedUsers.includes(userId)) {
+      setSelectedUsers(selectedUsers.filter(id => id !== userId));
     } else {
-      setSelectedUsers([...selectedUsers, email]);
+      setSelectedUsers([...selectedUsers, userId]);
     }
   };
 
-  const handleDeleteSelected = () => {
-    let updatedUsers = users;
-    if (userToDelete) {
-      updatedUsers = users.filter(u => u.email !== userToDelete);
-      setUserToDelete(null);
-    } else {
-      updatedUsers = users.filter(u => !selectedUsers.includes(u.email));
-      setSelectedUsers([]);
+  const handleDeleteSelected = async () => {
+    try {
+      const idsToDelete = userToDelete ? [userToDelete] : selectedUsers;
+      await deleteUsers(idsToDelete);
+      
+      const updatedUsers = users.filter(u => !idsToDelete.includes(u.id));
+      setUsers(updatedUsers);
+      
+      if (userToDelete) {
+        setUserToDelete(null);
+      } else {
+        setSelectedUsers([]);
+      }
+      setShowDeleteConfirm(false);
+    } catch (e) {
+      alert("Gagal menghapus pengguna: " + e.message);
     }
-    setUsers(updatedUsers);
-    localStorage.setItem("sipantau_users", JSON.stringify(updatedUsers));
-    setShowDeleteConfirm(false);
   };
 
   return (
@@ -246,15 +265,15 @@ export default function AccountsPage() {
               </tr>
             </thead>
             <tbody className="text-slate-700 divide-y-0 divide-transparent" style={{ border: 'none' }}>
-              {filteredUsers.slice().reverse().map((user, idx) => {
-                const isExpanded = expandedRow === user.email;
-                const isSelected = selectedUsers.includes(user.email);
+              {filteredUsers.map((user, idx) => {
+                const isExpanded = expandedRow === user.id;
+                const isSelected = selectedUsers.includes(user.id);
 
                 return (
-                  <React.Fragment key={idx}>
+                  <React.Fragment key={user.id}>
                     {/* Main Row */}
                     <tr 
-                      onClick={() => setExpandedRow(isExpanded ? null : user.email)}
+                      onClick={() => setExpandedRow(isExpanded ? null : user.id)}
                       className={`transition-colors group border-0 cursor-pointer ${isExpanded ? 'bg-[#f8f7ff] border-x border-t border-[#d8d3fc]' : 'hover:bg-slate-50/50'}`} 
                       style={{ border: 'none' }}
                     >
@@ -262,14 +281,14 @@ export default function AccountsPage() {
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={(e) => { e.stopPropagation(); toggleSelect(user.email); }}
+                          onChange={(e) => { e.stopPropagation(); toggleSelect(user.id); }}
                           onClick={(e) => e.stopPropagation()}
                           className="w-4 h-4 rounded text-violet-600 border-slate-300 focus:ring-violet-500 cursor-pointer"
                         />
                       </td>
                       <td className="py-4 border-none">
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setExpandedRow(isExpanded ? null : user.email); }} 
+                          onClick={(e) => { e.stopPropagation(); setExpandedRow(isExpanded ? null : user.id); }} 
                           className="text-slate-400 hover:text-slate-600 p-1"
                         >
                           <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -280,11 +299,11 @@ export default function AccountsPage() {
                       <td className="px-2 py-4 border-none">
                         <div className="flex items-center gap-3">
                           <img
-                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=f1f5f9&color=64748b&bold=true`}
-                            alt={user.name}
-                            className="w-7 h-7 rounded-full border border-slate-200"
+                            src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || "User")}&background=f1f5f9&color=64748b&bold=true`}
+                            alt={user.full_name}
+                            className="w-7 h-7 rounded-full border border-slate-200 object-cover"
                           />
-                          <span className="text-xs font-bold text-slate-800">{user.name}</span>
+                          <span className="text-xs font-bold text-slate-800">{user.full_name}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 border-none">
@@ -301,9 +320,9 @@ export default function AccountsPage() {
                                 key={r}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const newUsers = users.map(u => u.email === user.email ? { ...u, role: r } : u);
+                                  const newUsers = users.map(u => u.id === user.id ? { ...u, role: r } : u);
                                   setUsers(newUsers);
-                                  localStorage.setItem("sipantau_users", JSON.stringify(newUsers));
+                                  updateUserProfile(user.id, { role: r }).catch(e => alert(e.message));
                                 }}
                                 className="px-4 py-2 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-violet-600 capitalize transition-colors"
                               >
@@ -317,16 +336,18 @@ export default function AccountsPage() {
                         <span className="text-[11px] font-semibold text-slate-800">{user.institution}</span>
                       </td>
                       <td className="px-6 py-4 border-none">
-                        <span className="text-[11px] font-semibold text-slate-800">{user.signupDate}</span>
+                        <span className="text-[11px] font-semibold text-slate-800">
+                          {new Date(user.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-center border-none">
-                        {getStatusBadge(user.status || "approved")}
+                        {getStatusBadge(user.status || "active")}
                       </td>
                       <td className={`px-6 py-4 text-center border-none ${isExpanded ? 'border-r border-[#d8d3fc]' : ''}`}>
                         {user.status === "pending" ? (
                           <div className="flex justify-center gap-3">
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(user.email, "approved"); }}
+                              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(user.id, "active"); }}
                               className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-500 hover:bg-emerald-200 flex items-center justify-center transition-colors"
                               title="Setujui"
                             >
@@ -335,7 +356,7 @@ export default function AccountsPage() {
                               </svg>
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(user.email, "rejected"); }}
+                              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(user.id, "rejected"); }}
                               className="w-7 h-7 rounded-full bg-rose-100 text-rose-500 hover:bg-rose-200 flex items-center justify-center transition-colors"
                               title="Tolak"
                             >
@@ -347,7 +368,7 @@ export default function AccountsPage() {
                         ) : (
                           <div className="flex justify-center gap-4">
                             <button 
-                              onClick={(e) => { e.stopPropagation(); setExpandedRow(user.email); handleEditStart(user); }} 
+                              onClick={(e) => { e.stopPropagation(); setExpandedRow(user.id); handleEditStart(user); }} 
                               className="text-indigo-500 hover:text-indigo-700 cursor-pointer"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -355,7 +376,7 @@ export default function AccountsPage() {
                               </svg>
                             </button>
                             <button 
-                              onClick={(e) => { e.stopPropagation(); setUserToDelete(user.email); setShowDeleteConfirm(true); }}
+                              onClick={(e) => { e.stopPropagation(); setUserToDelete(user.id); setShowDeleteConfirm(true); }}
                               className="text-rose-500 hover:text-rose-700 cursor-pointer transition-colors"
                               title="Hapus Akun"
                             >
@@ -385,15 +406,15 @@ export default function AccountsPage() {
                                 </div>
                                 <div>
                                   <p className="text-[10px] text-slate-500 font-semibold mb-1">Nama</p>
-                                  {editingRow === user.email ? (
+                                  {editingRow === user.id ? (
                                     <input
                                       type="text"
-                                      value={editFormData.name || ""}
-                                      onChange={e => setEditFormData({ ...editFormData, name: e.target.value })}
+                                      value={editFormData.full_name || ""}
+                                      onChange={e => setEditFormData({ ...editFormData, full_name: e.target.value })}
                                       className="text-xs font-bold text-slate-400 bg-transparent outline-none w-full border-b border-slate-200 pb-0.5 focus:border-violet-500 transition-colors"
                                     />
                                   ) : (
-                                    <p className="text-xs font-bold text-slate-800">{user.name}</p>
+                                    <p className="text-xs font-bold text-slate-800">{user.full_name}</p>
                                   )}
                                 </div>
                               </div>
@@ -405,12 +426,12 @@ export default function AccountsPage() {
                                 </div>
                                 <div>
                                   <p className="text-[10px] text-slate-500 font-semibold mb-1">Email</p>
-                                  {editingRow === user.email ? (
+                                  {editingRow === user.id ? (
                                     <input
                                       type="email"
                                       value={editFormData.email || ""}
-                                      onChange={e => setEditFormData({ ...editFormData, email: e.target.value })}
-                                      className="text-xs font-bold text-slate-400 bg-transparent outline-none w-full border-b border-slate-200 pb-0.5 focus:border-violet-500 transition-colors"
+                                      disabled
+                                      className="text-xs font-bold text-slate-400 bg-transparent outline-none w-full border-b border-slate-200 pb-0.5 focus:border-violet-500 transition-colors cursor-not-allowed"
                                     />
                                   ) : (
                                     <p className="text-xs font-bold text-slate-800">{user.email}</p>
@@ -429,7 +450,7 @@ export default function AccountsPage() {
                                 </div>
                                 <div>
                                   <p className="text-[10px] text-slate-500 font-semibold mb-1">Nomor Telepon</p>
-                                  {editingRow === user.email ? (
+                                  {editingRow === user.id ? (
                                     <input
                                       type="text"
                                       value={editFormData.phone || ""}
@@ -449,7 +470,7 @@ export default function AccountsPage() {
                                 </div>
                                 <div>
                                   <p className="text-[10px] text-slate-500 font-semibold mb-1">Alamat Rumah</p>
-                                  {editingRow === user.email ? (
+                                  {editingRow === user.id ? (
                                     <input
                                       type="text"
                                       value={editFormData.address || ""}
@@ -473,7 +494,7 @@ export default function AccountsPage() {
                                 </div>
                                 <div>
                                   <p className="text-[10px] text-slate-500 font-semibold mb-1">Asal Instansi</p>
-                                  {editingRow === user.email ? (
+                                  {editingRow === user.id ? (
                                     <input
                                       type="text"
                                       value={editFormData.institution || ""}
@@ -495,7 +516,7 @@ export default function AccountsPage() {
                                   </div>
                                   <div>
                                     <p className="text-[10px] text-slate-500 font-semibold mb-1">Jurusan</p>
-                                    {editingRow === user.email ? (
+                                    {editingRow === user.id ? (
                                       <input
                                         type="text"
                                         value={editFormData.major || ""}
@@ -516,19 +537,19 @@ export default function AccountsPage() {
                             {user.status === "pending" ? (
                               <>
                                 <button
-                                  onClick={() => handleUpdateStatus(user.email, "rejected")}
+                                  onClick={() => handleUpdateStatus(user.id, "rejected")}
                                   className="px-6 py-2.5 bg-white border border-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors cursor-pointer"
                                 >
                                   Tolak Akun
                                 </button>
                                 <button
-                                  onClick={() => handleUpdateStatus(user.email, "approved")}
+                                  onClick={() => handleUpdateStatus(user.id, "active")}
                                   className="px-6 py-2.5 bg-violet-600 text-white text-[11px] font-bold rounded-xl shadow-sm hover:bg-violet-700 transition-colors cursor-pointer"
                                 >
                                   Setujui Akun
                                 </button>
                               </>
-                            ) : editingRow === user.email ? (
+                            ) : editingRow === user.id ? (
                               <>
                                 <button
                                   onClick={handleEditCancel}

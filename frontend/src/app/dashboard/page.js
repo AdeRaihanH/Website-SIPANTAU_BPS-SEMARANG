@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { getActiveUser, getProfile } from "../../backend/auth";
+import { getAllUsers } from "../../backend/admin";
+import { getAdminStats, getPersonalStats, getPersonalLogs } from "../../backend/dashboard";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -12,85 +15,134 @@ export default function Dashboard() {
   const [adminUsers, setAdminUsers] = useState([]);
   const logRef = useRef(null);
 
-  const loadProfile = () => {
-    const name = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
-    const email = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
-    const rawRole = typeof window !== "undefined" ? localStorage.getItem("sipantau_role") : null;
-    const role = rawRole ? rawRole.toLowerCase() : null;
-    
-    if (role) setUserRole(role);
-    if (name) {
-      setUserName(name.split(" ")[0]);
-      setUserFullName(name);
-    }
-    if (email) {
-      const avatar = localStorage.getItem(`sipantau_avatar_${email.toLowerCase()}`);
-      if (avatar) setUserAvatar(avatar);
-    }
-    
-    // Load all users for admin view
-    if (role === "admin" && typeof window !== "undefined") {
-      const usersStr = localStorage.getItem("sipantau_users") || "[]";
-      try {
-        setAdminUsers(JSON.parse(usersStr));
-      } catch (e) {
-        setAdminUsers([]);
+  const [userId, setUserId] = useState(null);
+  const [adminStats, setAdminStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [personalStats, setPersonalStats] = useState({ completed: 0, scheduled: 0, updated: 0, overdue: 0 });
+  const [activityLogs, setActivityLogs] = useState([]);
+
+  const loadProfile = async () => {
+    try {
+      const user = await getActiveUser();
+      if (!user) {
+        router.push("/");
+        return;
       }
+      setUserId(user.id);
+      
+      const profile = await getProfile(user.id);
+      if (profile) {
+        const role = profile.role ? profile.role.toLowerCase() : "pemagang";
+        setUserRole(role);
+        setUserName(profile.full_name ? profile.full_name.split(" ")[0] : "User");
+        setUserFullName(profile.full_name || "User Name");
+        setUserAvatar(profile.avatar_url || "");
+        
+        if (role === "admin") {
+          const users = await getAllUsers();
+          setAdminUsers(users);
+          
+          const stats = await getAdminStats();
+          setAdminStats(stats);
+        } else {
+          const stats = await getPersonalStats(user.id);
+          setPersonalStats(stats);
+          
+          const logs = await getPersonalLogs(user.id);
+          setActivityLogs(logs);
+        }
+      }
+    } catch (e) {
+      console.error("Error loading profile or stats", e);
     }
   };
 
   useEffect(() => {
     loadProfile();
-    window.addEventListener("sipantau-profile-updated", loadProfile);
-    window.addEventListener("sipantau-avatar-updated", loadProfile);
-    return () => {
-      window.removeEventListener("sipantau-profile-updated", loadProfile);
-      window.removeEventListener("sipantau-avatar-updated", loadProfile);
-    };
   }, []);
 
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userFullName)}&background=f1f5f9&color=64748b&bold=true`;
   const avatarToUse = userAvatar || defaultAvatar;
 
-  const handleDownloadPDF = () => {
-    const logContent = logRef.current.innerHTML;
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Log Aktivitas Pribadi - ${userFullName}</title>
-          <style>
-            body { font-family: sans-serif; padding: 20px; color: #333; }
-            h3 { margin-bottom: 5px; }
-            p { margin-top: 0; color: #666; font-size: 14px; }
-            .log-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
-            .log-info { display: flex; align-items: center; gap: 12px; }
-            .log-info img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
-            .log-text { font-size: 14px; color: #444; }
-            .log-text strong { color: #111; }
-            .log-task { color: #5b21b6; font-weight: bold; }
-            .log-time { font-size: 12px; color: #888; font-weight: bold; }
-            @media print {
-              button { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div style="margin-bottom: 20px;">
-            <h3>Log Aktivitas Pribadi</h3>
-            <p>Informasi terbaru mengenai aktivitas yang telah Anda lakukan.</p>
-          </div>
-          ${logContent}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    // Use a slight delay to ensure images load
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+  const handleDownloadPDF = async () => {
+    try {
+      const { getUserTasks } = await import("../../backend/tasks");
+      const tasks = await getUserTasks(userId);
+      
+      const total = tasks.length;
+      const selesai = tasks.filter(t => t.status === "completed" || t.status === "done" || t.status === "Selesai").length;
+      const proses = total - selesai;
+      const progress = total === 0 ? 0 : Math.round((selesai / total) * 100);
+
+      const today = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Laporan Tugas & Perkembangan Magang - ${userFullName}</title>
+            <style>
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
+              h2 { text-align: center; margin-bottom: 30px; font-size: 24px; color: #111; }
+              .info-container { margin-bottom: 30px; font-size: 14px; line-height: 1.6; }
+              .info-row { display: flex; }
+              .info-label { width: 180px; }
+              table { w-full; border-collapse: collapse; margin-top: 20px; width: 100%; font-size: 12px; }
+              th { background-color: #7c3aed; color: white; text-align: left; padding: 12px 15px; font-weight: 600; }
+              td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; color: #475569; }
+              tr:nth-child(even) { background-color: #f8fafc; }
+              .status-badge { padding: 4px 8px; border-radius: 9999px; font-weight: bold; font-size: 10px; }
+              @media print {
+                body { padding: 0; }
+              }
+            </style>
+          </head>
+          <body>
+            <h2>Laporan Tugas & Perkembangan Magang</h2>
+            <div class="info-container">
+              <div class="info-row"><div class="info-label">Nama Pemagang</div><div>: ${userFullName}</div></div>
+              <div class="info-row"><div class="info-label">Progress Penyelesaian</div><div>: ${progress}%</div></div>
+              <div class="info-row"><div class="info-label">Total Tugas Kelompok</div><div>: ${total} (${selesai} Selesai, ${proses} Proses)</div></div>
+              <div class="info-row"><div class="info-label">Tanggal Cetak</div><div>: ${today}</div></div>
+            </div>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th style="border-top-left-radius: 8px;">No</th>
+                  <th>Kelompok/Tim</th>
+                  <th>Nama Tugas</th>
+                  <th>Status</th>
+                  <th>Prioritas</th>
+                  <th style="border-top-right-radius: 8px;">Tenggat</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tasks.map((t, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${t.group ? t.group.name : "-"}</td>
+                    <td style="font-weight: 600; color: #1e293b;">${t.title}</td>
+                    <td>${t.status}</td>
+                    <td>${t.priority}</td>
+                    <td>${t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-"}</td>
+                  </tr>
+                `).join('')}
+                ${tasks.length === 0 ? '<tr><td colspan="6" style="text-align: center;">Tidak ada tugas</td></tr>' : ''}
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    } catch (e) {
+      console.error("Failed to generate PDF", e);
+      alert("Gagal mengunduh laporan PDF.");
+    }
   };
 
   return (
@@ -127,22 +179,22 @@ export default function Dashboard() {
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
-                ), color: "violet", label: `${adminUsers.length} Akun`, desc: "Jumlah pendaftar SIPANTAU." },
+                ), color: "violet", label: `${adminStats.total} Akun`, desc: "Jumlah pendaftar SIPANTAU." },
                 { icon: (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                ), color: "amber", label: `${adminUsers.filter(u => u.status === 'pending').length} Menunggu`, desc: "Akun perlu diverifikasi." },
+                ), color: "amber", label: `${adminStats.pending} Menunggu`, desc: "Akun perlu diverifikasi." },
                 { icon: (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                ), color: "emerald", label: `${adminUsers.filter(u => u.status === 'approved').length} Disetujui`, desc: "Akun yang telah disetujui." },
+                ), color: "emerald", label: `${adminStats.approved} Disetujui`, desc: "Akun yang telah disetujui." },
                 { icon: (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                ), color: "rose", label: `${adminUsers.filter(u => u.status === 'rejected').length} Ditolak`, desc: "Akun yang telah ditolak." },
+                ), color: "rose", label: `${adminStats.rejected} Ditolak`, desc: "Akun yang telah ditolak." },
               ].map((stat, idx) => (
                 <div key={idx} className="p-5 border border-slate-100 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-${stat.color}-100 text-${stat.color}-500 bg-${stat.color}-50`}>
@@ -185,7 +237,7 @@ export default function Dashboard() {
                     color = "rose";
                   }
 
-                  const uAvatar = typeof window !== "undefined" ? localStorage.getItem(`sipantau_avatar_${u.email.toLowerCase()}`) || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=f1f5f9&color=64748b&bold=true` : `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}`;
+                  const uAvatar = u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name || "User")}`;
 
                   return (
                     <div key={index} className="flex items-center justify-between py-3.5">
@@ -197,7 +249,7 @@ export default function Dashboard() {
                         />
                         <div className="flex flex-col gap-1">
                           <span className="text-[11px] text-slate-500 font-medium">
-                            <strong className="text-slate-700 font-bold">{u.name}</strong> {text}{" "}
+                            <strong className="text-slate-700 font-bold">{u.full_name}</strong> {text}{" "}
                             {roleText && <span className="text-violet-600 font-bold hover:underline cursor-pointer">{roleText}</span>}
                           </span>
                           <div className={`w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-${color}-100 text-${color}-600`}>
@@ -205,7 +257,9 @@ export default function Dashboard() {
                           </div>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold text-slate-400 shrink-0 self-start mt-1">{u.signupDate || "15 Juli 2026, 08:10"}</span>
+                      <span className="text-[10px] font-bold text-slate-400 shrink-0 self-start mt-1">
+                        {new Date(u.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                      </span>
                     </div>
                   );
                 })}
@@ -238,10 +292,10 @@ export default function Dashboard() {
             {/* Stats Cards - Intern/Mentor */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { icon: "✓", color: "emerald", label: "2 Selesai", desc: "Tugas yang sudah terselesaikan." },
-                { icon: "📄", color: "blue", label: "4 Dijadwalkan", desc: "Tugas yang segera dimulai." },
-                { icon: "🔄", color: "amber", label: "1 Diperbarui", desc: "Perubahan dalam penugasan." },
-                { icon: "⚠️", color: "rose", label: "1 Terlambat", desc: "Penugasan melewati batas waktu." },
+                { icon: "✓", color: "emerald", label: `${personalStats.completed} Selesai`, desc: "Tugas yang sudah terselesaikan." },
+                { icon: "📄", color: "blue", label: `${personalStats.scheduled} Dijadwalkan`, desc: "Tugas yang segera dimulai." },
+                { icon: "🔄", color: "amber", label: `${personalStats.updated} Diperbarui`, desc: "Perubahan dalam penugasan." },
+                { icon: "⚠️", color: "rose", label: `${personalStats.overdue} Terlambat`, desc: "Penugasan melewati batas waktu." },
               ].map((stat, idx) => (
                 <div key={idx} className="p-5 border border-slate-100 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col justify-between min-h-[90px]">
                   <div className="flex items-center gap-2.5">
@@ -274,11 +328,7 @@ export default function Dashboard() {
               </div>
 
               <div ref={logRef} className="divide-y divide-slate-50/80 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                {[
-                  { text: "telah menyelesaikan", task: "Pembuatan UI/UX Website", time: "1 Juli 2026, 08:10" },
-                  { text: "telah menyelesaikan", task: "Pembuatan Repository GitHub", time: "1 Juli 2026, 08:10" },
-                  { text: "telah menyelesaikan", task: "Pembuatan Database Website", time: "1 Juli 2026, 08:10" },
-                ].map((log, index) => (
+                {activityLogs.length > 0 ? activityLogs.map((log, index) => (
                   <div key={index} className="flex items-center justify-between py-3.5 log-item">
                     <div className="flex items-center gap-3.5 log-info">
                       <img
@@ -287,13 +337,17 @@ export default function Dashboard() {
                         className="w-8 h-8 rounded-full object-cover border border-slate-100"
                       />
                       <span className="text-[11px] text-slate-600 font-medium log-text">
-                        <strong className="text-slate-800 font-bold">{userFullName}</strong> {log.text}{" "}
-                        <span className="text-violet-600 font-bold hover:underline cursor-pointer log-task">{log.task}</span>
+                        <strong className="text-slate-800 font-bold">{userFullName}</strong> {log.description || "telah beraktivitas"}{" "}
+                        <span className="text-violet-600 font-bold hover:underline cursor-pointer log-task">{log.task?.title || ""}</span>
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 log-time">{log.time}</span>
+                    <span className="text-[10px] font-bold text-slate-400 log-time">
+                      {new Date(log.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                    </span>
                   </div>
-                ))}
+                )) : (
+                  <div className="py-6 text-center text-sm font-semibold text-slate-400">Belum ada aktivitas.</div>
+                )}
               </div>
             </div>
           </>

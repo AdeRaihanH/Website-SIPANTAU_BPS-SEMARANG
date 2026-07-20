@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { createTask, updateTask } from "../../../../backend/tasks";
 
-export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDelete }) {
+export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDelete, team }) {
   const [showAddForm, setShowAddForm] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -36,22 +37,16 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
   const [showPriorityDrop, setShowPriorityDrop] = useState(false);
   const [showAssignDrop, setShowAssignDrop] = useState(false);
   
-  const dynamicMembers = [
-    { name: "Aisha Alida Putri", initial: "A", avatar: userAvatars["A"] },
-    { name: "Myesha Azka Hafizha", initial: "M", avatar: userAvatars["M"] },
-    { name: "Nurul Kumala", initial: "N", avatar: userAvatars["N"] },
-    { name: "Budi Santoso", initial: "B", avatar: userAvatars["B"] },
-    { name: "Rizky Firmansyah", initial: "R", avatar: userAvatars["R"] },
-    { name: "Hendra Saputra", initial: "H", avatar: userAvatars["H"] },
-  ];
+  const getUserAvatar = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "?")}&background=f1f5f9&color=64748b&bold=true`;
 
-  if (currentUserFullName && !dynamicMembers.find(m => m.name === currentUserFullName)) {
-    dynamicMembers.push({
-      name: currentUserFullName,
-      initial: currentUserFullName.charAt(0).toUpperCase(),
-      avatar: userAvatars[currentUserFullName.charAt(0).toUpperCase()] || userAvatars["C"]
-    });
-  }
+  const teamMembers = team && team.membersList
+    ? team.membersList.map(member => ({
+        id: member.id,
+        name: member.full_name,
+        initial: member.full_name ? member.full_name.charAt(0).toUpperCase() : "?",
+        avatar: member.avatar_url || getUserAvatar(member.full_name),
+      }))
+    : [];
 
   const menuRef = useRef(null);
 
@@ -71,27 +66,70 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
   const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
   const getFirstDay = (y, m) => { const d = new Date(y, m, 1).getDay(); return d === 0 ? 6 : d - 1; };
 
-  const handleAddTask = (status) => {
+  const handleAddTask = async (status) => {
     const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
-    const newTask = {
-      id: Date.now(),
+    
+    let dbStatus = status;
+    if (dbStatus === "done") dbStatus = "completed";
+    else if (dbStatus === "inprogress") dbStatus = "in_progress";
+    
+    const mappedPriority = newPriority === "Tertinggi" ? "urgent" : newPriority === "Tinggi" ? "high" : newPriority === "Sedang" ? "medium" : "low";
+    
+    // We don't have the team id easily accessible unless we pass it.
+    // For now we assume a task created here will just lack group_id unless passed,
+    // wait, TabPapan receives team as a prop?
+    // Let's check props: { tasks, setTasks, setSelectedTask, setTaskToDelete }
+    // Since we don't have team prop, we can't properly assign group_id!
+    // But since `tasks` are passed, we could get group_id from the first task, but what if empty?
+    // Actually, I should just pass `teamId` from page.js or use localStorage...
+    // Let's try to get teamId from URL since it's `dashboard/team/[id]`
+    const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    const match = currentUrl.match(/\/team\/([^/]+)/);
+    const teamId = match ? match[1] : "1";
+
+    let assignedToId = null;
+    if (newOrang.length > 0) {
+      const member = teamMembers.find(m => m.initial === newOrang[0]);
+      if (member && member.id) {
+        assignedToId = member.id;
+      }
+    }
+
+    const newTaskData = {
       title: newTitle,
-      desc: newDesc || "Tidak ada deskripsi",
-      date: newDate,
+      description: newDesc || "Tidak ada deskripsi",
+      status: dbStatus,
       type: newType,
-      priority: newPriority,
-      status,
-      done: false,
-      orang: newOrang.length > 0 ? newOrang : ["A"],
-      riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
-      komentar: [],
+      priority: mappedPriority,
+      group_id: teamId,
+      assigned_to: assignedToId
     };
-    setTasks([...tasks, newTask]);
-    setNewTitle("");
-    setNewDesc("");
-    setNewOrang(["A"]);
-    setShowAddForm(null);
-    setShowCalendar(false);
+
+    try {
+      const created = await createTask(newTaskData);
+      
+      const newTask = {
+        id: created.id,
+        title: newTitle,
+        desc: newDesc || "Tidak ada deskripsi",
+        date: newDate,
+        type: newType,
+        priority: newPriority,
+        status,
+        done: false,
+        orang: newOrang.length > 0 ? newOrang : ["A"],
+        riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
+        komentar: [],
+      };
+      setTasks([...tasks, newTask]);
+      setNewTitle("");
+      setNewDesc("");
+      setNewOrang(["A"]);
+      setShowAddForm(null);
+      setShowCalendar(false);
+    } catch (e) {
+      alert("Gagal menambahkan tugas: " + e.message);
+    }
   };
 
   const handleDeleteTask = (id) => {
@@ -104,10 +142,21 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
 
   const handleDragStart = (e, id) => { setDraggedTaskId(id); e.dataTransfer.effectAllowed = "move"; };
   const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
-  const handleDrop = (e, status) => {
+  const handleDrop = async (e, status) => {
     e.preventDefault();
     if (!draggedTaskId) return;
-    setTasks(tasks.map(t => t.id === draggedTaskId ? { ...t, status } : t));
+    
+    let dbStatus = status;
+    if (dbStatus === "done") dbStatus = "completed";
+    else if (dbStatus === "inprogress") dbStatus = "in_progress";
+
+    try {
+      await updateTask(draggedTaskId, { status: dbStatus });
+      setTasks(tasks.map(t => t.id === draggedTaskId ? { ...t, status } : t));
+    } catch (e) {
+      alert("Gagal memperbarui status: " + e.message);
+    }
+    
     setDraggedTaskId(null);
   };
 
@@ -250,11 +299,11 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
                       <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                       </svg>
-                      <button onClick={() => setShowTypeDrop(!showTypeDrop)} className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-500 bg-indigo-100/80 px-3 py-1 rounded-full outline-none">
+                      <button onClick={() => {setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false);}} className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-500 bg-indigo-100/80 px-3 py-1 rounded-full outline-none">
                         <span className="w-2 h-2 bg-indigo-400 rounded-sm"></span> {newType}
                       </button>
                     </div>
-                    <button onClick={() => setShowTypeDrop(!showTypeDrop)} className="w-4 h-4 rounded-full border border-dashed border-slate-400 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-500 transition-colors">
+                    <button onClick={() => {setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false);}} className="w-4 h-4 rounded-full border border-dashed border-slate-400 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-500 transition-colors">
                       <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                     </button>
                     {showTypeDrop && (

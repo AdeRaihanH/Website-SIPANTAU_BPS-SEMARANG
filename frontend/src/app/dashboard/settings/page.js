@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { getActiveUser, getProfile, updateProfile } from "../../../backend/auth";
 
 export default function SettingsPage() {
   const fileInputRef = useRef(null);
@@ -19,28 +20,30 @@ export default function SettingsPage() {
 
   const [toast, setToast] = useState(null);
 
-  useEffect(() => {
-    // Load current user details from localStorage
-    const activeEmail = localStorage.getItem("sipantau_email");
-    if (activeEmail) {
-      const usersStr = localStorage.getItem("sipantau_users") || "[]";
-      const users = JSON.parse(usersStr);
-      const user = users.find(u => u.email.toLowerCase() === activeEmail.toLowerCase());
-      if (user) {
-        setCurrentUser(user);
-        setName(user.name || "");
-        setEmail(user.email || "");
-        setPhone(user.phone || "");
-        setAddress(user.address || "");
-        setInstitution(user.institution || "");
-        setMajor(user.major || "");
-        setRole(user.role || "pemagang");
-
-        // Load avatar if exists
-        const userAvatar = localStorage.getItem(`sipantau_avatar_${user.email.toLowerCase()}`) || "";
-        setAvatar(userAvatar);
+  const loadUser = async () => {
+    try {
+      const activeUser = await getActiveUser();
+      if (activeUser) {
+        const profile = await getProfile(activeUser.id);
+        if (profile) {
+          setCurrentUser(profile);
+          setName(profile.full_name || "");
+          setEmail(profile.email || "");
+          setPhone(profile.phone || "");
+          setAddress(profile.address || "");
+          setInstitution(profile.institution || "");
+          setMajor(profile.major || "");
+          setRole(profile.role || "pemagang");
+          setAvatar(profile.avatar_url || "");
+        }
       }
+    } catch (e) {
+      console.error("Gagal memuat profil:", e);
     }
+  };
+
+  useEffect(() => {
+    loadUser();
   }, []);
 
   const handleAvatarClick = () => {
@@ -49,27 +52,28 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base64String = reader.result;
         setAvatar(base64String);
 
-        // Save to localStorage immediately for session persistence
-        const activeEmail = localStorage.getItem("sipantau_email");
-        if (activeEmail) {
-          localStorage.setItem(`sipantau_avatar_${activeEmail.toLowerCase()}`, base64String);
-          // Dispatch event to notify sidebar avatar to update
-          window.dispatchEvent(new Event("sipantau-avatar-updated"));
+        if (currentUser && currentUser.id) {
+          try {
+            await updateProfile(currentUser.id, { avatar_url: base64String });
+            window.dispatchEvent(new Event("sipantau-avatar-updated"));
+          } catch (error) {
+            console.error("Failed to update avatar", error);
+          }
         }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSaveChanges = (e) => {
+  const handleSaveChanges = async (e) => {
     e.preventDefault();
     if (!name || !phone || !address || !institution) {
       setToast({ type: "error", message: "Semua field wajib diisi!" });
@@ -80,32 +84,16 @@ export default function SettingsPage() {
       return;
     }
 
-    const activeEmail = localStorage.getItem("sipantau_email");
-    if (!activeEmail) return;
+    if (!currentUser || !currentUser.id) return;
 
-    // Update in mock database list
-    const usersStr = localStorage.getItem("sipantau_users") || "[]";
-    let users = JSON.parse(usersStr);
-    const userIndex = users.findIndex(u => u.email.toLowerCase() === activeEmail.toLowerCase());
-
-    if (userIndex !== -1) {
-      const updatedUser = {
-        ...users[userIndex],
-        name,
-        email,
+    try {
+      await updateProfile(currentUser.id, {
+        full_name: name,
         phone,
         address,
         institution,
         major
-      };
-      users[userIndex] = updatedUser;
-      localStorage.setItem("sipantau_users", JSON.stringify(users));
-
-      // Update session values
-      localStorage.setItem("sipantau_name", name);
-      if (email !== users[userIndex].email) {
-        localStorage.setItem("sipantau_email", email);
-      }
+      });
 
       // Dispatch event to update sidebar display name
       window.dispatchEvent(new Event("sipantau-profile-updated"));
@@ -113,6 +101,8 @@ export default function SettingsPage() {
       setToast({ type: "success", message: "Perubahan profil berhasil disimpan!" });
       setTimeout(() => setToast(null), 3000);
       setIsEditing(false);
+    } catch (error) {
+      setToast({ type: "error", message: "Gagal menyimpan perubahan: " + error.message });
     }
   };
 
@@ -214,8 +204,8 @@ export default function SettingsPage() {
                     key="email-edit"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full min-h-[32px] text-xs font-bold text-slate-500 bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 focus:text-violet-600 transition-colors leading-tight"
+                    disabled
+                    className="w-full min-h-[32px] text-xs font-bold text-slate-500 bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 focus:text-violet-600 transition-colors leading-tight cursor-not-allowed"
                   />
                 ) : (
                   <div className="min-h-[32px] flex items-center">

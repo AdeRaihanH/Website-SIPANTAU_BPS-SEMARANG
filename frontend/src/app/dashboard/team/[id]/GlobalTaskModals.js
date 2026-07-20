@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
+import { createTask, updateTask } from "../../../../backend/tasks";
 
 const parseTaskDate = (dateStr) => {
   if (!dateStr) return null;
@@ -94,9 +95,15 @@ export default function GlobalTaskModals({
     });
   }
 
-  // Filter dynamicMembers based on team.members if team is provided
-  const filteredMembers = team && team.members
-    ? dynamicMembers.filter(m => team.members.includes(m.initial))
+  // Filter dynamicMembers based on team.membersList if team is provided
+  const filteredMembers = team && team.membersList
+    ? team.membersList.map(member => ({
+        id: member.id,
+        name: member.full_name,
+        initial: member.full_name ? member.full_name.charAt(0).toUpperCase() : "?",
+        avatar: member.avatar_url || getUserAvatar(member.full_name),
+        color: "bg-slate-400"
+      }))
     : dynamicMembers;
 
   // Edit Task Local State
@@ -266,6 +273,31 @@ export default function GlobalTaskModals({
     }
 
     const updated = { ...selectedTask, ...updates, riwayat: updatedRiwayat };
+    
+    // Convert status to DB format
+    let dbStatus = updated.status;
+    if (dbStatus === "done") dbStatus = "completed";
+    else if (dbStatus === "inprogress") dbStatus = "in_progress";
+    
+    // Map to DB
+    const dbUpdates = {
+      title: updated.title,
+      description: updated.desc,
+      status: dbStatus,
+      type: updated.type,
+      priority: updated.priority === "Tertinggi" ? "urgent" : updated.priority === "Tinggi" ? "high" : updated.priority === "Sedang" ? "medium" : "low"
+    };
+
+    if (updates.orang && updates.orang.length > 0) {
+      const selectedMember = filteredMembers.find(m => m.initial === updates.orang[0]);
+      if (selectedMember && selectedMember.id) {
+        dbUpdates.assigned_to = selectedMember.id;
+        updated.assigned_to = selectedMember.id;
+      }
+    }
+
+    updateTask(selectedTask.id, dbUpdates).catch(e => console.error("Failed to update task", e));
+
     setSelectedTask(updated);
     setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
   };
@@ -1154,28 +1186,67 @@ export default function GlobalTaskModals({
 
               {/* Action Button */}
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (!addTitle.trim()) {
                     alert("Judul tugas tidak boleh kosong!");
                     return;
                   }
                   const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
-                  const newTask = {
-                    id: Date.now(),
+                  
+                  let dbStatus = addStatus;
+                  if (dbStatus === "done") dbStatus = "completed";
+                  else if (dbStatus === "inprogress") dbStatus = "in_progress";
+
+                  const mappedPriority = addPriority === "Tertinggi" ? "urgent" : addPriority === "Tinggi" ? "high" : addPriority === "Sedang" ? "medium" : "low";
+
+                  // Parse date
+                  const parsedDate = parseTaskDate(addDate);
+                  let dbDate = null;
+                  if (parsedDate) {
+                    dbDate = `${parsedDate.year}-${String(parsedDate.month + 1).padStart(2, '0')}-${String(parsedDate.day).padStart(2, '0')}`;
+                  }
+                  
+                  let assignedToId = null;
+                  if (addOrang.length > 0) {
+                     const member = filteredMembers.find(m => m.initial === addOrang[0]);
+                     if (member && member.id) {
+                       assignedToId = member.id;
+                     }
+                  }
+
+                  const newTaskData = {
                     title: addTitle,
-                    desc: addDesc || "Tidak ada deskripsi",
-                    date: addDate,
+                    description: addDesc || "Tidak ada deskripsi",
+                    status: dbStatus,
                     type: addType,
-                    priority: addPriority,
-                    status: addStatus,
-                    done: addStatus === "done",
-                    orang: addOrang.length > 0 ? addOrang : ["A"],
-                    riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
-                    komentar: [],
+                    priority: mappedPriority,
+                    due_date: dbDate,
+                    group_id: team?.id || "1",
+                    assigned_to: assignedToId
                   };
-                  setTasks([...tasks, newTask]);
-                  setIsAddingTask(null);
-                  setActiveDropdown(null);
+
+                  try {
+                    const createdTask = await createTask(newTaskData);
+                    
+                    const newTask = {
+                      id: createdTask.id,
+                      title: addTitle,
+                      desc: addDesc || "Tidak ada deskripsi",
+                      date: addDate,
+                      type: addType,
+                      priority: addPriority,
+                      status: addStatus,
+                      done: addStatus === "done",
+                      orang: addOrang.length > 0 ? addOrang : ["A"],
+                      riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
+                      komentar: [],
+                    };
+                    setTasks([...tasks, newTask]);
+                    setIsAddingTask(null);
+                    setActiveDropdown(null);
+                  } catch (e) {
+                    alert("Gagal membuat tugas: " + e.message);
+                  }
                 }}
                 className="w-full mt-2 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-sm font-bold text-white shadow-md shadow-violet-200 active:scale-95 transition-all cursor-pointer"
               >

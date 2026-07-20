@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { getActiveUser, getProfile, signOutUser } from "../../backend/auth";
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -16,16 +17,22 @@ export default function DashboardLayout({ children }) {
   const [userName, setUserName] = useState("User");
   const [userRole, setUserRole] = useState("pemagang");
 
-  const loadUserProfile = () => {
-    const email = localStorage.getItem("sipantau_email");
-    if (email) {
-      const storedAvatar = localStorage.getItem(`sipantau_avatar_${email.toLowerCase()}`);
-      setAvatar(storedAvatar || "");
+  const loadUserProfile = async () => {
+    try {
+      const user = await getActiveUser();
+      if (!user) {
+        router.push("/");
+        return;
+      }
+      const profile = await getProfile(user.id);
+      if (profile) {
+        setUserName(profile.full_name || "User");
+        setUserRole(profile.role ? profile.role.toLowerCase() : "pemagang");
+        setAvatar(profile.avatar_url || "");
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error);
     }
-    const name = localStorage.getItem("sipantau_name");
-    setUserName(name || "User");
-    const role = localStorage.getItem("sipantau_role");
-    setUserRole(role ? role.toLowerCase() : "pemagang");
   };
 
   useEffect(() => {
@@ -201,11 +208,18 @@ export default function DashboardLayout({ children }) {
                 Tidak, jangan keluar.
               </button>
               <button
-                onClick={() => {
-                  localStorage.removeItem("sipantau_role");
-                  localStorage.removeItem("sipantau_name");
-                  localStorage.removeItem("sipantau_email");
-                  router.push("/");
+                onClick={async () => {
+                  try {
+                    await signOutUser();
+                    // Fallback cleanup
+                    localStorage.removeItem("sipantau_role");
+                    localStorage.removeItem("sipantau_name");
+                    localStorage.removeItem("sipantau_email");
+                    router.push("/");
+                  } catch (e) {
+                    console.error("Logout error", e);
+                    router.push("/");
+                  }
                 }}
                 className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white transition-colors cursor-pointer shadow-md shadow-rose-100"
               >

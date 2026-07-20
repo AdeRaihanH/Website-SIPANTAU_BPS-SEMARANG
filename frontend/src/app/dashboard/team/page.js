@@ -2,29 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-
-const initialTeams = [
-  { id: "1", name: "Tim Teknologi Informasi UNDIP", description: "Bertanggung jawab atas pengembangan aplikasi monitoring dan maintenance jaringan.", mentor: "Bambang Heru", totalTugas: 5, selesai: 3, members: ["A", "R", "H"] },
-  { id: "2", name: "Tim Desain Kreatif BPS", description: "Mengelola desain visual dan branding untuk produk digital BPS.", mentor: "Siti Rahayu", totalTugas: 8, selesai: 6, members: ["D", "E"] },
-  { id: "3", name: "Tim Analisis Data", description: "Bertanggung jawab mengolah data statistik dan membuat laporan berkala.", mentor: "Bambang Heru", totalTugas: 4, selesai: 1, members: ["F", "G", "H", "I"] },
-  { id: "4", name: "Tim Backend Development", description: "Membangun API dan arsitektur server untuk sistem informasi BPS.", mentor: "Rizky Pratama", totalTugas: 7, selesai: 7, members: ["A", "B"] },
-  { id: "5", name: "Tim Audit Internal", description: "Melakukan audit keuangan dan operasional secara berkala.", mentor: "Budi Hartono", totalTugas: 6, selesai: 4, members: ["M", "N"] },
-  { id: "6", name: "Tim Riset Publik", description: "Melakukan riset kepuasan masyarakat terhadap layanan BPS.", mentor: "Budi Hartono", totalTugas: 3, selesai: 1, members: ["C", "E"] },
-];
+import { getActiveUser, getProfile } from "../../../backend/auth";
+import { getUserGroups, createGroup, deleteGroup, updateGroup } from "../../../backend/groups";
+import { getAllUsers } from "../../../backend/admin";
 
 const memberColors = ["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-rose-400", "bg-sky-400", "bg-indigo-400"];
 
-const mentorList = ["Bambang Heru", "Siti Rahayu", "Rizky Pratama", "Dewi Lestari", "Budi Hartono"];
 
-const availableMembers = [
-  { id: 'm1', name: 'Aisha Alida Putri', initial: 'A' },
-  { id: 'm2', name: 'Myesha Azka Hafizha', initial: 'M' },
-  { id: 'm3', name: 'Nurul Kumala', initial: 'N' },
-  { id: 'm4', name: 'Budi Santoso', initial: 'B' },
-  { id: 'm5', name: 'Citra Kirana', initial: 'C' },
-  { id: 'm6', name: 'Dewi Lestari', initial: 'D' },
-  { id: 'm7', name: 'Eko Prasetyo', initial: 'E' },
-];
 
 const userAvatars = {
   "A": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=32&h=32&q=80",
@@ -37,45 +21,56 @@ const userAvatars = {
 
 export default function TeamPage() {
   const router = useRouter();
-  const [teams, setTeams] = useState(initialTeams);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [teams, setTeams] = useState([]);
   const [role, setRole] = useState(null);
   const [isMentor, setIsMentor] = useState(false);
-  const [currentUserFullName, setCurrentUserFullName] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  const [allMentors, setAllMentors] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [availableMembers, setAvailableMembers] = useState([]);
+  
   const [showAddModal, setShowAddModal] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [deletedTeams, setDeletedTeams] = useState([]);
   const [viewDeleted, setViewDeleted] = useState(false);
   const [deleteConfirmTeam, setDeleteConfirmTeam] = useState(null);
   const [hardDeleteConfirmTeam, setHardDeleteConfirmTeam] = useState(null);
 
-  useEffect(() => {
-    const userRole = typeof window !== "undefined" ? localStorage.getItem("sipantau_role") : null;
-    const name = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
-    const safeRole = userRole ? userRole.toLowerCase() : null;
-    setRole(safeRole);
-    setIsMentor(safeRole === "mentor");
-    setIsAdmin(safeRole === "admin");
-    if (name) setCurrentUserFullName(name);
+  const loadData = async () => {
+    try {
+      const authUser = await getActiveUser();
+      if (!authUser) return;
+      
+      const profile = await getProfile(authUser.id);
+      setCurrentUser(profile);
+      setRole(profile.role);
+      setIsMentor(profile.role === "mentor");
+      setIsAdmin(profile.role === "admin");
 
-    const savedTeams = typeof window !== "undefined" ? localStorage.getItem("sipantau_teams") : null;
-    if (savedTeams) {
-      try {
-        const parsed = JSON.parse(savedTeams);
-        setTeams(parsed);
-      } catch (e) {
-        console.error("Failed to parse saved teams");
-      }
+      const allSysUsers = await getAllUsers();
+      setAllUsers(allSysUsers);
+      
+      const mentors = allSysUsers.filter(u => u.role === "mentor");
+      setAllMentors(mentors);
+      
+      const members = allSysUsers.filter(u => u.role === "pemagang" || u.role === "intern");
+      setAvailableMembers(members);
+
+      const dbGroups = await getUserGroups(profile.id, profile.role);
+      const activeGroups = dbGroups.filter(g => !g.is_deleted);
+      const delGroups = dbGroups.filter(g => g.is_deleted);
+      
+      setTeams(activeGroups);
+      setDeletedTeams(delGroups);
+    } catch (e) {
+      console.error("Gagal memuat data:", e);
     }
-    
-    const savedDeletedTeams = typeof window !== "undefined" ? localStorage.getItem("sipantau_deleted_teams") : null;
-    if (savedDeletedTeams) {
-      try {
-        setDeletedTeams(JSON.parse(savedDeletedTeams));
-      } catch (e) {
-        console.error("Failed to parse deleted teams");
-      }
-    }
+  };
+
+  useEffect(() => {
+    loadData();
 
     const handleClickOutside = (e) => {
       if (!e.target.closest('.dropdown-container')) {
@@ -90,36 +85,42 @@ export default function TeamPage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (teams !== initialTeams) {
-      localStorage.setItem("sipantau_teams", JSON.stringify(teams));
-    }
-  }, [teams]);
 
-  useEffect(() => {
-    localStorage.setItem("sipantau_deleted_teams", JSON.stringify(deletedTeams));
-  }, [deletedTeams]);
 
-  const handleSoftDelete = () => {
+  const handleSoftDelete = async () => {
     if (deleteConfirmTeam) {
-      const newTeams = teams.filter(t => t.id !== deleteConfirmTeam.id);
-      setTeams(newTeams);
-      setDeletedTeams([...deletedTeams, deleteConfirmTeam]);
-      setDeleteConfirmTeam(null);
+      try {
+        await deleteGroup(deleteConfirmTeam.id, false);
+        setTeams(teams.filter(t => t.id !== deleteConfirmTeam.id));
+        setDeletedTeams([...deletedTeams, { ...deleteConfirmTeam, is_deleted: true }]);
+        setDeleteConfirmTeam(null);
+      } catch (e) {
+        alert("Gagal menghapus: " + e.message);
+      }
     }
   };
 
-  const handleHardDelete = () => {
+  const handleHardDelete = async () => {
     if (hardDeleteConfirmTeam) {
-      setDeletedTeams(deletedTeams.filter(t => t.id !== hardDeleteConfirmTeam.id));
-      setHardDeleteConfirmTeam(null);
+      try {
+        await deleteGroup(hardDeleteConfirmTeam.id, true);
+        setDeletedTeams(deletedTeams.filter(t => t.id !== hardDeleteConfirmTeam.id));
+        setHardDeleteConfirmTeam(null);
+      } catch (e) {
+        alert("Gagal menghapus permanen: " + e.message);
+      }
     }
   };
 
-  const handleRestore = (team) => {
-    setDeletedTeams(deletedTeams.filter(t => t.id !== team.id));
-    setTeams([...teams, team]);
-    setOpenDropdown(null);
+  const handleRestore = async (team) => {
+    try {
+      await updateGroup(team.id, { is_deleted: false });
+      setDeletedTeams(deletedTeams.filter(t => t.id !== team.id));
+      setTeams([...teams, { ...team, is_deleted: false }]);
+      setOpenDropdown(null);
+    } catch (e) {
+      alert("Gagal memulihkan kelompok: " + e.message);
+    }
   };
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMentor, setFilterMentor] = useState("Semua");
@@ -127,7 +128,7 @@ export default function TeamPage() {
   // Add group form state
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newMentor, setNewMentor] = useState(mentorList[0]);
+  const [newMentor, setNewMentor] = useState("");
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
@@ -144,21 +145,29 @@ export default function TeamPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleAddTeam = () => {
-    if (!newName.trim()) return;
-    const members = selectedMembers.map(m => m.initial);
-    const team = {
-      id: String(Date.now()),
-      name: newName,
-      description: newDesc || "Tidak ada deskripsi.",
-      mentor: isMentor ? currentUserFullName : newMentor,
-      totalTugas: 0,
-      selesai: 0,
-      members: members.length > 0 ? members : ["A"],
-    };
-    setTeams([...teams, team]);
-    setShowAddModal(false);
-    setNewName(""); setNewDesc(""); setSelectedMembers([]); setNewMentor(mentorList[0]); setMemberSearch("");
+  const handleAddTeam = async () => {
+    if (!newName.trim() || !currentUser) return;
+    try {
+      const selectedMentorId = isMentor ? currentUser.id : (newMentor || allMentors[0]?.id);
+      const memberIds = selectedMembers.map(m => m.id);
+      
+      const newGroupData = {
+        name: newName,
+        description: newDesc || "Tidak ada deskripsi.",
+        mentor_id: selectedMentorId,
+        created_by: currentUser.id,
+      };
+
+      await createGroup(newGroupData, memberIds);
+      
+      // Reload teams
+      await loadData();
+
+      setShowAddModal(false);
+      setNewName(""); setNewDesc(""); setSelectedMembers([]); setMemberSearch("");
+    } catch (e) {
+      alert("Gagal menambah kelompok: " + e.message);
+    }
   };
 
   const isMentorOrAdmin = isMentor || isAdmin;
@@ -166,66 +175,39 @@ export default function TeamPage() {
 
   const filtered = sourceTeams.filter(t => {
     const matchSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchMentorFilter = filterMentor === "Semua" || t.mentor === filterMentor;
+    
+    // Convert mentor_id to mentor name for filtering
+    const mentorObj = allUsers.find(u => u.id === t.mentor_id);
+    const mentorName = mentorObj ? mentorObj.full_name : "Unknown";
+    
+    const matchMentorFilter = filterMentor === "Semua" || mentorName === filterMentor;
 
-    // User visibility logic
-    let matchUser = false;
-    if (role === "admin") {
-      matchUser = true; // Admin sees all
-    } else if (role === "mentor") {
-      // Mentor sees their teams, plus forcefully show dummy teams 5 and 6 for demo
-      matchUser = t.mentor === currentUserFullName || t.id === "5" || t.id === "6";
-    } else if (role === "pemagang" || role === "intern") {
-      // Intern sees their teams, plus forcefully show dummy teams 1 and 4 for demo
-      const currentUserInitial = currentUserFullName ? currentUserFullName.charAt(0).toUpperCase() : "";
-      matchUser = t.members.includes(currentUserInitial) || t.id === "1" || t.id === "4";
-    }
-
-    return matchSearch && matchMentorFilter && matchUser;
+    return matchSearch && matchMentorFilter;
   });
 
   const displayTeams = filtered.map(t => {
-    // Clone team to avoid mutating state directly
-    const team = { ...t, members: [...t.members] };
+    const team = { ...t };
     
-    // Inject current mentor name for dummy mentor teams
-    if (role === "mentor" && (team.id === "5" || team.id === "6")) {
-      team.mentor = currentUserFullName || "Mentor";
-    }
+    // Find member names and avatars
+    team.membersList = (t.group_members || []).map(gm => {
+      const user = allUsers.find(u => u.id === gm.user_id);
+      return user || { id: gm.user_id, full_name: "Unknown", avatar_url: null };
+    });
     
-    // Inject current intern initial for dummy intern teams
-    if ((role === "pemagang" || role === "intern") && (team.id === "1" || team.id === "4")) {
-      const currentUserInitial = currentUserFullName ? currentUserFullName.charAt(0).toUpperCase() : "";
-      if (currentUserInitial && !team.members.includes(currentUserInitial)) {
-        team.members = [currentUserInitial, ...team.members.slice(0, 3)]; 
-      }
-    }
+    const mentor = allUsers.find(u => u.id === t.mentor_id);
+    team.mentorName = mentor ? mentor.full_name : "Unknown";
     
-    // Dynamic realtime task counts from localStorage
-    if (typeof window !== "undefined") {
-      const storedTasks = localStorage.getItem(`sipantau_tasks_${team.id}`);
-      if (storedTasks) {
-        try {
-          const parsedTasks = JSON.parse(storedTasks);
-          team.totalTugas = parsedTasks.length;
-          team.selesai = parsedTasks.filter(t => t.done).length;
-        } catch(e) {}
-      } else {
-        // Fallback for default teams 1,2,3,4 if not yet loaded in detail page
-        if (["1", "2", "3", "4"].includes(team.id)) {
-          team.totalTugas = 6;
-          team.selesai = 1;
-        } else {
-          team.totalTugas = 0;
-          team.selesai = 0;
-        }
-      }
-    }
+    // Task stats (if not loaded yet via join, placeholder 0)
+    team.totalTugas = 0;
+    team.selesai = 0;
     
     return team;
   });
 
-  const allMentors = ["Semua", ...new Set(teams.map(t => t.mentor))];
+  const mentorNamesFilter = ["Semua", ...new Set(sourceTeams.map(t => {
+    const m = allUsers.find(u => u.id === t.mentor_id);
+    return m ? m.full_name : "Unknown";
+  }))];
 
   return (
     <div className="space-y-6">
@@ -283,9 +265,9 @@ export default function TeamPage() {
                       {selectedMembers.map((member, i) => (
                         <div
                           key={member.id}
-                          className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-bold shadow-sm ${memberColors[member.name.length % memberColors.length]} z-[${10 - i}]`}
+                          className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-bold shadow-sm ${memberColors[member.full_name.length % memberColors.length]} z-[${10 - i}]`}
                         >
-                          {member.initial}
+                          {member.full_name.charAt(0).toUpperCase()}
                         </div>
                       ))}
                     </div>
@@ -311,7 +293,7 @@ export default function TeamPage() {
                       />
                       <div className="max-h-32 overflow-y-auto space-y-1 pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         {availableMembers
-                          .filter((m) => m.name.toLowerCase().includes(memberSearch.toLowerCase()))
+                          .filter((m) => m.full_name.toLowerCase().includes(memberSearch.toLowerCase()))
                           .map((m) => {
                             const isSelected = selectedMembers.some((sm) => sm.id === m.id);
                             return (
@@ -326,10 +308,10 @@ export default function TeamPage() {
                                 }}
                                 className="flex items-center gap-2.5 p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors"
                               >
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold ${memberColors[m.name.length % memberColors.length]}`}>
-                                  {m.initial}
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold ${memberColors[m.full_name.length % memberColors.length]}`}>
+                                  {m.full_name.charAt(0).toUpperCase()}
                                 </div>
-                                <span className="text-[11px] font-semibold text-slate-700 flex-1">{m.name}</span>
+                                <span className="text-[11px] font-semibold text-slate-700 flex-1">{m.full_name}</span>
                                 {isSelected ? (
                                   <svg className="w-3.5 h-3.5 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -469,7 +451,7 @@ export default function TeamPage() {
                   </svg>
                   <div className="flex flex-col text-left">
                     <div className="text-[12px] font-bold text-slate-800 leading-tight">Mentor</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{team.mentor}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{team.mentorName}</div>
                   </div>
                 </div>
 
@@ -495,21 +477,21 @@ export default function TeamPage() {
                     className="flex -space-x-2 cursor-pointer hover:opacity-90 transition-opacity"
                     onClick={(e) => { e.stopPropagation(); setShowMembersDropId(showMembersDropId === team.id ? null : team.id); }}
                   >
-                    {team.members.slice(0, 4).map((m, i) => (
-                      userAvatars[m] ? (
-                        <img key={i} src={userAvatars[m]} alt={m} className="w-7 h-7 rounded-full border-2 border-white object-cover shadow-sm" />
+                    {team.membersList.slice(0, 4).map((m, i) => (
+                      m.avatar_url ? (
+                        <img key={i} src={m.avatar_url} alt={m.full_name} className="w-7 h-7 rounded-full border-2 border-white object-cover shadow-sm" />
                       ) : (
                         <div
                           key={i}
                           className={`w-7 h-7 rounded-full border-2 border-white ${memberColors[i % memberColors.length]} flex items-center justify-center text-white text-[10px] font-bold shadow-sm`}
                         >
-                          {m}
+                          {m.full_name.charAt(0).toUpperCase()}
                         </div>
                       )
                     ))}
-                    {team.members.length > 4 && (
+                    {team.membersList.length > 4 && (
                       <div className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-slate-500 text-[9px] font-bold shadow-sm">
-                        +{team.members.length - 4}
+                        +{team.membersList.length - 4}
                       </div>
                     )}
                   </div>
@@ -518,35 +500,21 @@ export default function TeamPage() {
                     <div className="absolute bottom-full left-0 mb-2 bg-white border border-slate-100 shadow-xl rounded-xl p-3 z-[100] w-64 text-left" onClick={(e) => e.stopPropagation()}>
                       <div className="text-center text-xs font-bold text-slate-700 mb-3 pb-2 border-b border-slate-100">Anggota Kelompok</div>
                       <div className="space-y-1 max-h-48 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        {team.members.map((m, idx) => {
-                          let fullName = "Anggota " + m;
-                          let avatar = userAvatars[m];
+                        {team.membersList.map((m, idx) => {
+                          let fullName = m.full_name;
+                          let avatar = m.avatar_url;
                           
-                          if (m === "A") fullName = "Aisha Alida Putri";
-                          else if (m === "M") fullName = "Myesha Azka Hafizha";
-                          else if (m === "N") fullName = "Nurul Kumala";
-                          else if (m === "B") fullName = "Budi Santoso";
-                          else if (m === "R") fullName = "Rizky Firmansyah";
-                          else if (m === "H") fullName = "Hendra Setiawan";
-                          else if (m === "C") fullName = "Citra Kirana";
-                          else if (m === "D") fullName = "Dewi Lestari";
-                          else if (m === "E") fullName = "Eko Prasetyo";
-                          else if (m === "F") fullName = "Fajar Nugraha";
-                          else if (m === "G") fullName = "Gita Savitri";
-                          else if (m === "I") fullName = "Indra Maulana";
-                          
-                          const currentUserInitial = currentUserFullName ? currentUserFullName.charAt(0).toUpperCase() : "";
-                          if (currentUserFullName && m === currentUserInitial) {
-                            fullName = currentUserFullName + " (Anda)";
+                          if (currentUser && m.id === currentUser.id) {
+                            fullName += " (Anda)";
                           }
 
                           return (
                             <div key={idx} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-50 transition-colors">
                               {avatar ? (
-                                <img src={avatar} alt={m} className="w-7 h-7 rounded-full object-cover shadow-sm shrink-0" />
+                                <img src={avatar} alt={fullName} className="w-7 h-7 rounded-full object-cover shadow-sm shrink-0" />
                               ) : (
                                 <div className={`w-7 h-7 rounded-full ${memberColors[idx % memberColors.length]} flex items-center justify-center text-white text-[10px] font-bold shadow-sm shrink-0`}>
-                                  {m}
+                                  {m.full_name.charAt(0).toUpperCase()}
                                 </div>
                               )}
                               <span className="text-[11px] font-bold text-slate-700">{fullName}</span>

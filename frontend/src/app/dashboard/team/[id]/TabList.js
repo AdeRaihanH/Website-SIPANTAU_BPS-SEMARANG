@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { updateTask } from "../../../../backend/tasks";
 
 const availableMembers = [
   { name: "Aisha Alida Putri", initial: "A", color: "bg-violet-400" },
@@ -31,9 +32,21 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const toggleTaskCheckbox = (id, e) => {
+  const toggleTaskCheckbox = async (id, e) => {
     e.stopPropagation();
-    setTasks(tasks.map((t) => t.id === id ? { ...t, done: !t.done, status: !t.done ? "done" : "todo" } : t));
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    
+    const newDone = !task.done;
+    const newStatus = newDone ? "done" : "todo";
+    const dbStatus = newDone ? "completed" : "todo";
+    
+    try {
+      await updateTask(id, { status: dbStatus });
+      setTasks(tasks.map((t) => t.id === id ? { ...t, done: newDone, status: newStatus } : t));
+    } catch (err) {
+      alert("Gagal memperbarui status: " + err.message);
+    }
   };
 
   const getPriorityStyle = (priority) => {
