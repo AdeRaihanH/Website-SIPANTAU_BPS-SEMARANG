@@ -75,11 +75,20 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
           <button
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
-              setIsAddingTask({
-                status: statusKey,
-                top: rect.bottom + 8,
-                right: window.innerWidth - rect.right
-              });
+              const spaceBelow = window.innerHeight - rect.bottom;
+              if (spaceBelow < 400) {
+                setIsAddingTask({
+                  status: statusKey,
+                  bottom: window.innerHeight - rect.top + 8,
+                  right: window.innerWidth - rect.right
+                });
+              } else {
+                setIsAddingTask({
+                  status: statusKey,
+                  top: rect.bottom + 8,
+                  right: window.innerWidth - rect.right
+                });
+              }
             }}
             className="text-xs font-bold text-violet-600 hover:text-violet-700 active:scale-95 transition-all flex items-center gap-0.5 cursor-pointer"
           >
