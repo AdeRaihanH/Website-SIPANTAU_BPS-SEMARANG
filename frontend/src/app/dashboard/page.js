@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [userAvatar, setUserAvatar] = useState("");
   const [userRole, setUserRole] = useState("intern");
   const [adminUsers, setAdminUsers] = useState([]);
+  const [personalLogs, setPersonalLogs] = useState([]);
   const logRef = useRef(null);
 
   const [userId, setUserId] = useState(null);
@@ -56,6 +57,7 @@ export default function Dashboard() {
     }
   };
 
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
   useEffect(() => {
     loadProfile();
   }, []);
@@ -221,20 +223,23 @@ export default function Dashboard() {
                   let roleText = "";
                   let statusText = "";
                   let color = "";
-                  
-                  if (u.status === "pending") {
+
+                  const currentStatus = u.status || "approved";
+
+                  if (currentStatus === "pending") {
                     text = "mendaftar akun baru sebagai";
                     roleText = u.role === "mentor" ? "Mentor." : "Pemagang.";
                     statusText = "Menunggu";
                     color = "amber";
-                  } else if (u.status === "approved") {
-                    text = "telah disetujui pendaftarannya.";
-                    statusText = "Disetujui";
-                    color = "emerald";
-                  } else if (u.status === "rejected") {
+                  } else if (currentStatus === "rejected") {
                     text = "telah ditolak pendaftarannya.";
                     statusText = "Ditolak";
                     color = "rose";
+                  } else {
+                    // Default for approved or any unknown status
+                    text = "telah disetujui pendaftarannya.";
+                    statusText = "Disetujui";
+                    color = "emerald";
                   }
 
                   const uAvatar = u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name || "User")}`;
@@ -263,7 +268,7 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
-                
+
                 {adminUsers.length === 0 && (
                   <div className="py-6 text-center text-sm font-semibold text-slate-400">Belum ada data pendaftar.</div>
                 )}
