@@ -41,7 +41,7 @@ export default function DashboardLayout({ children }) {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    
+
     return () => {
       window.removeEventListener("sipantau-avatar-updated", loadUserProfile);
       window.removeEventListener("sipantau-profile-updated", loadUserProfile);
@@ -54,8 +54,8 @@ export default function DashboardLayout({ children }) {
     { href: "/dashboard/team", label: "Team", icon: "👥" },
   ];
 
-  const navItems = userRole === "admin" 
-    ? [...baseNavItems, { href: "/dashboard/accounts", label: "Akun", icon: "✅" }] 
+  const navItems = userRole === "admin"
+    ? [...baseNavItems, { href: "/dashboard/accounts", label: "Akun", icon: "✅" }]
     : baseNavItems;
 
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || "User")}&background=f1f5f9&color=64748b&bold=true`;
@@ -133,11 +133,10 @@ export default function DashboardLayout({ children }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold text-sm transition-all duration-200 ${
-                    isActive
+                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold text-sm transition-all duration-200 ${isActive
                       ? "bg-white text-slate-900 border border-slate-100 shadow-sm font-bold"
                       : "text-slate-500 hover:text-slate-800 hover:bg-white/50"
-                  }`}
+                    }`}
                 >
                   <span className="text-lg">{item.icon}</span>
                   <span>{item.label}</span>
@@ -151,11 +150,10 @@ export default function DashboardLayout({ children }) {
         <div className="space-y-1 border-t border-slate-200/60 pt-4">
           <Link
             href="/dashboard/settings"
-            className={`w-full flex items-center gap-3 rounded-2xl px-4 py-2.5 font-semibold text-sm transition-all duration-200 ${
-              pathname === "/dashboard/settings"
+            className={`w-full flex items-center gap-3 rounded-2xl px-4 py-2.5 font-semibold text-sm transition-all duration-200 ${pathname === "/dashboard/settings"
                 ? "bg-white text-slate-900 border border-slate-100 shadow-sm font-bold"
                 : "text-slate-400 hover:text-slate-750"
-            }`}
+              }`}
           >
             <span className="text-base">⚙️</span>
             <span>Pengaturan</span>
@@ -187,7 +185,7 @@ export default function DashboardLayout({ children }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            
+
             <div className="space-y-1.5">
               <h3 className="text-sm font-bold text-slate-800">Logout Akun</h3>
               <p className="text-xs font-semibold text-slate-400">Anda akan keluar dari akun ini</p>

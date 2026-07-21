@@ -16,9 +16,27 @@ export default function AccountsPage() {
   const [newAccount, setNewAccount] = useState({
     name: "",
     email: "",
+    phone: "",
+    address: "",
     role: "pemagang",
     institution: "",
+    major: "",
+    password: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (title, message) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, title, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   const handleEditStart = (user) => {
     setEditingRow(user.email);
@@ -37,6 +55,7 @@ export default function AccountsPage() {
     setUsers(updatedUsers);
     localStorage.setItem("sipantau_users", JSON.stringify(updatedUsers));
     setEditingRow(null);
+    showToast("Sukses", "Detail profil telah berhasil diperbarui.");
   };
 
   const loadUsers = () => {
@@ -56,11 +75,19 @@ export default function AccountsPage() {
   }, []);
 
   const handleAddAccount = () => {
-    if (!newAccount.name || !newAccount.email) return;
-    
+    if (!newAccount.name || !newAccount.email || !newAccount.phone || !newAccount.address || !newAccount.password) {
+      alert("Harap lengkapi semua field yang wajib diisi!");
+      return;
+    }
+
+    if (newAccount.role === "pemagang" && (!newAccount.institution || !newAccount.major)) {
+      alert("Harap lengkapi asal instansi dan jurusan!");
+      return;
+    }
+
     const usersStr = localStorage.getItem("sipantau_users") || "[]";
     const parsed = JSON.parse(usersStr);
-    
+
     if (parsed.find(u => u.email === newAccount.email)) {
       alert("Email sudah terdaftar!");
       return;
@@ -68,11 +95,12 @@ export default function AccountsPage() {
 
     const newUser = {
       email: newAccount.email,
-      password: "password123", // default password
+      password: newAccount.password,
       name: newAccount.name,
-      phone: "-",
-      address: "-",
-      institution: newAccount.role === "mentor" ? "BPS Kota Semarang" : (newAccount.institution || "-"),
+      phone: newAccount.phone,
+      address: newAccount.address,
+      institution: newAccount.role === "mentor" ? "Badan Pusat Statistik" : newAccount.institution,
+      major: newAccount.role === "mentor" ? "-" : newAccount.major,
       role: newAccount.role,
       status: "approved",
       signupDate: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -81,9 +109,11 @@ export default function AccountsPage() {
     const updatedUsers = [...parsed, newUser];
     localStorage.setItem("sipantau_users", JSON.stringify(updatedUsers));
     setUsers(updatedUsers);
-    
+
     setShowAddModal(false);
-    setNewAccount({ name: "", email: "", role: "pemagang", institution: "" });
+    setNewAccount({ name: "", email: "", phone: "", address: "", role: "pemagang", institution: "", major: "", password: "" });
+    setShowPassword(false);
+    showToast("Sukses", "Akun baru telah berhasil ditambahkan.");
   };
 
   const handleUpdateStatus = (email, newStatus) => {
@@ -96,6 +126,8 @@ export default function AccountsPage() {
     setUsers(updatedUsers);
     localStorage.setItem("sipantau_users", JSON.stringify(updatedUsers));
     setExpandedRow(null); // Close expanded row on action
+    const statusText = newStatus === "approved" ? "disetujui" : "ditolak";
+    showToast("Sukses", `Pendaftaran akun telah ${statusText}.`);
   };
 
   const filteredUsers = users.filter(user => {
@@ -150,10 +182,46 @@ export default function AccountsPage() {
     setUsers(updatedUsers);
     localStorage.setItem("sipantau_users", JSON.stringify(updatedUsers));
     setShowDeleteConfirm(false);
+    showToast("Sukses", "Akun terpilih telah berhasil dihapus.");
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Toast Notification Container */}
+      <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className="pointer-events-auto flex items-start gap-3 bg-[#f0fdf4] border-l-4 border-[#4ade80] rounded shadow-md p-4 min-w-[320px] transform transition-all animate-[slideIn_0.3s_ease-out_forwards]"
+          >
+            <div className="bg-[#4ade80] rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-extrabold text-slate-800">{toast.title}</h4>
+              <p className="text-xs font-semibold text-slate-500 mt-0.5">{toast.message}</p>
+            </div>
+            <button
+              onClick={() => removeToast(toast.id)}
+              className="text-[#86efac] hover:text-[#4ade80] transition-colors p-0.5"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}} />
+
       <div className="border-b border-slate-100 pb-5">
         <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Direktori Tim</h1>
       </div>
@@ -165,8 +233,8 @@ export default function AccountsPage() {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === tab
-                ? "border-violet-600 text-slate-900"
-                : "border-transparent text-slate-400 hover:text-slate-600"
+              ? "border-violet-600 text-slate-900"
+              : "border-transparent text-slate-400 hover:text-slate-600"
               }`}
           >
             {tab}
@@ -203,7 +271,7 @@ export default function AccountsPage() {
                 </svg>
                 {selectedUsers.length} terpilih
               </div>
-              <button 
+              <button
                 onClick={() => { setUserToDelete(null); setShowDeleteConfirm(true); }}
                 className="px-4 py-2 bg-rose-100 hover:bg-rose-200 text-rose-500 text-[11px] font-bold rounded-full flex items-center gap-2 transition-colors cursor-pointer"
               >
@@ -216,7 +284,7 @@ export default function AccountsPage() {
           )}
         </div>
 
-        <button 
+        <button
           onClick={() => setShowAddModal(true)}
           className="bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md shadow-violet-100 transition-all flex items-center gap-2 cursor-pointer"
         >
@@ -253,9 +321,9 @@ export default function AccountsPage() {
                 return (
                   <React.Fragment key={idx}>
                     {/* Main Row */}
-                    <tr 
+                    <tr
                       onClick={() => setExpandedRow(isExpanded ? null : user.email)}
-                      className={`transition-colors group border-0 cursor-pointer ${isExpanded ? 'bg-[#f8f7ff] border-x border-t border-[#d8d3fc]' : 'hover:bg-slate-50/50'}`} 
+                      className={`transition-colors group border-0 cursor-pointer ${isExpanded ? 'bg-[#f8f7ff] border-x border-t border-[#d8d3fc]' : 'hover:bg-slate-50/50'}`}
                       style={{ border: 'none' }}
                     >
                       <td className={`pl-6 py-4 border-none ${isExpanded ? 'border-l border-[#d8d3fc]' : ''}`} style={{ border: 'none' }}>
@@ -268,8 +336,8 @@ export default function AccountsPage() {
                         />
                       </td>
                       <td className="py-4 border-none">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setExpandedRow(isExpanded ? null : user.email); }} 
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setExpandedRow(isExpanded ? null : user.email); }}
                           className="text-slate-400 hover:text-slate-600 p-1"
                         >
                           <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -346,15 +414,15 @@ export default function AccountsPage() {
                           </div>
                         ) : (
                           <div className="flex justify-center gap-4">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setExpandedRow(user.email); handleEditStart(user); }} 
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setExpandedRow(user.email); handleEditStart(user); }}
                               className="text-indigo-500 hover:text-indigo-700 cursor-pointer"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                             </button>
-                            <button 
+                            <button
                               onClick={(e) => { e.stopPropagation(); setUserToDelete(user.email); setShowDeleteConfirm(true); }}
                               className="text-rose-500 hover:text-rose-700 cursor-pointer transition-colors"
                               title="Hapus Akun"
@@ -572,80 +640,171 @@ export default function AccountsPage() {
 
       {/* Tambah Akun Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-800">Tambah Akun</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Buat akun baru secara manual (Default Password: password123).</p>
-              </div>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 font-bold cursor-pointer transition-colors"
-              >
-                ✕
-              </button>
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[95vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-white shrink-0">
+              <h2 className="text-[15px] font-extrabold text-slate-800">Tambah Akun</h2>
             </div>
-            
-            <div className="p-6 space-y-5 overflow-y-auto max-h-[60vh]">
+
+            <div className="p-8 space-y-5 overflow-y-auto custom-scrollbar flex-1">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nama Lengkap</label>
+                <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Nama</label>
                 <input
                   type="text"
                   value={newAccount.name}
                   onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
-                  placeholder="Masukkan nama"
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-full px-5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+                  placeholder="Contoh: Budi Santoso"
                 />
               </div>
+
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Email</label>
+                <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Email</label>
                 <input
                   type="email"
                   value={newAccount.email}
                   onChange={(e) => setNewAccount({ ...newAccount, email: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
-                  placeholder="nama@email.com"
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-full px-5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+                  placeholder="Contoh: budi.santoso@email.com"
                 />
               </div>
+
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Peran (Role)</label>
-                <select
-                  value={newAccount.role}
-                  onChange={(e) => setNewAccount({ ...newAccount, role: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500 bg-white"
-                >
-                  <option value="pemagang">Pemagang</option>
-                  <option value="mentor">Mentor</option>
-                  <option value="admin">Admin</option>
-                </select>
+                <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Nomor Telepon</label>
+                <input
+                  type="tel"
+                  value={newAccount.phone}
+                  onChange={(e) => setNewAccount({ ...newAccount, phone: e.target.value })}
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-full px-5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+                  placeholder="Contoh: 081234567890"
+                />
               </div>
-              {newAccount.role !== "mentor" && (
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Alamat Rumah</label>
+                <input
+                  type="text"
+                  value={newAccount.address}
+                  onChange={(e) => setNewAccount({ ...newAccount, address: e.target.value })}
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-full px-5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+                  placeholder="Contoh: Jl. Pahlawan No. 1, Semarang"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Role</label>
+                <div className="flex items-center gap-10 mt-1 pl-1">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="radio"
+                      value="pemagang"
+                      checked={newAccount.role === "pemagang"}
+                      onChange={() => setNewAccount({ ...newAccount, role: "pemagang", institution: "", major: "" })}
+                      className="sr-only"
+                    />
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${newAccount.role === "pemagang" ? "border-violet-600 bg-white" : "border-slate-300"}`}>
+                      {newAccount.role === "pemagang" && <div className="w-2 h-2 rounded-full bg-violet-600" />}
+                    </div>
+                    <span className="text-xs font-medium text-slate-700">Pemagang</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="radio"
+                      value="mentor"
+                      checked={newAccount.role === "mentor"}
+                      onChange={() => setNewAccount({ ...newAccount, role: "mentor", institution: "Badan Pusat Statistik", major: "" })}
+                      className="sr-only"
+                    />
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${newAccount.role === "mentor" ? "border-violet-600 bg-white" : "border-slate-300"}`}>
+                      {newAccount.role === "mentor" && <div className="w-2 h-2 rounded-full bg-violet-600" />}
+                    </div>
+                    <span className="text-xs font-medium text-slate-700">Mentor</span>
+                  </label>
+                </div>
+              </div>
+
+              {newAccount.role === "pemagang" ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Asal Instansi</label>
+                    <input
+                      type="text"
+                      value={newAccount.institution}
+                      onChange={(e) => setNewAccount({ ...newAccount, institution: e.target.value })}
+                      className="w-full border border-slate-200 bg-slate-50/50 rounded-full px-5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+                      placeholder="Contoh: Universitas Diponegoro"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Jurusan</label>
+                    <input
+                      type="text"
+                      value={newAccount.major}
+                      onChange={(e) => setNewAccount({ ...newAccount, major: e.target.value })}
+                      className="w-full border border-slate-200 bg-slate-50/50 rounded-full px-5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+                      placeholder="Contoh: Statistika"
+                    />
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Instansi / Universitas</label>
+                  <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Asal Instansi</label>
                   <input
                     type="text"
-                    value={newAccount.institution}
-                    onChange={(e) => setNewAccount({ ...newAccount, institution: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
-                    placeholder="Contoh: Universitas Diponegoro"
+                    value="Badan Pusat Statistik"
+                    readOnly
+                    className="w-1/2 border border-slate-200 bg-slate-100/70 rounded-full px-5 py-2.5 text-xs text-slate-500 outline-none cursor-not-allowed"
                   />
                 </div>
               )}
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newAccount.password}
+                    onChange={(e) => setNewAccount({ ...newAccount, password: e.target.value })}
+                    className="w-full border border-slate-200 bg-slate-50/50 rounded-full pl-5 pr-12 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+                    placeholder="Masukkan password sementara"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                  >
+                    {showPassword ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3 shrink-0">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-500 cursor-pointer"
-              >
-                Batal
-              </button>
+            <div className="p-8 pt-4 bg-white shrink-0 relative">
+              {/* Close button layered absolutely to the top right to act outside of flow if needed, but it's on header.
+                   Wait, there's no visible close button in the user's screenshot, but I'll add an invisible overlay click or just keep the header simple.
+                   Actually, the user screenshot doesn't have an X button on the top right. It just has "Tambah Akun" text.
+                   I'll remove the X button in the header and rely on backdrop click to close.
+               */}
               <button
                 onClick={handleAddAccount}
-                className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-xs font-bold text-white shadow-md shadow-violet-100 cursor-pointer"
+                className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white text-xs font-bold py-3.5 rounded-full shadow-lg shadow-violet-100 transition-all cursor-pointer"
               >
-                Simpan Akun
+                Tambah Akun
               </button>
             </div>
           </div>
@@ -664,13 +823,13 @@ export default function AccountsPage() {
             <h3 className="text-sm font-extrabold text-slate-800 mb-2">Hapus Akun</h3>
             <p className="text-[11px] text-slate-600 font-semibold mb-6">Anda akan menghapus {userToDelete ? 'akun' : (selectedUsers.length > 1 ? `${selectedUsers.length} akun` : 'akun')} ini.</p>
             <div className="flex items-center gap-3 w-full">
-              <button 
+              <button
                 onClick={() => { setShowDeleteConfirm(false); setUserToDelete(null); }}
                 className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs py-2.5 rounded-xl transition-colors cursor-pointer"
               >
                 Tidak, simpan.
               </button>
-              <button 
+              <button
                 onClick={handleDeleteSelected}
                 className="flex-1 bg-[#de3b4b] hover:bg-rose-700 text-white font-bold text-xs py-2.5 rounded-xl transition-colors cursor-pointer"
               >

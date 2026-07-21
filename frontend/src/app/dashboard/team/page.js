@@ -156,7 +156,7 @@ export default function TeamPage() {
       selesai: 0,
       members: members.length > 0 ? members : ["A"],
     };
-    setTeams([...teams, team]);
+    setTeams([team, ...teams]);
     setShowAddModal(false);
     setNewName(""); setNewDesc(""); setSelectedMembers([]); setNewMentor(mentorList[0]); setMemberSearch("");
   };

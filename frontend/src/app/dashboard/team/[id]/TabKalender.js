@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 
-const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-const shortMonthNames = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+const shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 const userAvatars = {
   "A": "https://randomuser.me/api/portraits/men/32.jpg",
@@ -23,10 +23,10 @@ function parseTaskDate(dateStr) {
   const day = parseInt(parts[0]);
   const year = parseInt(parts[2]);
   const monthStr = parts[1].toLowerCase();
-  const fullMonths = ["januari","februari","maret","april","mei","juni","juli","agustus","september","oktober","november","desember"];
-  const shortMonths = ["jan","feb","mar","apr","mei","jun","jul","agu","sep","okt","nov","des"];
-  let month = fullMonths.findIndex(m => monthStr.startsWith(m.substring(0,3)));
-  if (month === -1) month = shortMonths.findIndex(m => monthStr.startsWith(m.substring(0,3)));
+  const fullMonths = ["januari", "februari", "maret", "april", "mei", "juni", "juli", "agustus", "september", "oktober", "november", "desember"];
+  const shortMonths = ["jan", "feb", "mar", "apr", "mei", "jun", "jul", "agu", "sep", "okt", "nov", "des"];
+  let month = fullMonths.findIndex(m => monthStr.startsWith(m.substring(0, 3)));
+  if (month === -1) month = shortMonths.findIndex(m => monthStr.startsWith(m.substring(0, 3)));
   if (isNaN(day) || isNaN(year) || month === -1) return null;
   return { day, month, year };
 }
@@ -86,8 +86,8 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
   const daysInMonth = getDaysInMonth(calYear, calMonth);
   const firstDay = getFirstDayOfWeek(calYear, calMonth);
 
-  const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear-1); } else setCalMonth(calMonth-1); };
-  const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear+1); } else setCalMonth(calMonth+1); };
+  const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); };
+  const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); };
 
   const getTasksForDay = (day) => tasks.filter(t => {
     const parsed = parseTaskDate(t.date);
@@ -117,7 +117,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
       status: "todo",
       done: false,
       orang: newOrang,
-      riwayat: [{ name: activeUserName, text: "telah membuat penugasan", time: "baru saja" }],
+      riwayat: [{ name: activeUserName, text: "telah membuat penugasan", time: "baru saja", timestamp: Date.now() }],
       komentar: [],
     };
     setTasks([...tasks, newTask]);
@@ -150,7 +150,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
         <div className="min-w-[650px] border border-slate-100 rounded-2xl overflow-visible relative">
           {/* Weekday headers */}
           <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-100 text-center py-2.5 rounded-t-2xl">
-            {["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"].map((day) => (
+            {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day) => (
               <span key={day} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{day}</span>
             ))}
           </div>
@@ -158,7 +158,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
           {/* Day Cells */}
           <div className="grid grid-cols-7 divide-x divide-y divide-slate-100/80 overflow-visible">
             {/* Empty padding cells for first week */}
-            {Array.from({length: firstDay}).map((_, i) => (
+            {Array.from({ length: firstDay }).map((_, i) => (
               <div key={`empty-${i}`} className="min-h-[90px] p-2 bg-slate-50/30" />
             ))}
 
@@ -170,7 +170,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
               const rowIndex = Math.floor(cellIndex / 7);
               const dayTasks = getTasksForDay(day);
               const isToday = day === now.getDate() && calMonth === now.getMonth() && calYear === now.getFullYear();
-              
+
               // Determine status strip color from the first task
               let statusStripColor = "";
               if (dayTasks.length > 0) {
@@ -202,9 +202,8 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
 
                   {/* Day Number and Hover Plus Icon */}
                   <div className="flex items-center justify-between">
-                    <span className={`text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full ${
-                      isToday ? "bg-violet-600 text-white" : "text-slate-700"
-                    }`}>
+                    <span className={`text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full ${isToday ? "bg-violet-600 text-white" : "text-slate-700"
+                      }`}>
                       {day}
                     </span>
                     <span className="text-[12px] font-extrabold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -244,13 +243,12 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
                     <div
                       ref={popoverRef}
                       onClick={(e) => e.stopPropagation()}
-                      className={`absolute bg-white border border-slate-100 shadow-2xl rounded-3xl p-4 w-64 space-y-3 z-[60] text-left cursor-default ${
-                        rowIndex >= 3 
-                          ? `bottom-full mb-2 ${colIndex < 2 ? "left-0" : colIndex > 4 ? "right-0" : "left-1/2 -translate-x-1/2"}` 
-                          : rowIndex === 2 
+                      className={`absolute bg-white border border-slate-100 shadow-2xl rounded-3xl p-4 w-64 space-y-3 z-[60] text-left cursor-default ${rowIndex >= 3
+                          ? `bottom-full mb-2 ${colIndex < 2 ? "left-0" : colIndex > 4 ? "right-0" : "left-1/2 -translate-x-1/2"}`
+                          : rowIndex === 2
                             ? `top-1/2 -translate-y-1/2 ${colIndex < 3 ? "left-full ml-3" : "right-full mr-3"}`
                             : `top-full mt-2 ${colIndex < 2 ? "left-0" : colIndex > 4 ? "right-0" : "left-1/2 -translate-x-1/2"}`
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                         <input
@@ -289,18 +287,67 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Jenis</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button onClick={() => {setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false);}} className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 bg-indigo-100/80 px-3 py-1 rounded-full outline-none">
+                            <button onClick={() => { setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false); }} className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 bg-indigo-100/80 px-3 py-1 rounded-full outline-none">
                               <span className="w-2 h-2 bg-indigo-400 rounded-sm"></span> {newType}
                             </button>
-                            <button onClick={() => {setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false);}} className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500">
+                            <button onClick={() => { setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false); }} className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500">
                               <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                             </button>
                           </div>
                           {showTypeDrop && (
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-2 z-30 w-32 flex flex-col gap-1">
-                              {["Tugas","Fitur","Bug","Design","Aset"].map(t => (
-                                <button key={t} onClick={() => {setNewType(t); setShowTypeDrop(false);}} className="text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 px-2 py-1.5 rounded-lg">{t}</button>
-                              ))}
+                            <div className="absolute right-0 top-full mt-2 bg-white border border-slate-100 shadow-xl rounded-2xl p-4 z-30 w-64 flex flex-col gap-3">
+                              <div className="text-center text-[11px] font-extrabold text-slate-700">Jenis Tugas</div>
+                              <input
+                                type="text"
+                                placeholder="Cari jenis tugas..."
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 outline-none focus:border-violet-400 placeholder-slate-400"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+
+                              <div className="flex flex-col gap-2">
+                                <div className="text-[10px] font-extrabold text-slate-800 mb-1">Jenis</div>
+
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                  <input type="checkbox" checked={newType === "Design"} onChange={() => { setNewType("Design"); setShowTypeDrop(false); }} className="w-4 h-4 rounded text-violet-500 border-slate-200 focus:ring-violet-500 cursor-pointer" />
+                                  <div className="flex-1 text-center text-[11px] font-bold text-violet-500 bg-violet-100 group-hover:bg-violet-200 py-1.5 rounded-full transition-colors">Design</div>
+                                </label>
+
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                  <input type="checkbox" checked={newType === "Bug"} onChange={() => { setNewType("Bug"); setShowTypeDrop(false); }} className="w-4 h-4 rounded text-cyan-500 border-slate-200 focus:ring-cyan-500 cursor-pointer" />
+                                  <div className="flex-1 text-center text-[11px] font-bold text-cyan-600 bg-cyan-100 group-hover:bg-cyan-200 py-1.5 rounded-full transition-colors">Bug</div>
+                                </label>
+
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                  <input type="checkbox" checked={newType === "Aset"} onChange={() => { setNewType("Aset"); setShowTypeDrop(false); }} className="w-4 h-4 rounded text-orange-400 border-slate-200 focus:ring-orange-400 cursor-pointer" />
+                                  <div className="flex-1 text-center text-[11px] font-bold text-orange-500 bg-orange-100 group-hover:bg-orange-200 py-1.5 rounded-full transition-colors">Aset</div>
+                                </label>
+
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                  <input type="checkbox" checked={newType === "Fitur"} onChange={() => { setNewType("Fitur"); setShowTypeDrop(false); }} className="w-4 h-4 rounded text-rose-500 border-slate-200 focus:ring-rose-500 cursor-pointer" />
+                                  <div className="flex-1 text-center text-[11px] font-bold text-rose-500 bg-rose-100 group-hover:bg-rose-200 py-1.5 rounded-full transition-colors">Fitur</div>
+                                </label>
+
+                                {/* Fallback for custom type or default 'Tugas' if selected */}
+                                {!["Design", "Bug", "Aset", "Fitur"].includes(newType) && newType && (
+                                  <label className="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" checked={true} readOnly className="w-4 h-4 rounded text-slate-500 border-slate-200 focus:ring-slate-500 cursor-pointer" />
+                                    <div className="flex-1 text-center text-[11px] font-bold text-slate-600 bg-slate-100 py-1.5 rounded-full">{newType}</div>
+                                  </label>
+                                )}
+                              </div>
+
+                              <input
+                                type="text"
+                                placeholder="Buat jenis tugas baru"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && e.target.value.trim()) {
+                                    setNewType(e.target.value.trim());
+                                    setShowTypeDrop(false);
+                                  }
+                                }}
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 outline-none focus:border-violet-400 placeholder-slate-400 mt-1"
+                              />
                             </div>
                           )}
                         </div>
@@ -314,18 +361,24 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Prioritas</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button onClick={() => {setShowPriorityDrop(!showPriorityDrop); setShowTypeDrop(false); setShowAssignDrop(false);}} className="flex items-center gap-1.5 text-[10px] font-bold text-rose-500 bg-rose-100/80 px-3 py-1 rounded-full outline-none">
+                            <button onClick={() => { setShowPriorityDrop(!showPriorityDrop); setShowTypeDrop(false); setShowAssignDrop(false); }} className="flex items-center gap-1.5 text-[10px] font-bold text-rose-500 bg-rose-100/80 px-3 py-1 rounded-full outline-none">
                               <span className="w-2 h-2 bg-rose-500 rounded-full"></span> {newPriority}
                             </button>
-                            <button onClick={() => {setShowPriorityDrop(!showPriorityDrop); setShowTypeDrop(false); setShowAssignDrop(false);}} className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500">
+                            <button onClick={() => { setShowPriorityDrop(!showPriorityDrop); setShowTypeDrop(false); setShowAssignDrop(false); }} className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500">
                               <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                             </button>
                           </div>
                           {showPriorityDrop && (
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-2 z-30 w-32 flex flex-col gap-1">
-                              {["Tertinggi","Tinggi","Sedang","Rendah"].map(p => (
-                                <button key={p} onClick={() => {setNewPriority(p); setShowPriorityDrop(false);}} className="text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 px-2 py-1.5 rounded-lg">{p}</button>
-                              ))}
+                            <div className="absolute right-0 top-full mt-2 bg-white border border-slate-100 shadow-xl rounded-2xl p-4 z-30 w-52 flex flex-col gap-2.5">
+                              <button onClick={() => { setNewPriority("Terendah"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-violet-500 bg-violet-100 hover:bg-violet-200 py-1.5 rounded-full transition-colors cursor-pointer">Terendah</button>
+
+                              <button onClick={() => { setNewPriority("Rendah"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-cyan-600 bg-cyan-100 hover:bg-cyan-200 py-1.5 rounded-full transition-colors cursor-pointer">Rendah</button>
+
+                              <button onClick={() => { setNewPriority("Sedang"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-orange-500 bg-orange-100 hover:bg-orange-200 py-1.5 rounded-full transition-colors cursor-pointer">Sedang</button>
+
+                              <button onClick={() => { setNewPriority("Tinggi"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-emerald-600 bg-emerald-100 hover:bg-emerald-200 py-1.5 rounded-full transition-colors cursor-pointer">Tinggi</button>
+
+                              <button onClick={() => { setNewPriority("Tertinggi"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-rose-500 bg-rose-100 hover:bg-rose-200 py-1.5 rounded-full transition-colors cursor-pointer">Tertinggi</button>
                             </div>
                           )}
                         </div>
@@ -339,7 +392,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Penerima</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button onClick={() => {setShowAssignDrop(!showAssignDrop); setShowTypeDrop(false); setShowPriorityDrop(false);}} className="flex -space-x-1.5 outline-none">
+                            <button onClick={() => { setShowAssignDrop(!showAssignDrop); setShowTypeDrop(false); setShowPriorityDrop(false); }} className="flex -space-x-1.5 outline-none">
                               {newOrang.length > 0 ? newOrang.map((mInit, i) => {
                                 const mem = dynamicMembers.find(d => d.initial === mInit);
                                 return mem ? (
@@ -353,7 +406,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask }) {
                                 <span className="text-[10px] font-bold text-slate-400 px-2">Pilih</span>
                               )}
                             </button>
-                            <button onClick={() => {setShowAssignDrop(!showAssignDrop); setShowTypeDrop(false); setShowPriorityDrop(false);}} className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500">
+                            <button onClick={() => { setShowAssignDrop(!showAssignDrop); setShowTypeDrop(false); setShowPriorityDrop(false); }} className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500">
                               <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                             </button>
                           </div>

@@ -10,44 +10,140 @@ export default function Dashboard() {
   const [userAvatar, setUserAvatar] = useState("");
   const [userRole, setUserRole] = useState("intern");
   const [adminUsers, setAdminUsers] = useState([]);
+  const [personalLogs, setPersonalLogs] = useState([]);
   const logRef = useRef(null);
+
+  // Helper to parse relative time strings
+  const parseRelativeTime = (timeStr) => {
+    if (!timeStr) return 9999;
+    const s = timeStr.toLowerCase().trim();
+    if (s === "baru saja" || s === "sekarang") return 0;
+    if (s === "kemarin") return 1;
+    const match = s.match(/^(\d+)\s+hari\s+lalu/);
+    if (match) return parseInt(match[1]);
+    return 999;
+  };
+
+  const loadPersonalLogs = (nameToMatch) => {
+    if (!nameToMatch || typeof window === "undefined") return;
+    
+    const savedTeamsStr = localStorage.getItem("sipantau_teams");
+    let teams = [{id: "1"}, {id: "2"}, {id: "3"}, {id: "4"}];
+    if (savedTeamsStr) {
+      try {
+        teams = JSON.parse(savedTeamsStr);
+      } catch (e) {}
+    }
+    
+    let allTasks = [];
+    teams.forEach(t => {
+      const stored = localStorage.getItem(`sipantau_tasks_${t.id}`);
+      if (stored) {
+        try {
+          allTasks = [...allTasks, ...JSON.parse(stored)];
+        } catch(e) {}
+      } else if (t.id === "1") {
+        // Fallback to default tasks if not yet loaded in team page
+        allTasks = [...allTasks, 
+          { id: 1, title: "Pembuatan UI/UX Website", riwayat: [{ name: "Aisha", text: "menambahkan desain referensi", time: "kemarin" }, { name: "Myesha Azka", text: "telah mengubah penerima tugas.", time: "2 hari lalu" }, { name: "Andi Basudara", text: "telah membuat penugasan ini", time: "3 hari lalu" }] },
+          { id: 2, title: "Pembuatan Repository GitHub", riwayat: [{ name: "Citra Lestari", text: "melakukan inisiasi kode dasar", time: "kemarin" }, { name: "Andi Basudara", text: "telah membuat tugas ini", time: "2 hari lalu" }] },
+          { id: 3, title: "Pembuatan Database ERD", riwayat: [{ name: "Eko Pratama", text: "telah meninjau struktur ERD", time: "2 hari lalu" }, { name: "Nurul Kumala", text: "telah merancang ERD awal", time: "4 hari lalu" }] },
+          { id: 4, title: "Pembuatan Pitch Deck", riwayat: [{ name: "Andi Basudara", text: "telah menyelesaikan tugas ini", time: "3 hari lalu" }, { name: "Aisha", text: "melakukan revisi presentasi", time: "5 hari lalu" }] },
+          { id: 5, title: "Testing & QA Aplikasi", riwayat: [{ name: "Nurul", text: "memeriksa daftar bug", time: "baru saja" }, { name: "Citra Lestari", text: "telah membuat skenario testing", time: "kemarin" }] },
+          { id: 6, title: "Deploy ke Staging Server", riwayat: [{ name: "Myesha", text: "mengatur variabel environment", time: "kemarin" }, { name: "Eko Pratama", text: "telah mempersiapkan server", time: "2 hari lalu" }] }
+        ];
+      }
+    });
+
+    let myLogs = [];
+    allTasks.forEach(task => {
+      if (task.riwayat && Array.isArray(task.riwayat)) {
+        task.riwayat.forEach(r => {
+          if (r.name.toLowerCase() === nameToMatch.toLowerCase()) {
+            myLogs.push({
+              text: r.text,
+              task: task.title,
+              time: r.time,
+              timestamp: r.timestamp
+            });
+          }
+        });
+      }
+    });
+    
+    myLogs.sort((a, b) => {
+      const timeDiff = parseRelativeTime(a.time) - parseRelativeTime(b.time);
+      if (timeDiff !== 0) return timeDiff;
+      if (a.timestamp && b.timestamp) return b.timestamp - a.timestamp;
+      if (a.timestamp) return -1;
+      if (b.timestamp) return 1;
+      return 0;
+    });
+    const nextLogs = myLogs.slice(0, 20);
+    setPersonalLogs(prev => {
+      if (JSON.stringify(prev) !== JSON.stringify(nextLogs)) return nextLogs;
+      return prev;
+    });
+  };
 
   const loadProfile = () => {
     const name = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
     const email = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
     const rawRole = typeof window !== "undefined" ? localStorage.getItem("sipantau_role") : null;
     const role = rawRole ? rawRole.toLowerCase() : null;
-    
+
     if (role) setUserRole(role);
     if (name) {
       setUserName(name.split(" ")[0]);
       setUserFullName(name);
+      loadPersonalLogs(name);
     }
     if (email) {
       const avatar = localStorage.getItem(`sipantau_avatar_${email.toLowerCase()}`);
       if (avatar) setUserAvatar(avatar);
     }
-    
+
     // Load all users for admin view
     if (role === "admin" && typeof window !== "undefined") {
       const usersStr = localStorage.getItem("sipantau_users") || "[]";
       try {
-        setAdminUsers(JSON.parse(usersStr));
+        const parsed = JSON.parse(usersStr);
+        setAdminUsers(prev => {
+          if (JSON.stringify(prev) !== usersStr) return parsed;
+          return prev;
+        });
       } catch (e) {
         setAdminUsers([]);
       }
     }
   };
 
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
   useEffect(() => {
     loadProfile();
     window.addEventListener("sipantau-profile-updated", loadProfile);
     window.addEventListener("sipantau-avatar-updated", loadProfile);
+    
+    // Also set up an interval to refresh logs automatically every 2 seconds
+    // to catch any changes from background or other tabs without needing a hard reload
+    const interval = setInterval(() => {
+      loadProfile();
+    }, 2000);
+
+    const handleStorageChange = (e) => {
+      if (e.key && (e.key.startsWith("sipantau_tasks_") || e.key.startsWith("sipantau_profile_"))) {
+        loadProfile();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
     return () => {
       window.removeEventListener("sipantau-profile-updated", loadProfile);
       window.removeEventListener("sipantau-avatar-updated", loadProfile);
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
     };
-  }, []);
+  }, [pathname]);
 
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userFullName)}&background=f1f5f9&color=64748b&bold=true`;
   const avatarToUse = userAvatar || defaultAvatar;
@@ -123,26 +219,34 @@ export default function Dashboard() {
             {/* Stats Cards - Admin */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ), color: "violet", label: `${adminUsers.length} Akun`, desc: "Jumlah pendaftar SIPANTAU." },
-                { icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ), color: "amber", label: `${adminUsers.filter(u => u.status === 'pending').length} Menunggu`, desc: "Akun perlu diverifikasi." },
-                { icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ), color: "emerald", label: `${adminUsers.filter(u => u.status === 'approved').length} Disetujui`, desc: "Akun yang telah disetujui." },
-                { icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                ), color: "rose", label: `${adminUsers.filter(u => u.status === 'rejected').length} Ditolak`, desc: "Akun yang telah ditolak." },
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                  ), color: "violet", label: `${adminUsers.length} Akun`, desc: "Jumlah pendaftar SIPANTAU."
+                },
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ), color: "amber", label: `${adminUsers.filter(u => u.status === 'pending').length} Menunggu`, desc: "Akun perlu diverifikasi."
+                },
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ), color: "emerald", label: `${adminUsers.filter(u => u.status === 'approved').length} Disetujui`, desc: "Akun yang telah disetujui."
+                },
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  ), color: "rose", label: `${adminUsers.filter(u => u.status === 'rejected').length} Ditolak`, desc: "Akun yang telah ditolak."
+                },
               ].map((stat, idx) => (
                 <div key={idx} className="p-5 border border-slate-100 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-${stat.color}-100 text-${stat.color}-500 bg-${stat.color}-50`}>
@@ -169,20 +273,23 @@ export default function Dashboard() {
                   let roleText = "";
                   let statusText = "";
                   let color = "";
-                  
-                  if (u.status === "pending") {
+
+                  const currentStatus = u.status || "approved";
+
+                  if (currentStatus === "pending") {
                     text = "mendaftar akun baru sebagai";
                     roleText = u.role === "mentor" ? "Mentor." : "Pemagang.";
                     statusText = "Menunggu";
                     color = "amber";
-                  } else if (u.status === "approved") {
-                    text = "telah disetujui pendaftarannya.";
-                    statusText = "Disetujui";
-                    color = "emerald";
-                  } else if (u.status === "rejected") {
+                  } else if (currentStatus === "rejected") {
                     text = "telah ditolak pendaftarannya.";
                     statusText = "Ditolak";
                     color = "rose";
+                  } else {
+                    // Default for approved or any unknown status
+                    text = "telah disetujui pendaftarannya.";
+                    statusText = "Disetujui";
+                    color = "emerald";
                   }
 
                   const uAvatar = typeof window !== "undefined" ? localStorage.getItem(`sipantau_avatar_${u.email.toLowerCase()}`) || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=f1f5f9&color=64748b&bold=true` : `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}`;
@@ -209,7 +316,7 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
-                
+
                 {adminUsers.length === 0 && (
                   <div className="py-6 text-center text-sm font-semibold text-slate-400">Belum ada data pendaftar.</div>
                 )}
@@ -274,26 +381,26 @@ export default function Dashboard() {
               </div>
 
               <div ref={logRef} className="divide-y divide-slate-50/80 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                {[
-                  { text: "telah menyelesaikan", task: "Pembuatan UI/UX Website", time: "1 Juli 2026, 08:10" },
-                  { text: "telah menyelesaikan", task: "Pembuatan Repository GitHub", time: "1 Juli 2026, 08:10" },
-                  { text: "telah menyelesaikan", task: "Pembuatan Database Website", time: "1 Juli 2026, 08:10" },
-                ].map((log, index) => (
-                  <div key={index} className="flex items-center justify-between py-3.5 log-item">
-                    <div className="flex items-center gap-3.5 log-info">
-                      <img
-                        src={avatarToUse}
-                        alt="Avatar"
-                        className="w-8 h-8 rounded-full object-cover border border-slate-100"
-                      />
-                      <span className="text-[11px] text-slate-600 font-medium log-text">
-                        <strong className="text-slate-800 font-bold">{userFullName}</strong> {log.text}{" "}
-                        <span className="text-violet-600 font-bold hover:underline cursor-pointer log-task">{log.task}</span>
-                      </span>
+                {personalLogs.length === 0 ? (
+                  <p className="text-center py-6 text-xs text-slate-400 font-semibold">Belum ada aktivitas tercatat untuk Anda.</p>
+                ) : (
+                  personalLogs.map((log, index) => (
+                    <div key={index} className="flex items-center justify-between py-3.5 log-item">
+                      <div className="flex items-center gap-3.5 log-info">
+                        <img
+                          src={avatarToUse}
+                          alt="Avatar"
+                          className="w-8 h-8 rounded-full object-cover border border-slate-100"
+                        />
+                        <span className="text-[11px] text-slate-600 font-medium log-text">
+                          <strong className="text-slate-800 font-bold">{userFullName}</strong> {log.text}{" "}
+                          <span className="text-violet-600 font-bold hover:underline cursor-pointer log-task">{log.task}</span>
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 log-time">{log.time}</span>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 log-time">{log.time}</span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </>

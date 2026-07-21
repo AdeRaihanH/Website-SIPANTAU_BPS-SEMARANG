@@ -8,6 +8,9 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState(false);
 
   // Form states
   const [signInEmail, setSignInEmail] = useState("");
@@ -101,6 +104,56 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
           institution: "BPS Kota Semarang",
           role: "mentor",
           status: "approved"
+        },
+        {
+          email: "citra@gmail.com",
+          password: "password123",
+          name: "Citra Lestari",
+          phone: "08123456782",
+          address: "Jl. Melati No. 12",
+          institution: "Universitas Negeri Semarang",
+          role: "pemagang",
+          status: "approved"
+        },
+        {
+          email: "eko@gmail.com",
+          password: "password123",
+          name: "Eko Pratama",
+          phone: "08123456783",
+          address: "Jl. Anggrek No. 8",
+          institution: "Universitas Dian Nuswantoro",
+          role: "pemagang",
+          status: "approved"
+        },
+        {
+          email: "aisha@gmail.com",
+          password: "password123",
+          name: "Aisha",
+          phone: "08123456784",
+          address: "Jl. Mawar No. 3",
+          institution: "Universitas Diponegoro",
+          role: "pemagang",
+          status: "approved"
+        },
+        {
+          email: "myesha@gmail.com",
+          password: "password123",
+          name: "Myesha",
+          phone: "08123456785",
+          address: "Jl. Kenanga No. 5",
+          institution: "Politeknik Negeri Semarang",
+          role: "pemagang",
+          status: "approved"
+        },
+        {
+          email: "nurul@gmail.com",
+          password: "password123",
+          name: "Nurul",
+          phone: "08123456786",
+          address: "Jl. Teratai No. 7",
+          institution: "Universitas Islam Sultan Agung",
+          role: "pemagang",
+          status: "approved"
         }
       ];
 
@@ -184,6 +237,86 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
       }
     }
   };
+
+  const handleForgotSubmit = (e) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+
+    // Simulate sending email and redirecting to reset page
+    setForgotSuccess(true);
+    localStorage.setItem("sipantau_reset_email", forgotEmail);
+    
+    setTimeout(() => {
+      router.push("/reset-password");
+    }, 2500);
+  };
+
+  if (isForgotPassword) {
+    return (
+      <div className="w-full max-w-[480px] min-h-[400px] bg-white p-6 sm:p-10 flex flex-col rounded-[2.5rem] shadow-xl border border-slate-100/50 justify-center">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight flex items-center justify-center gap-2">
+            Reset Password
+          </h2>
+          <p className="text-sm font-medium text-slate-500 mt-2">
+            Masukkan email Anda untuk menerima tautan pembaruan password.
+          </p>
+        </div>
+
+        {forgotSuccess && (
+          <div className="mb-6 bg-emerald-100/80 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl flex items-center gap-3">
+            <div className="w-6 h-6 bg-emerald-500 rounded-md flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-xs font-bold leading-tight">
+              Tautan reset password berhasil dikirim ke email Anda! Mengarahkan ke halaman reset...
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleForgotSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+              <span className="text-rose-500 font-bold">*</span> Alamat Email
+            </label>
+            <input
+              type="email"
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
+              placeholder="sipantau@gmail.com"
+              disabled={forgotSuccess}
+              className="w-full border border-slate-200 bg-slate-50/30 rounded-full px-5 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all duration-200 disabled:opacity-50"
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 mt-4">
+            <button
+              type="submit"
+              disabled={forgotSuccess}
+              className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-3 px-6 rounded-full shadow-lg shadow-violet-100 hover:shadow-violet-200 transition-all duration-200 text-sm cursor-pointer disabled:opacity-70"
+            >
+              Kirim Tautan Reset
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsForgotPassword(false);
+                setForgotSuccess(false);
+                setForgotEmail("");
+              }}
+              disabled={forgotSuccess}
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-6 rounded-full transition-all duration-200 text-sm cursor-pointer disabled:opacity-50"
+            >
+              Kembali
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[480px] h-[600px] bg-white p-6 sm:p-10 flex flex-col rounded-[2.5rem] shadow-xl border border-slate-100/50">
@@ -307,6 +440,17 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
               {loginError && (
                 <p className="text-[10px] text-rose-500 font-medium pl-2 mt-0.5">Password atau akun tidak valid</p>
               )}
+            </div>
+
+            {/* Forgot Password Link */}
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(true)}
+                className="text-[11px] font-bold text-slate-500 hover:text-violet-600 transition-colors underline decoration-slate-300 hover:decoration-violet-300 underline-offset-2"
+              >
+                Lupa Password?
+              </button>
             </div>
           </div>
         ) : (

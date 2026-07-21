@@ -11,12 +11,12 @@ import TabKalender from "./TabKalender";
 import GlobalTaskModals from "./GlobalTaskModals";
 
 const initialTasks = [
-  { id: 1, title: "Pembuatan UI/UX Website", desc: "Membuat tampilan antarmuka website Kanban", date: "1 Juli 2026", type: "Design", priority: "Tertinggi", status: "todo", done: false, orang: ["A", "M", "N"], riwayat: [{ name: "Andi Basudara", text: "telah membuat penugasan ini", time: "2 hari lalu" }, { name: "Myesha Azka", text: "telah mengubah penerima tugas.", time: "kemarin" }], komentar: [{ name: "Nurul Kumala", text: "Semangattt!" }], subtugas: [{title: "Pembuatan Landing Page", done: false}] },
-  { id: 2, title: "Pembuatan Repository GitHub", desc: "Membuat repository dan konfigurasi branch utama", date: "5 Juli 2026", type: "Tugas", priority: "Sedang", status: "inprogress", done: false, orang: ["A", "M"], riwayat: [{ name: "Andi Basudara", text: "telah membuat tugas ini", time: "3 hari lalu" }], komentar: [] },
-  { id: 3, title: "Pembuatan Database ERD", desc: "Merancang skema database dan relasi antar tabel", date: "18 Juli 2026", type: "Tugas", priority: "Rendah", status: "review", done: false, orang: ["N"], riwayat: [{ name: "Nurul Kumala", text: "telah merancang ERD awal", time: "4 hari lalu" }], komentar: [] },
-  { id: 4, title: "Pembuatan Pitch Deck", desc: "Slide deck presentasi produk untuk demo akhir", date: "30 Juni 2026", type: "Tugas", priority: "Tinggi", status: "done", done: true, orang: ["A", "N"], riwayat: [{ name: "Andi Basudara", text: "telah menyelesaikan tugas ini", time: "5 hari lalu" }], komentar: [] },
-  { id: 5, title: "Testing & QA Aplikasi", desc: "Melakukan pengujian fitur dan dokumentasi bug", date: "11 Juli 2026", type: "Bug", priority: "Tinggi", status: "todo", done: false, orang: ["M"], riwayat: [], komentar: [] },
-  { id: 6, title: "Deploy ke Staging Server", desc: "Deploy aplikasi ke environment staging untuk review", date: "25 Juli 2026", type: "Fitur", priority: "Sedang", status: "todo", done: false, orang: ["A", "M", "N"], riwayat: [], komentar: [] },
+  { id: 1, title: "Pembuatan UI/UX Website", desc: "Membuat tampilan antarmuka website Kanban", date: "1 Juli 2026", type: "Design", priority: "Tertinggi", status: "todo", done: false, orang: ["A", "M", "N"], riwayat: [{ name: "Aisha", text: "menambahkan desain referensi", time: "kemarin" }, { name: "Myesha Azka", text: "telah mengubah penerima tugas.", time: "2 hari lalu" }, { name: "Andi Basudara", text: "telah membuat penugasan ini", time: "3 hari lalu" }], komentar: [{ name: "Nurul Kumala", text: "Semangattt!" }], subtugas: [{ title: "Pembuatan Landing Page", done: false }] },
+  { id: 2, title: "Pembuatan Repository GitHub", desc: "Membuat repository dan konfigurasi branch utama", date: "5 Juli 2026", type: "Tugas", priority: "Sedang", status: "inprogress", done: false, orang: ["A", "M"], riwayat: [{ name: "Citra Lestari", text: "melakukan inisiasi kode dasar", time: "kemarin" }, { name: "Andi Basudara", text: "telah membuat tugas ini", time: "2 hari lalu" }], komentar: [] },
+  { id: 3, title: "Pembuatan Database ERD", desc: "Merancang skema database dan relasi antar tabel", date: "18 Juli 2026", type: "Tugas", priority: "Rendah", status: "review", done: false, orang: ["N"], riwayat: [{ name: "Eko Pratama", text: "telah meninjau struktur ERD", time: "2 hari lalu" }, { name: "Nurul Kumala", text: "telah merancang ERD awal", time: "4 hari lalu" }], komentar: [] },
+  { id: 4, title: "Pembuatan Pitch Deck", desc: "Slide deck presentasi produk untuk demo akhir", date: "30 Juni 2026", type: "Tugas", priority: "Tinggi", status: "done", done: true, orang: ["A", "N"], riwayat: [{ name: "Andi Basudara", text: "telah menyelesaikan tugas ini", time: "3 hari lalu" }, { name: "Aisha", text: "melakukan revisi presentasi", time: "5 hari lalu" }], komentar: [] },
+  { id: 5, title: "Testing & QA Aplikasi", desc: "Melakukan pengujian fitur dan dokumentasi bug", date: "11 Juli 2026", type: "Bug", priority: "Tinggi", status: "todo", done: false, orang: ["M"], riwayat: [{ name: "Nurul", text: "memeriksa daftar bug", time: "baru saja" }, { name: "Citra Lestari", text: "telah membuat skenario testing", time: "kemarin" }], komentar: [] },
+  { id: 6, title: "Deploy ke Staging Server", desc: "Deploy aplikasi ke environment staging untuk review", date: "25 Juli 2026", type: "Fitur", priority: "Sedang", status: "todo", done: false, orang: ["A", "M", "N"], riwayat: [{ name: "Myesha", text: "mengatur variabel environment", time: "kemarin" }, { name: "Eko Pratama", text: "telah mempersiapkan server", time: "2 hari lalu" }], komentar: [] },
 ];
 
 const memberColors = ["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-rose-400", "bg-sky-400", "bg-indigo-400"];
@@ -41,7 +41,7 @@ const userAvatars = {
 export default function TeamDetailPage({ params }) {
   const unwrappedParams = React.use ? React.use(params) : params;
   const teamId = unwrappedParams?.id || "1";
-  
+
   const [team, setTeam] = useState(teamsData[teamId] || teamsData["1"]);
   const [showTeamMembersDrop, setShowTeamMembersDrop] = useState(false);
   const teamMembersRef = React.useRef(null);
@@ -64,15 +64,15 @@ export default function TeamDetailPage({ params }) {
   const [showAddMemberDrop, setShowAddMemberDrop] = useState(false);
   const [showTeamActionsDrop, setShowTeamActionsDrop] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
-  
+
   const addMemberRef = React.useRef(null);
   const teamActionsRef = React.useRef(null);
 
   React.useEffect(() => {
     function handleClickOutside(event) {
-      if (teamMembersRef.current && !teamMembersRef.current.contains(event.target) && 
-          addMemberRef.current && !addMemberRef.current.contains(event.target) &&
-          teamActionsRef.current && !teamActionsRef.current.contains(event.target)) {
+      if (teamMembersRef.current && !teamMembersRef.current.contains(event.target) &&
+        addMemberRef.current && !addMemberRef.current.contains(event.target) &&
+        teamActionsRef.current && !teamActionsRef.current.contains(event.target)) {
         setShowTeamMembersDrop(false);
         setShowAddMemberDrop(false);
         setShowTeamActionsDrop(false);
@@ -111,7 +111,7 @@ export default function TeamDetailPage({ params }) {
     if (role === "mentor" && (loadedTeam.id === "5" || loadedTeam.id === "6")) {
       loadedTeam.mentor = nameVal || "Mentor";
     }
-    
+
     if ((role === "pemagang" || role === "intern") && (loadedTeam.id === "1" || loadedTeam.id === "4")) {
       const initial = nameVal ? nameVal.charAt(0).toUpperCase() : "";
       if (initial && !loadedTeam.members.includes(initial)) {
@@ -139,7 +139,7 @@ export default function TeamDetailPage({ params }) {
           console.error("Failed to parse tasks:", e);
         }
       }
-      
+
       // If a newly created team accidentally got populated with initialTasks due to the previous bug, clear it:
       if (!isDefaultTeam && nextTasks.length === initialTasks.length && JSON.stringify(nextTasks) === JSON.stringify(initialTasks)) {
         nextTasks = [];
@@ -148,6 +148,36 @@ export default function TeamDetailPage({ params }) {
       setTasks(nextTasks);
       loadedTeamIdRef.current = teamId;
       setIsLoaded(true);
+
+      const syncTasks = () => {
+        const currentStored = localStorage.getItem(`sipantau_tasks_${teamId}`);
+        if (currentStored) {
+          try {
+            const parsed = JSON.parse(currentStored);
+            setTasks(prev => {
+              if (JSON.stringify(prev) !== currentStored) return parsed;
+              return prev;
+            });
+          } catch(err) {}
+        }
+      };
+
+      const handleStorageChange = (e) => {
+        if (e.key === `sipantau_tasks_${teamId}`) {
+          syncTasks();
+        }
+      };
+
+      window.addEventListener("storage", handleStorageChange);
+      window.addEventListener("sipantau-profile-updated", syncTasks);
+
+      const intervalId = setInterval(syncTasks, 2000);
+
+      return () => {
+        window.removeEventListener("storage", handleStorageChange);
+        window.removeEventListener("sipantau-profile-updated", syncTasks);
+        clearInterval(intervalId);
+      };
     }
   }, [teamId, isDefaultTeam]);
 
@@ -204,7 +234,7 @@ export default function TeamDetailPage({ params }) {
         </div>
 
         <div className="relative flex items-center gap-1" ref={teamMembersRef}>
-          <div 
+          <div
             className="flex -space-x-2 cursor-pointer hover:opacity-90 transition-opacity mr-2"
             onClick={() => {
               if (isMentorOrAdmin) {
@@ -221,13 +251,13 @@ export default function TeamDetailPage({ params }) {
               const currentName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
               const currentEmail = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
               let avatar = userAvatars[m];
-              
+
               if (currentName && m === currentName.charAt(0).toUpperCase()) {
                 const stored = typeof window !== "undefined" && currentEmail ? localStorage.getItem(`sipantau_avatar_${currentEmail.toLowerCase()}`) : null;
                 if (stored) avatar = stored;
                 else avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentName)}&background=f1f5f9&color=64748b&bold=true`;
               }
-              
+
               return avatar ? (
                 <img key={i} src={avatar} alt={m} className="w-8 h-8 rounded-full border-2 border-white object-cover shadow-sm" />
               ) : (
@@ -237,10 +267,10 @@ export default function TeamDetailPage({ params }) {
               );
             })}
           </div>
-          
+
           {isMentorOrAdmin && (
             <div className="relative" ref={addMemberRef}>
-              <div 
+              <div
                 onClick={() => {
                   setShowAddMemberDrop(!showAddMemberDrop);
                   setShowTeamMembersDrop(false);
@@ -250,7 +280,7 @@ export default function TeamDetailPage({ params }) {
               >
                 +
               </div>
-              
+
               {/* Manage Members Dropdown */}
               {showAddMemberDrop && (
                 <div className="absolute top-full right-0 mt-2 bg-white border border-slate-100 shadow-xl rounded-xl p-3 z-[100] w-64 text-left">
@@ -266,80 +296,80 @@ export default function TeamDetailPage({ params }) {
                     {availableMembers
                       .filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()))
                       .map((m, idx) => {
-                      const isMember = team.members.includes(m.id);
-                      let avatar = userAvatars[m.id];
-                      
-                      const currentName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
-                      const currentEmail = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
-                      if (currentName && m.id === currentName.charAt(0).toUpperCase()) {
-                        const stored = typeof window !== "undefined" && currentEmail ? localStorage.getItem(`sipantau_avatar_${currentEmail.toLowerCase()}`) : null;
-                        if (stored) avatar = stored;
-                        else avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentName)}&background=f1f5f9&color=64748b&bold=true`;
-                      }
+                        const isMember = team.members.includes(m.id);
+                        let avatar = userAvatars[m.id];
 
-                      return (
-                        <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
-                          <div className="flex items-center gap-3">
-                            {avatar ? (
-                              <img src={avatar} alt={m.id} className="w-6 h-6 rounded-full object-cover shadow-sm shrink-0" />
+                        const currentName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
+                        const currentEmail = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
+                        if (currentName && m.id === currentName.charAt(0).toUpperCase()) {
+                          const stored = typeof window !== "undefined" && currentEmail ? localStorage.getItem(`sipantau_avatar_${currentEmail.toLowerCase()}`) : null;
+                          if (stored) avatar = stored;
+                          else avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentName)}&background=f1f5f9&color=64748b&bold=true`;
+                        }
+
+                        return (
+                          <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+                            <div className="flex items-center gap-3">
+                              {avatar ? (
+                                <img src={avatar} alt={m.id} className="w-6 h-6 rounded-full object-cover shadow-sm shrink-0" />
+                              ) : (
+                                <div className={`w-6 h-6 rounded-full ${memberColors[idx % memberColors.length]} flex items-center justify-center text-white text-[9px] font-bold shadow-sm shrink-0`}>
+                                  {m.id}
+                                </div>
+                              )}
+                              <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
+                            </div>
+                            {isMember ? (
+                              <button
+                                onClick={() => {
+                                  const newMembers = team.members.filter(memId => memId !== m.id);
+                                  const newTeam = { ...team, members: newMembers };
+                                  setTeam(newTeam);
+
+                                  // Save to localStorage if not default team (or even if default)
+                                  const saved = localStorage.getItem("sipantau_teams");
+                                  if (saved) {
+                                    try {
+                                      const parsed = JSON.parse(saved);
+                                      const idx = parsed.findIndex(t => t.id === team.id);
+                                      if (idx !== -1) {
+                                        parsed[idx] = newTeam;
+                                        localStorage.setItem("sipantau_teams", JSON.stringify(parsed));
+                                      }
+                                    } catch (e) { }
+                                  }
+                                }}
+                                className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
                             ) : (
-                              <div className={`w-6 h-6 rounded-full ${memberColors[idx % memberColors.length]} flex items-center justify-center text-white text-[9px] font-bold shadow-sm shrink-0`}>
-                                {m.id}
-                              </div>
+                              <button
+                                onClick={() => {
+                                  const newMembers = [...team.members, m.id];
+                                  const newTeam = { ...team, members: newMembers };
+                                  setTeam(newTeam);
+
+                                  const saved = localStorage.getItem("sipantau_teams");
+                                  if (saved) {
+                                    try {
+                                      const parsed = JSON.parse(saved);
+                                      const idx = parsed.findIndex(t => t.id === team.id);
+                                      if (idx !== -1) {
+                                        parsed[idx] = newTeam;
+                                        localStorage.setItem("sipantau_teams", JSON.stringify(parsed));
+                                      }
+                                    } catch (e) { }
+                                  }
+                                }}
+                                className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                              </button>
                             )}
-                            <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
                           </div>
-                          {isMember ? (
-                            <button 
-                              onClick={() => {
-                                const newMembers = team.members.filter(memId => memId !== m.id);
-                                const newTeam = { ...team, members: newMembers };
-                                setTeam(newTeam);
-                                
-                                // Save to localStorage if not default team (or even if default)
-                                const saved = localStorage.getItem("sipantau_teams");
-                                if (saved) {
-                                  try {
-                                    const parsed = JSON.parse(saved);
-                                    const idx = parsed.findIndex(t => t.id === team.id);
-                                    if (idx !== -1) {
-                                      parsed[idx] = newTeam;
-                                      localStorage.setItem("sipantau_teams", JSON.stringify(parsed));
-                                    }
-                                  } catch (e) {}
-                                }
-                              }}
-                              className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={() => {
-                                const newMembers = [...team.members, m.id];
-                                const newTeam = { ...team, members: newMembers };
-                                setTeam(newTeam);
-                                
-                                const saved = localStorage.getItem("sipantau_teams");
-                                if (saved) {
-                                  try {
-                                    const parsed = JSON.parse(saved);
-                                    const idx = parsed.findIndex(t => t.id === team.id);
-                                    if (idx !== -1) {
-                                      parsed[idx] = newTeam;
-                                      localStorage.setItem("sipantau_teams", JSON.stringify(parsed));
-                                    }
-                                  } catch (e) {}
-                                }
-                              }}
-                              className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 </div>
               )}
@@ -360,18 +390,18 @@ export default function TeamDetailPage({ params }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
                 </svg>
               </button>
-              
+
               {/* Team Actions Dropdown */}
               {showTeamActionsDrop && (
                 <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-slate-100 shadow-xl rounded-xl p-1.5 z-[60]">
-                  <button 
+                  <button
                     onClick={() => setShowTeamActionsDrop(false)}
                     className="flex items-center justify-between px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-violet-600 transition-colors text-left w-full rounded-lg cursor-pointer"
                   >
                     Edit Kelompok
                     <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       if (window.confirm("Hapus kelompok ini?")) {
                         const saved = localStorage.getItem("sipantau_teams");
@@ -381,7 +411,7 @@ export default function TeamDetailPage({ params }) {
                             const updated = parsed.filter(t => t.id !== team.id);
                             localStorage.setItem("sipantau_teams", JSON.stringify(updated));
                             // Also update deleted teams if needed, but for now just redirect
-                          } catch (e) {}
+                          } catch (e) { }
                         }
                         router.push("/dashboard/team");
                       }
@@ -395,7 +425,7 @@ export default function TeamDetailPage({ params }) {
               )}
             </div>
           )}
-          
+
           {(!isMentorOrAdmin && showTeamMembersDrop) && (
             <div className="absolute top-full right-0 mt-2 bg-white border border-slate-100 shadow-xl rounded-xl p-3 z-[100] w-64 text-left">
               <div className="text-center text-xs font-bold text-slate-700 mb-3 pb-2 border-b border-slate-100">Anggota Kelompok</div>
@@ -403,7 +433,7 @@ export default function TeamDetailPage({ params }) {
                 {team.members.map((m, idx) => {
                   let fullName = "Anggota " + m;
                   let avatar = userAvatars[m];
-                  
+
                   if (m === "A") fullName = "Aisha Alida Putri";
                   else if (m === "M") fullName = "Myesha Azka Hafizha";
                   else if (m === "N") fullName = "Nurul Kumala";
@@ -416,11 +446,11 @@ export default function TeamDetailPage({ params }) {
                   else if (m === "F") fullName = "Fajar Nugraha";
                   else if (m === "G") fullName = "Gita Savitri";
                   else if (m === "I") fullName = "Indra Maulana";
-                  
+
                   const currentUserFullName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
                   const currentEmail = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
                   const currentInitial = currentUserFullName ? currentUserFullName.charAt(0).toUpperCase() : "";
-                  
+
                   if (currentUserFullName && m === currentInitial) {
                     fullName = currentUserFullName + " (Anda)";
                     const stored = typeof window !== "undefined" && currentEmail ? localStorage.getItem(`sipantau_avatar_${currentEmail.toLowerCase()}`) : null;
@@ -454,8 +484,8 @@ export default function TeamDetailPage({ params }) {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex-1 pb-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-all ${activeTab === tab.id
-                ? "border-violet-600 text-violet-700"
-                : "border-transparent text-slate-400 hover:text-slate-600"
+              ? "border-violet-600 text-violet-700"
+              : "border-transparent text-slate-400 hover:text-slate-600"
               }`}
           >
             <span className="text-base">{tab.icon}</span>

@@ -33,7 +33,21 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
 
   const toggleTaskCheckbox = (id, e) => {
     e.stopPropagation();
-    setTasks(tasks.map((t) => t.id === id ? { ...t, done: !t.done, status: !t.done ? "done" : "todo" } : t));
+    const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
+    setTasks(tasks.map((t) => {
+      if (t.id === id) {
+        const isNowDone = !t.done;
+        const newStatus = isNowDone ? "done" : "todo";
+        const newRiwayat = { name: activeUserName, text: isNowDone ? "telah menyelesaikan tugas ini" : "membatalkan status selesai pada tugas ini", time: "baru saja", timestamp: Date.now() };
+        return { ...t, done: isNowDone, status: newStatus, riwayat: [newRiwayat, ...(t.riwayat || [])] };
+      }
+      return t;
+    }));
+    setTimeout(() => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("sipantau-profile-updated"));
+      }
+    }, 100);
   };
 
   const getPriorityStyle = (priority) => {

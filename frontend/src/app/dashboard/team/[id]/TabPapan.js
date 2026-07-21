@@ -35,7 +35,7 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
   const [showTypeDrop, setShowTypeDrop] = useState(false);
   const [showPriorityDrop, setShowPriorityDrop] = useState(false);
   const [showAssignDrop, setShowAssignDrop] = useState(false);
-  
+
   const dynamicMembers = [
     { name: "Aisha Alida Putri", initial: "A", avatar: userAvatars["A"] },
     { name: "Myesha Azka Hafizha", initial: "M", avatar: userAvatars["M"] },
@@ -65,8 +65,8 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-  const shortMonthNames = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+  const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  const shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
   const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
   const getFirstDay = (y, m) => { const d = new Date(y, m, 1).getDay(); return d === 0 ? 6 : d - 1; };
@@ -83,7 +83,7 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
       status,
       done: false,
       orang: newOrang.length > 0 ? newOrang : ["A"],
-      riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
+      riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja", timestamp: Date.now() }],
       komentar: [],
     };
     setTasks([...tasks, newTask]);
@@ -92,6 +92,11 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
     setNewOrang(["A"]);
     setShowAddForm(null);
     setShowCalendar(false);
+    setTimeout(() => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("sipantau-profile-updated"));
+      }
+    }, 100);
   };
 
   const handleDeleteTask = (id) => {
@@ -107,8 +112,23 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
   const handleDrop = (e, status) => {
     e.preventDefault();
     if (!draggedTaskId) return;
-    setTasks(tasks.map(t => t.id === draggedTaskId ? { ...t, status } : t));
+    const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
+    const statusText = status === "done" ? "Selesai" : status === "inprogress" ? "In Progress" : status === "review" ? "In Review" : "To Do";
+    setTasks(tasks.map(t => {
+      if (t.id === draggedTaskId) {
+        if (t.status !== status) {
+          const newRiwayat = { name: activeUserName, text: `telah memindahkan tugas ke ${statusText}`, time: "baru saja", timestamp: Date.now() };
+          return { ...t, status, riwayat: [newRiwayat, ...(t.riwayat || [])] };
+        }
+      }
+      return t;
+    }));
     setDraggedTaskId(null);
+    setTimeout(() => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("sipantau-profile-updated"));
+      }
+    }, 100);
   };
 
   const getPriorityBadge = (priority) => {
@@ -243,7 +263,7 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
                 />
 
                 <div className="flex flex-col divide-y divide-slate-100 pt-1">
-                  
+
                   {/* Tipe / Label */}
                   <div className="flex items-center justify-between py-2.5 relative">
                     <div className="flex items-center gap-4">
@@ -259,13 +279,13 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
                     </button>
                     {showTypeDrop && (
                       <div className="absolute left-10 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-2 z-30 w-32 flex flex-col gap-1">
-                        {["Tugas","Fitur","Bug","Aset"].map(t => (
-                          <button key={t} onClick={() => {setNewType(t); setShowTypeDrop(false);}} className="text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 px-2 py-1.5 rounded-lg">{t}</button>
+                        {["Tugas", "Fitur", "Bug", "Aset"].map(t => (
+                          <button key={t} onClick={() => { setNewType(t); setShowTypeDrop(false); }} className="text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 px-2 py-1.5 rounded-lg">{t}</button>
                         ))}
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Prioritas */}
                   <div className="flex items-center justify-between py-2.5 relative">
                     <div className="flex items-center gap-4">
@@ -281,13 +301,13 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
                     </button>
                     {showPriorityDrop && (
                       <div className="absolute left-10 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-2 z-30 w-32 flex flex-col gap-1">
-                        {["Tertinggi","Tinggi","Sedang","Rendah"].map(p => (
-                          <button key={p} onClick={() => {setNewPriority(p); setShowPriorityDrop(false);}} className="text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 px-2 py-1.5 rounded-lg">{p}</button>
+                        {["Tertinggi", "Tinggi", "Sedang", "Rendah"].map(p => (
+                          <button key={p} onClick={() => { setNewPriority(p); setShowPriorityDrop(false); }} className="text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 px-2 py-1.5 rounded-lg">{p}</button>
                         ))}
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Orang/Assignee */}
                   <div className="flex items-center justify-between py-2.5 relative">
                     <div className="flex items-center gap-4">
@@ -332,7 +352,7 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Calendar / Date */}
                   <div className="flex items-center justify-between py-2.5 relative">
                     <div className="flex items-center gap-4">
@@ -340,9 +360,9 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       {newDate && (
-                         <button onClick={() => setShowCalendar(!showCalendar)} className="text-[11px] font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full outline-none">
-                           {newDate}
-                         </button>
+                        <button onClick={() => setShowCalendar(!showCalendar)} className="text-[11px] font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full outline-none">
+                          {newDate}
+                        </button>
                       )}
                     </div>
                     <button onClick={() => setShowCalendar(!showCalendar)} className="w-4 h-4 rounded-full border border-dashed border-slate-400 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-500 transition-colors">
@@ -354,15 +374,15 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
                         <div className="flex items-center justify-between text-[10px] font-bold text-slate-800 border-b pb-1.5 mb-1.5">
                           <span>{monthNames[calMonth]} {calYear}</span>
                           <div className="flex gap-1">
-                            <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear-1); } else setCalMonth(calMonth-1); }} className="px-1.5 hover:bg-slate-100 rounded">&lt;</button>
-                            <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear+1); } else setCalMonth(calMonth+1); }} className="px-1.5 hover:bg-slate-100 rounded">&gt;</button>
+                            <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); }} className="px-1.5 hover:bg-slate-100 rounded">&lt;</button>
+                            <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); }} className="px-1.5 hover:bg-slate-100 rounded">&gt;</button>
                           </div>
                         </div>
                         <div className="grid grid-cols-7 gap-1 text-center text-[9px] font-bold">
-                          {["S","S","R","K","J","S","M"].map((d,i) => <span key={i} className="text-slate-400">{d}</span>)}
-                          {Array.from({length: getFirstDay(calYear, calMonth)}).map((_,i) => <span key={i}/>)}
-                          {[...Array(getDaysInMonth(calYear, calMonth))].map((_,i) => {
-                            const d = i+1;
+                          {["S", "S", "R", "K", "J", "S", "M"].map((d, i) => <span key={i} className="text-slate-400">{d}</span>)}
+                          {Array.from({ length: getFirstDay(calYear, calMonth) }).map((_, i) => <span key={i} />)}
+                          {[...Array(getDaysInMonth(calYear, calMonth))].map((_, i) => {
+                            const d = i + 1;
                             const dateStr = `${d} ${shortMonthNames[calMonth]} ${calYear}`;
                             return (
                               <button key={d} onClick={() => { setNewDate(dateStr); setShowCalendar(false); }}
