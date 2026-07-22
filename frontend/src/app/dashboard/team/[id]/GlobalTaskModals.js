@@ -17,18 +17,18 @@ const parseTaskDate = (dateStr) => {
   return { day, month, year };
 };
 
-const getUserAvatar = (name) => {
+const getUserAvatar = (name, team) => {
+  if (team && team.membersList) {
+    const member = team.membersList.find(m => m.full_name?.toLowerCase() === name?.toLowerCase());
+    if (member && member.avatar_url) return member.avatar_url;
+  }
   const currentName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
   const currentEmail = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
   if (currentName && name && currentName.trim().toLowerCase() === name.trim().toLowerCase()) {
     const stored = typeof window !== "undefined" && currentEmail ? localStorage.getItem(`sipantau_avatar_${currentEmail.toLowerCase()}`) : null;
     if (stored) return stored;
   }
-  if (name === "Myesha Azka" || name === "Myesha Azka Hafizha") return "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=50&h=50&q=80";
-  if (name === "Nurul Kumala") return "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=50&h=50&q=80";
-  if (name === "Aisha Alida Putri") return "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=50&h=50&q=80";
-  if (name === "Andi Basudara") return "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=50&h=50&q=80";
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=f1f5f9&color=64748b&bold=true`;
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "User")}&background=f1f5f9&color=64748b&bold=true`;
 };
 
 const monthNamesGlobal = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -69,6 +69,7 @@ export default function GlobalTaskModals({
   setIsAddingTask,
   setTaskToDelete,
   team,
+  
 }) {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
@@ -100,7 +101,7 @@ export default function GlobalTaskModals({
         id: member.id,
         name: member.full_name,
         initial: member.full_name ? member.full_name.charAt(0).toUpperCase() : "?",
-        avatar: member.avatar_url || getUserAvatar(member.full_name),
+        avatar: member.avatar_url || getUserAvatar(member.full_name, team),
         color: "bg-slate-400"
       }))
     : dynamicMembers;
@@ -284,15 +285,23 @@ export default function GlobalTaskModals({
       description: updated.desc,
       status: dbStatus,
       type: updated.type,
-      priority: updated.priority === "Tertinggi" ? "urgent" : updated.priority === "Tinggi" ? "high" : updated.priority === "Sedang" ? "medium" : "low"
+      priority: updated.priority === "Tertinggi" ? "high" : updated.priority === "Tinggi" ? "high" : updated.priority === "Sedang" ? "medium" : "low"
     };
 
+    let meta = {};
+    if (updated.priority === "Tertinggi") meta.priority = "urgent";
+
     if (updates.orang && updates.orang.length > 0) {
-      const selectedMember = filteredMembers.find(m => m.initial === updates.orang[0]);
-      if (selectedMember && selectedMember.id) {
-        dbUpdates.assigned_to = selectedMember.id;
-        updated.assigned_to = selectedMember.id;
+      // Find the user IDs based on the initials
+      const memberIds = updates.orang.map(initial => filteredMembers.find(m => m.initial === initial)?.id).filter(Boolean);
+      if (memberIds.length > 0) {
+        dbUpdates.assigned_to = memberIds[0];
+        if (memberIds.length > 1) meta.assignees = memberIds;
       }
+    }
+    
+    if (Object.keys(meta).length > 0) {
+      dbUpdates.description = `${dbUpdates.description || ""} <!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
     }
 
     updateTask(selectedTask.id, dbUpdates).catch(e => console.error("Failed to update task", e));
@@ -970,7 +979,7 @@ export default function GlobalTaskModals({
                       {selectedTask.riwayat && selectedTask.riwayat.map((hist, i) => (
                         <div key={`hist-${i}`} className="flex items-start gap-3">
                           <img
-                            src={getUserAvatar(hist.name)}
+                            src={getUserAvatar(hist.name, team)}
                             alt="avatar"
                             className="w-7 h-7 rounded-full object-cover border border-slate-100 shrink-0"
                           />
@@ -1000,7 +1009,7 @@ export default function GlobalTaskModals({
                       }).map((comment, i) => (
                         <div key={`com-${i}`} className="flex items-start gap-3">
                           <img
-                            src={getUserAvatar(comment.name)}
+                            src={getUserAvatar(comment.name, team)}
                             alt="avatar"
                             className="w-8 h-8 rounded-full object-cover border border-slate-100 shrink-0"
                           />
@@ -1017,7 +1026,7 @@ export default function GlobalTaskModals({
 
                     <div className="flex items-start gap-3 pt-2 shrink-0">
                       <img
-                        src={getUserAvatar(typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara")}
+                        src={getUserAvatar(typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara", team)}
                         alt="avatar"
                         className="w-8 h-8 rounded-full object-cover border border-slate-100 shrink-0 mt-0.5"
                       />
@@ -1213,31 +1222,6 @@ style={
                   {/* Status Tugas (Hidden visually but kept logically, or just defaulted since isAddingTask provides it) */}
                 </div>
 
-                {/* Action Button */}
-                <button
-                  onClick={() => {
-                    if (!addTitle.trim()) {
-                      alert("Judul tugas tidak boleh kosong!");
-                      return;
-                    }
-                    const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
-                    const newTask = {
-                      id: Date.now(),
-                      title: addTitle,
-                      desc: addDesc || "Tidak ada deskripsi",
-                      date: addDate,
-                      type: addType,
-                      priority: addPriority,
-                      status: addStatus,
-                      done: addStatus === "done",
-                      orang: addOrang.length > 0 ? addOrang : ["A"],
-                      riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja", timestamp: Date.now() }],
-                      komentar: [],
-                    };
-                    setTasks([...tasks, newTask]);
-                    setIsAddingTask(null);
-                    setActiveDropdown(null);
-
               {/* Action Button */}
               <button
                 onClick={async () => {
@@ -1251,7 +1235,7 @@ style={
                   if (dbStatus === "done") dbStatus = "completed";
                   else if (dbStatus === "inprogress") dbStatus = "in_progress";
 
-                  const mappedPriority = addPriority === "Tertinggi" ? "urgent" : addPriority === "Tinggi" ? "high" : addPriority === "Sedang" ? "medium" : "low";
+                  const mappedPriority = addPriority === "Tertinggi" ? "high" : addPriority === "Tinggi" ? "high" : addPriority === "Sedang" ? "medium" : "low";
 
                   // Parse date
                   const parsedDate = parseTaskDate(addDate);
@@ -1261,10 +1245,14 @@ style={
                   }
                   
                   let assignedToId = null;
+                  let meta = {};
+                  if (addPriority === "Tertinggi") meta.priority = "urgent";
+                  
                   if (addOrang.length > 0) {
-                     const member = filteredMembers.find(m => m.initial === addOrang[0]);
-                     if (member && member.id) {
-                       assignedToId = member.id;
+                     const memberIds = addOrang.map(initial => filteredMembers.find(m => m.initial === initial)?.id).filter(Boolean);
+                     if (memberIds.length > 0) {
+                       assignedToId = memberIds[0];
+                       if (memberIds.length > 1) meta.assignees = memberIds;
                      }
                   }
 
@@ -1278,15 +1266,19 @@ style={
                     group_id: team?.id || "1",
                     assigned_to: assignedToId
                   };
+                  
+                  if (Object.keys(meta).length > 0) {
+                     newTaskData.description = `${newTaskData.description || ""} <!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
+                  }
 
                   try {
                     const createdTask = await createTask(newTaskData);
                     
                     const newTask = {
                       id: createdTask.id,
-                      title: addTitle,
+                      title: createdTask.title,
                       desc: addDesc || "Tidak ada deskripsi",
-                      date: addDate,
+                      date: parsedDate ? `${parsedDate.day} ${monthNames[parsedDate.month]} ${parsedDate.year}` : "",
                       type: addType,
                       priority: addPriority,
                       status: addStatus,
@@ -1308,8 +1300,9 @@ style={
               </button>
             </div>
           </div>
-        </>
-      )}
+        </div>
+      </>
+    )}
       {renderFloatingDropdown()}
     </>
   );

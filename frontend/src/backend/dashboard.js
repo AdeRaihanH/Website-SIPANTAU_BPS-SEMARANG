@@ -31,7 +31,7 @@ export async function getAdminStats() {
 export async function getPersonalStats(userId) {
   const { data, error } = await supabase
     .from("tasks")
-    .select("status")
+    .select("status, due_date")
     .eq("assigned_to", userId);
 
   if (error) throw error;
@@ -41,10 +41,27 @@ export async function getPersonalStats(userId) {
   let overdue = 0;
   let updated = 0;
 
-  // Simple logic for demonstration based on fetched tasks
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   data.forEach(t => {
-    if (t.status === "Selesai" || t.status === "completed") completed++;
-    else scheduled++;
+    const isDone = t.status === "done" || t.status === "completed" || t.status === "Selesai";
+    
+    if (isDone) {
+      completed++;
+    } else {
+      if (t.status === "todo") scheduled++;
+      else if (t.status === "inprogress" || t.status === "review" || t.status === "in_progress") updated++;
+      else scheduled++; // fallback
+
+      if (t.due_date) {
+        const [year, month, day] = t.due_date.split('-');
+        const taskDate = new Date(year, month - 1, day);
+        if (taskDate < today) {
+          overdue++;
+        }
+      }
+    }
   });
 
   return { completed, scheduled, updated, overdue };
@@ -53,14 +70,31 @@ export async function getPersonalStats(userId) {
 /**
  * Get personal activity logs
  */
-export async function getPersonalLogs(userId) {
-  const { data, error } = await supabase
+export async function getPersonalLogs(userId, role) {
+  let query = supabase
     .from("activity_logs")
-    .select("*, task:tasks(title)")
-    .eq("user_id", userId)
+    .select("*, task:tasks(title), profiles:user_id(full_name, avatar_url)")
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(20);
 
+  if (role !== "admin") {
+    // Get user's groups
+    const { data: groups } = await supabase
+      .from(role === "mentor" ? "groups" : "group_members")
+      .select(role === "mentor" ? "id" : "group_id")
+      .eq(role === "mentor" ? "mentor_id" : "user_id", userId);
+      
+    const groupIds = groups ? groups.map(g => role === "mentor" ? g.id : g.group_id) : [];
+    
+    if (groupIds.length > 0) {
+      query = query.in("group_id", groupIds);
+    } else {
+      // Fallback: only their own logs if no groups
+      query = query.eq("user_id", userId);
+    }
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data;
 }
@@ -68,14 +102,24 @@ export async function getPersonalLogs(userId) {
 /**
  * Log a new activity
  */
-export async function logActivity(userId, description, taskId = null) {
+export async function logActivity(userId, description, taskId = null, explicitGroupId = null) {
   if (!userId) return;
+  
+  let group_id = explicitGroupId;
+  if (!group_id && taskId) {
+    const { data: task } = await supabase.from("tasks").select("group_id").eq("id", taskId).single();
+    if (task && task.group_id) {
+      group_id = task.group_id;
+    }
+  }
+
   const { error } = await supabase
     .from("activity_logs")
     .insert({
       user_id: userId,
       description,
-      task_id: taskId
+      task_id: taskId,
+      group_id: group_id
     });
 
   if (error) {

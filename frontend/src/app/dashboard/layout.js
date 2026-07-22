@@ -21,7 +21,11 @@ export default function DashboardLayout({ children }) {
     try {
       const user = await getActiveUser();
       if (!user) {
-        router.push("/");
+        // Fallback check: if there's evidence they are logged in, don't kick them out yet
+        const localName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
+        if (!localName) {
+          router.push("/");
+        }
         return;
       }
       const profile = await getProfile(user.id);

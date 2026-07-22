@@ -22,7 +22,8 @@ function isOverdue(task) {
   const parsed = parseTaskDate(task.date);
   if (!parsed) return false;
   const taskDate = new Date(parsed.year, parsed.month, parsed.day);
-  const today = new Date(2026, 6, 11); // Hardcoded today as 11 Juli 2026 for consistency
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   return taskDate < today;
 }
 
@@ -76,25 +77,25 @@ export default function TabDashboard({ tasks = [], activityLogs = [] }) {
   const maxTypeCount = Math.max(...typeCounts, 1);
 
   // 4. Activity Logs (Extract and sort by recency)
-const logs = (
-  activityLogs && activityLogs.length > 0
-    ? activityLogs
-    : tasks.flatMap(t =>
-        (t.riwayat || []).map(r => ({
-          ...r,
-          taskTitle: t.title,
+  const logs = (
+    activityLogs && activityLogs.length > 0
+      ? activityLogs.map(log => ({
+          name: log.profiles?.full_name || "Seseorang",
+          avatar: log.profiles?.avatar_url || null,
+          text: log.description || "telah beraktivitas",
+          taskTitle: log.tasks?.title || "",
+          time: new Date(log.created_at).toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+          timestamp: new Date(log.created_at).getTime()
         }))
-      )
-)
-  .sort((a, b) => {
-    const timeDiff = parseRelativeTime(a.time) - parseRelativeTime(b.time);
-    if (timeDiff !== 0) return timeDiff;
-    if (a.timestamp && b.timestamp) return b.timestamp - a.timestamp;
-    if (a.timestamp) return -1;
-    if (b.timestamp) return 1;
-    return 0;
-  })
-  .slice(0, 20);
+      : tasks.flatMap(t =>
+          (t.riwayat || []).map(r => ({
+            ...r,
+            taskTitle: t.title,
+            timestamp: r.time ? new Date().getTime() - parseRelativeTime(r.time) * 86400000 : 0
+          }))
+        )
+  )
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
     .slice(0, 20); // Show top 20 sorted activities for scrolling
 
   const priorityColors = {
@@ -255,7 +256,7 @@ const logs = (
               <div key={index} className="flex items-center justify-between py-3.5">
                 <div className="flex items-center gap-3.5">
                   <img
-                    src={getUserAvatar(log.name)}
+                    src={log.avatar || getUserAvatar(log.name)}
                     alt="Avatar"
                     className="w-8 h-8 rounded-full object-cover border border-slate-100"
                   />

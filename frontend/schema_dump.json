@@ -1,0 +1,85 @@
+[
+  {
+    "id": "ee7d22e2-be59-48f2-b1b2-9e7b7e8f99f6",
+    "type": "Tugas",
+    "title": "ok",
+    "status": "in_progress",
+    "due_date": "2026-07-22",
+    "group_id": "35b0ebc3-bc3d-4971-a178-9ab492e0c2f9",
+    "priority": "urgent",
+    "created_at": "2026-07-21T16:40:45.732901+00:00",
+    "created_by": null,
+    "start_date": null,
+    "updated_at": "2026-07-22T17:20:50.195587+00:00",
+    "assigned_to": "42373729-f69b-4f19-bdea-adba486a9a45",
+    "description": "bbbbb",
+    "assignees": [
+      "42373729-f69b-4f19-bdea-adba486a9a45",
+      "e9cc66eb-fcf3-47db-85a5-b0773393afee"
+    ]
+  },
+  {
+    "id": "70f10dfe-34f1-4d70-9476-8a82154a1f3b",
+    "type": "Tugas",
+    "title": "OOO",
+    "status": "done",
+    "due_date": "2026-07-22",
+    "group_id": "35b0ebc3-bc3d-4971-a178-9ab492e0c2f9",
+    "priority": "medium",
+    "created_at": "2026-07-21T16:25:41.82286+00:00",
+    "created_by": null,
+    "start_date": null,
+    "updated_at": "2026-07-22T17:05:55.806465+00:00",
+    "assigned_to": "42373729-f69b-4f19-bdea-adba486a9a45",
+    "description": "BBB"
+  },
+  {
+    "id": "78a36358-6ac5-4dae-b6e9-a957e64e2dde",
+    "type": "Design",
+    "title": "yaaa",
+    "status": "done",
+    "due_date": "2026-07-18",
+    "group_id": "35b0ebc3-bc3d-4971-a178-9ab492e0c2f9",
+    "priority": "low",
+    "created_at": "2026-07-21T17:19:52.73347+00:00",
+    "created_by": null,
+    "start_date": null,
+    "updated_at": "2026-07-22T17:22:41.67239+00:00",
+    "assigned_to": "e9cc66eb-fcf3-47db-85a5-b0773393afee",
+    "description": "bbb"
+  },
+  {
+    "id": "a4f6616f-2ef6-4a52-8ad3-2c865b7cd2f8",
+    "type": "Tugas",
+    "title": "dd",
+    "status": "todo",
+    "due_date": "2026-07-18",
+    "group_id": "35b0ebc3-bc3d-4971-a178-9ab492e0c2f9",
+    "priority": "medium",
+    "created_at": "2026-07-22T06:49:13.433602+00:00",
+    "created_by": "72cdd02a-cb85-4737-9cde-c191ec3241cb",
+    "start_date": null,
+    "updated_at": "2026-07-22T17:37:45.750454+00:00",
+    "assigned_to": "e9cc66eb-fcf3-47db-85a5-b0773393afee",
+    "description": "dd"
+  },
+  {
+    "id": "aa83b8dc-209a-479c-986f-ac4594f72f17",
+    "type": "Aset",
+    "title": "backend",
+    "status": "review",
+    "due_date": "2026-07-21",
+    "group_id": "35b0ebc3-bc3d-4971-a178-9ab492e0c2f9",
+    "priority": "urgent",
+    "created_at": "2026-07-22T17:02:10.550678+00:00",
+    "created_by": null,
+    "start_date": null,
+    "updated_at": "2026-07-22T17:41:23.057298+00:00",
+    "assigned_to": "42373729-f69b-4f19-bdea-adba486a9a45",
+    "description": "oke oke yes",
+    "assignees": [
+      "42373729-f69b-4f19-bdea-adba486a9a45",
+      "e9cc66eb-fcf3-47db-85a5-b0773393afee"
+    ]
+  }
+]

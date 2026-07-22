@@ -70,7 +70,15 @@ export default function TeamDetailPage({ params }) {
       };
       setTeam(mappedTeam);
       
-      // The backend returns tasks inside teamDetails. Let's map them to the frontend format.
+      // Dump the first task to investigate the schema
+      if (teamDetails.tasks && teamDetails.tasks.length > 0) {
+        fetch('/api/dump-schema', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(teamDetails.tasks)
+        }).catch(e => console.error(e));
+      }
+      
       const mappedTasks = (teamDetails.tasks || []).map(t => ({
         id: t.id,
         title: t.title,
@@ -78,9 +86,16 @@ export default function TeamDetailPage({ params }) {
         date: t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' }) : "",
         type: t.type || "Tugas",
         priority: t.priority === "high" ? "Tinggi" : t.priority === "medium" ? "Sedang" : t.priority === "urgent" ? "Tertinggi" : "Rendah",
-        status: t.status === "completed" ? "done" : t.status === "in_progress" ? "inprogress" : "todo",
-        done: t.status === "completed",
-        orang: t.assigned_to ? [mappedTeam.membersList.find(m => m.id === t.assigned_to)?.full_name?.charAt(0).toUpperCase() || "A"] : [],
+        status: (t.status === "completed" || t.status === "done") ? "done" 
+              : (t.status === "in_progress" || t.status === "inprogress") ? "inprogress" 
+              : t.status === "review" ? "review" 
+              : "todo",
+        done: t.status === "completed" || t.status === "done",
+        orang: t.assignees && t.assignees.length > 0 
+               ? t.assignees.map(id => mappedTeam.membersList.find(m => m.id === id)?.full_name?.charAt(0).toUpperCase() || "A")
+               : t.assigned_to 
+                 ? [mappedTeam.membersList.find(m => m.id === t.assigned_to)?.full_name?.charAt(0).toUpperCase() || "A"] 
+                 : [],
         assigned_to: t.assigned_to,
         riwayat: [],
         komentar: [],
@@ -116,6 +131,7 @@ export default function TeamDetailPage({ params }) {
   const availableMembers = team?.membersList?.map(m => ({
     id: m.id,
     name: m.full_name,
+    avatar_url: m.avatar_url,
     initial: m.full_name?.charAt(0).toUpperCase()
   })) || [];
 
@@ -201,15 +217,7 @@ export default function TeamDetailPage({ params }) {
                       .filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()))
                       .map((m, idx) => {
                       const isMember = team.membersList.some(mem => mem.id === m.id);
-                      const avatar = m.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.full_name)}&background=f1f5f9&color=64748b&bold=true`;
-
-                        const currentName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
-                        const currentEmail = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
-                        if (currentName && m.id === currentName.charAt(0).toUpperCase()) {
-                          const stored = typeof window !== "undefined" && currentEmail ? localStorage.getItem(`sipantau_avatar_${currentEmail.toLowerCase()}`) : null;
-                          if (stored) avatar = stored;
-                          else avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentName)}&background=f1f5f9&color=64748b&bold=true`;
-                        }
+                      const avatar = m.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=f1f5f9&color=64748b&bold=true`;
 
                         return (
                           <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
@@ -223,55 +231,7 @@ export default function TeamDetailPage({ params }) {
                               )}
                               <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
                             </div>
-                            {isMember ? (
-                              <button
-                                onClick={() => {
-                                  const newMembers = team.members.filter(memId => memId !== m.id);
-                                  const newTeam = { ...team, members: newMembers };
-                                  setTeam(newTeam);
-
-                                  // Save to localStorage if not default team (or even if default)
-                                  const saved = localStorage.getItem("sipantau_teams");
-                                  if (saved) {
-                                    try {
-                                      const parsed = JSON.parse(saved);
-                                      const idx = parsed.findIndex(t => t.id === team.id);
-                                      if (idx !== -1) {
-                                        parsed[idx] = newTeam;
-                                        localStorage.setItem("sipantau_teams", JSON.stringify(parsed));
-                                      }
-                                    } catch (e) { }
-                                  }
-                                }}
-                                className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  const newMembers = [...team.members, m.id];
-                                  const newTeam = { ...team, members: newMembers };
-                                  setTeam(newTeam);
-
-                                  const saved = localStorage.getItem("sipantau_teams");
-                                  if (saved) {
-                                    try {
-                                      const parsed = JSON.parse(saved);
-                                      const idx = parsed.findIndex(t => t.id === team.id);
-                                      if (idx !== -1) {
-                                        parsed[idx] = newTeam;
-                                        localStorage.setItem("sipantau_teams", JSON.stringify(parsed));
-                                      }
-                                    } catch (e) { }
-                                  }
-                                }}
-                                className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                              </button>
-                            )}
-                          </div>
+                          
                           {isMember ? (
                             <button
                               onClick={async () => {
@@ -411,13 +371,14 @@ export default function TeamDetailPage({ params }) {
       <div className="flex-1 min-h-0 bg-slate-50/50 rounded-xl p-4 overflow-auto">
         {activeTab === "dashboard" && <TabDashboard tasks={tasks} activityLogs={teamActivityLogs} />}
         {activeTab === "list" && (
-          <TabList
-            tasks={tasks}
-            setTasks={setTasks}
-            setSelectedTask={setSelectedTask}
-            setIsAddingTask={setIsAddingTask}
-          />
-        )}
+        <TabList
+          tasks={tasks}
+          setTasks={setTasks}
+          setSelectedTask={setSelectedTask}
+          setIsAddingTask={setIsAddingTask}
+          members={team.membersList || []}
+        />
+      )}
         {activeTab === "papan" && (
           <TabPapan
             tasks={tasks}
@@ -425,6 +386,7 @@ export default function TeamDetailPage({ params }) {
             setSelectedTask={setSelectedTask}
             setTaskToDelete={setTaskToDelete}
             team={team}
+            members={team.membersList || []}
           />
         )}
         {activeTab === "kalender" && (
@@ -433,6 +395,7 @@ export default function TeamDetailPage({ params }) {
             setTasks={setTasks}
             setSelectedTask={setSelectedTask}
             team={team}
+            members={team.membersList || []}
           />
         )}
       </div>
@@ -446,6 +409,7 @@ export default function TeamDetailPage({ params }) {
         setIsAddingTask={setIsAddingTask}
         setTaskToDelete={setTaskToDelete}
         team={team}
+        members={team?.membersList || []}
       />
 
       {/* Custom Delete Confirmation Modal */}

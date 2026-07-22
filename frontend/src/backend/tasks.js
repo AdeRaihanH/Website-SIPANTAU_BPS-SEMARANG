@@ -11,6 +11,22 @@ export async function getGroupTasks(groupId) {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
+  
+  // Parse metadata from description
+  if (data) {
+    data.forEach(task => {
+      let match;
+      while ((match = task.description?.match(/<!-- SIPANTAU_META:(.*?) -->/))) {
+        try {
+          const meta = JSON.parse(match[1]);
+          if (meta.priority) task.priority = meta.priority;
+          if (meta.assignees) task.assignees = meta.assignees;
+        } catch(e) {}
+        task.description = task.description.replace(match[0], '').trim();
+      }
+    });
+  }
+  
   return data;
 }
 

@@ -21,11 +21,14 @@ export default function Dashboard() {
   const [personalStats, setPersonalStats] = useState({ completed: 0, scheduled: 0, updated: 0, overdue: 0 });
   const [activityLogs, setActivityLogs] = useState([]);
 
-  const loadProfile = async () => {
+  const checkAuth = async () => {
     try {
       const user = await getActiveUser();
       if (!user) {
-        router.push("/");
+        const localName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
+        if (!localName) {
+          router.push("/");
+        }
         return;
       }
       setUserId(user.id);
@@ -44,11 +47,14 @@ export default function Dashboard() {
           
           const stats = await getAdminStats();
           setAdminStats(stats);
+
+          const logs = await getPersonalLogs(user.id, role);
+          setActivityLogs(logs);
         } else {
           const stats = await getPersonalStats(user.id);
           setPersonalStats(stats);
           
-          const logs = await getPersonalLogs(user.id);
+          const logs = await getPersonalLogs(user.id, role);
           setActivityLogs(logs);
         }
       }
@@ -59,8 +65,8 @@ export default function Dashboard() {
 
   const pathname = typeof window !== "undefined" ? window.location.pathname : "";
   useEffect(() => {
-    loadProfile();
-    const handleUpdate = () => loadProfile();
+    checkAuth();
+    const handleUpdate = () => checkAuth();
     window.addEventListener('sipantau-avatar-updated', handleUpdate);
     window.addEventListener('sipantau-profile-updated', handleUpdate);
     return () => {
@@ -75,10 +81,18 @@ export default function Dashboard() {
   const handleDownloadPDF = async () => {
     try {
       const { getUserTasks } = await import("../../backend/tasks");
-      const tasks = await getUserTasks(userId);
+      const allTasks = await getUserTasks(userId);
       
-      const total = tasks.length;
-      const selesai = tasks.filter(t => t.status === "completed" || t.status === "done" || t.status === "Selesai").length;
+      const total = allTasks.length;
+      const selesai = allTasks.filter(t => t.status === "completed" || t.status === "done" || t.status === "Selesai").length;
+      const overdue = allTasks.filter(t => {
+        if (t.status === "done" || t.status === "completed" || !t.due_date) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const [year, month, day] = t.due_date.split('-');
+        const taskDate = new Date(year, month - 1, day);
+        return taskDate < today;
+      }).length;
       const proses = total - selesai;
       const progress = total === 0 ? 0 : Math.round((selesai / total) * 100);
 
@@ -88,55 +102,49 @@ export default function Dashboard() {
       printWindow.document.write(`
         <html>
           <head>
-            <title>Laporan Tugas & Perkembangan Magang - ${userFullName}</title>
+            <title>Laporan Aktivitas Pribadi - ${userFullName}</title>
             <style>
               body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
               h2 { text-align: center; margin-bottom: 30px; font-size: 24px; color: #111; }
               .info-container { margin-bottom: 30px; font-size: 14px; line-height: 1.6; }
               .info-row { display: flex; }
               .info-label { width: 180px; }
-              table { w-full; border-collapse: collapse; margin-top: 20px; width: 100%; font-size: 12px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
               th { background-color: #7c3aed; color: white; text-align: left; padding: 12px 15px; font-weight: 600; }
               td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; color: #475569; }
               tr:nth-child(even) { background-color: #f8fafc; }
-              .status-badge { padding: 4px 8px; border-radius: 9999px; font-weight: bold; font-size: 10px; }
               @media print {
                 body { padding: 0; }
               }
             </style>
           </head>
           <body>
-            <h2>Laporan Tugas & Perkembangan Magang</h2>
+            <h2>Laporan Log Aktivitas Pribadi</h2>
             <div class="info-container">
-              <div class="info-row"><div class="info-label">Nama Pemagang</div><div>: ${userFullName}</div></div>
-              <div class="info-row"><div class="info-label">Progress Penyelesaian</div><div>: ${progress}%</div></div>
-              <div class="info-row"><div class="info-label">Total Tugas Kelompok</div><div>: ${total} (${selesai} Selesai, ${proses} Proses)</div></div>
+              <div class="info-row"><div class="info-label">Nama Pengguna</div><div>: ${userFullName}</div></div>
+              <div class="info-row"><div class="info-label">Total Aktivitas</div><div>: ${activityLogs.length} Aktivitas Terbaru</div></div>
               <div class="info-row"><div class="info-label">Tanggal Cetak</div><div>: ${today}</div></div>
             </div>
             
             <table>
               <thead>
                 <tr>
-                  <th style="border-top-left-radius: 8px;">No</th>
-                  <th>Kelompok/Tim</th>
-                  <th>Nama Tugas</th>
-                  <th>Status</th>
-                  <th>Prioritas</th>
-                  <th style="border-top-right-radius: 8px;">Tenggat</th>
+                  <th style="border-top-left-radius: 8px; width: 50px;">No</th>
+                  <th>Waktu</th>
+                  <th>Aktivitas</th>
+                  <th style="border-top-right-radius: 8px;">Tugas Terkait</th>
                 </tr>
               </thead>
               <tbody>
-                ${tasks.map((t, idx) => `
+                ${activityLogs.map((log, idx) => `
                   <tr>
                     <td>${idx + 1}</td>
-                    <td>${t.group ? t.group.name : "-"}</td>
-                    <td style="font-weight: 600; color: #1e293b;">${t.title}</td>
-                    <td>${t.status}</td>
-                    <td>${t.priority}</td>
-                    <td>${t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-"}</td>
+                    <td>${new Date(log.created_at).toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: '2-digit', minute: '2-digit' })}</td>
+                    <td>${log.description || "Telah beraktivitas"}</td>
+                    <td>${log.task?.title || "-"}</td>
                   </tr>
                 `).join('')}
-                ${tasks.length === 0 ? '<tr><td colspan="6" style="text-align: center;">Tidak ada tugas</td></tr>' : ''}
+                ${activityLogs.length === 0 ? '<tr><td colspan="4" style="text-align: center;">Tidak ada aktivitas tercatat</td></tr>' : ''}
               </tbody>
             </table>
           </body>
@@ -281,6 +289,39 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+
+            {/* Log Aktivitas Sistem - Admin */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-4 mt-6">
+              <div className="border-b border-slate-50 pb-4 flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">Log Aktivitas Sistem</h3>
+                  <p className="text-[11px] text-slate-400 font-medium mt-1">Pantauan seluruh aktivitas di dalam aplikasi.</p>
+                </div>
+              </div>
+
+              <div className="divide-y divide-slate-50/80 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                {activityLogs.length > 0 ? activityLogs.map((log, index) => (
+                  <div key={index} className="flex items-center justify-between py-3.5 log-item">
+                    <div className="flex items-center gap-3.5 log-info">
+                      <img
+                        src={log.profiles?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(log.profiles?.full_name || "User")}&background=f1f5f9&color=64748b&bold=true`}
+                        alt="Avatar"
+                        className="w-8 h-8 rounded-full object-cover border border-slate-100"
+                      />
+                      <span className="text-[11px] text-slate-600 font-medium log-text">
+                        <strong className="text-slate-800 font-bold">{log.profiles?.full_name || "User"}</strong> {log.description || "telah beraktivitas"}{" "}
+                        <span className="text-violet-600 font-bold hover:underline cursor-pointer log-task">{log.task?.title || ""}</span>
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 log-time">
+                      {new Date(log.created_at).toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )) : (
+                  <div className="py-6 text-center text-sm font-semibold text-slate-400">Belum ada aktivitas.</div>
+                )}
+              </div>
+            </div>
           </>
         ) : (
           <>
@@ -344,17 +385,17 @@ export default function Dashboard() {
                   <div key={index} className="flex items-center justify-between py-3.5 log-item">
                     <div className="flex items-center gap-3.5 log-info">
                       <img
-                        src={avatarToUse}
+                        src={log.profiles?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(log.profiles?.full_name || "User")}&background=f1f5f9&color=64748b&bold=true`}
                         alt="Avatar"
                         className="w-8 h-8 rounded-full object-cover border border-slate-100"
                       />
                       <span className="text-[11px] text-slate-600 font-medium log-text">
-                        <strong className="text-slate-800 font-bold">{userFullName}</strong> {log.description || "telah beraktivitas"}{" "}
+                        <strong className="text-slate-800 font-bold">{log.profiles?.full_name || userFullName}</strong> {log.description || "telah beraktivitas"}{" "}
                         <span className="text-violet-600 font-bold hover:underline cursor-pointer log-task">{log.task?.title || ""}</span>
                       </span>
                     </div>
                     <span className="text-[10px] font-bold text-slate-400 log-time">
-                      {new Date(log.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                      {new Date(log.created_at).toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                 )) : (

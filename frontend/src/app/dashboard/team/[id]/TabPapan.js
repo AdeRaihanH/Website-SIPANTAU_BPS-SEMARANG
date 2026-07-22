@@ -3,7 +3,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createTask, updateTask } from "../../../../backend/tasks";
 
-export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDelete, team }) {
+export default function TabPapan({
+  tasks,
+  setTasks,
+  setSelectedTask,
+  setTaskToDelete,
+  team,
+  members = [],
+}){
   const [showAddForm, setShowAddForm] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -16,16 +23,6 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
     const name = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
     if (name) setCurrentUserFullName(name);
   }, []);
-
-  const userAvatars = {
-    "A": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=50&h=50&q=80",
-    "M": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=50&h=50&q=80",
-    "N": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=50&h=50&q=80",
-    "B": "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=50&h=50&q=80",
-    "R": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=50&h=50&q=80",
-    "H": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=50&h=50&q=80",
-    "C": "https://ui-avatars.com/api/?name=C&background=f1f5f9&color=64748b&bold=true",
-  };
 
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -47,6 +44,16 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
         avatar: member.avatar_url || getUserAvatar(member.full_name),
       }))
     : [];
+
+    const availableMembers = (members || []).map((p) => ({
+  initial: p.full_name?.charAt(0).toUpperCase() || "?",
+  name: p.full_name || "Tanpa Nama",
+  avatar:
+    p.avatar_url ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      p.full_name || "?"
+    )}&background=random`,
+  }));
 
   const menuRef = useRef(null);
 
@@ -70,10 +77,9 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
     const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
     
     let dbStatus = status;
-    if (dbStatus === "done") dbStatus = "completed";
-    else if (dbStatus === "inprogress") dbStatus = "in_progress";
+    if (dbStatus === "inprogress") dbStatus = "in_progress";
     
-    const mappedPriority = newPriority === "Tertinggi" ? "urgent" : newPriority === "Tinggi" ? "high" : newPriority === "Sedang" ? "medium" : "low";
+    const mappedPriority = newPriority === "Tertinggi" ? "high" : newPriority === "Tinggi" ? "high" : newPriority === "Sedang" ? "medium" : "low";
     
     // We don't have the team id easily accessible unless we pass it.
     // For now we assume a task created here will just lack group_id unless passed,
@@ -81,17 +87,22 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
     // Let's check props: { tasks, setTasks, setSelectedTask, setTaskToDelete }
     // Since we don't have team prop, we can't properly assign group_id!
     // But since `tasks` are passed, we could get group_id from the first task, but what if empty?
-    // Actually, I should just pass `teamId` from page.js or use localStorage...
-    // Let's try to get teamId from URL since it's `dashboard/team/[id]`
+    // Convert newDate (e.g., "1 Jul 2026") to YYYY-MM-DD
+    const dbDate = new Date().toISOString().split('T')[0];
+
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
     const match = currentUrl.match(/\/team\/([^/]+)/);
     const teamId = match ? match[1] : "1";
 
+    let meta = {};
+    if (newPriority === "Tertinggi") meta.priority = "urgent";
+
     let assignedToId = null;
     if (newOrang.length > 0) {
-      const member = teamMembers.find(m => m.initial === newOrang[0]);
-      if (member && member.id) {
-        assignedToId = member.id;
+      const memberIds = newOrang.map(initial => teamMembers.find(m => m.initial === initial)?.id).filter(Boolean);
+      if (memberIds.length > 0) {
+        assignedToId = memberIds[0];
+        if (memberIds.length > 1) meta.assignees = memberIds;
       }
     }
 
@@ -101,16 +112,21 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
       status: dbStatus,
       type: newType,
       priority: mappedPriority,
+      due_date: dbDate,
       group_id: teamId,
       assigned_to: assignedToId
     };
+
+    if (Object.keys(meta).length > 0) {
+      newTaskData.description = `${newTaskData.description || ""} <!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
+    }
 
     try {
       const created = await createTask(newTaskData);
       
       const newTask = {
         id: created.id,
-        title: newTitle,
+        title: created.title,
         desc: newDesc || "Tidak ada deskripsi",
         date: newDate,
         type: newType,
@@ -147,13 +163,18 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
     if (!draggedTaskId) return;
     
     let dbStatus = status;
-    if (dbStatus === "done") dbStatus = "completed";
-    else if (dbStatus === "inprogress") dbStatus = "in_progress";
+    if (dbStatus === "inprogress") dbStatus = "in_progress";
+
+    // Optimistic Update
+    const oldTasks = [...tasks];
+    const isDone = status === "done";
+    setTasks(tasks.map(t => t.id === draggedTaskId ? { ...t, status, done: isDone } : t));
 
     try {
       await updateTask(draggedTaskId, { status: dbStatus });
-      setTasks(tasks.map(t => t.id === draggedTaskId ? { ...t, status } : t));
     } catch (e) {
+      // Revert if error
+      setTasks(oldTasks);
       alert("Gagal memperbarui status: " + e.message);
     }
     
@@ -251,13 +272,41 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
                   </div>
 
                   <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100">
-                    <div className="flex -space-x-1.5">
-                      {task.orang.map((o, idx) => (
-                        <div key={idx} className="w-6 h-6 rounded-full border border-white bg-slate-200 shadow-sm overflow-hidden z-10">
-                          <img src={userAvatars[o] || userAvatars["C"]} className="w-full h-full object-cover" alt="avatar" />
-                        </div>
-                      ))}
-                    </div>
+                    <div className="flex -space-x-1.5 overflow-visible">
+                {task.orang && task.orang.length > 0 ? (
+                  task.orang.map((initial, idx) => {
+                    const memberObj = availableMembers.find(
+                      (mem) => mem.initial === initial
+                    );
+
+                    return memberObj ? (
+                      <div
+                        key={idx}
+                        className="w-5.5 h-5.5 rounded-full ring-2 ring-white overflow-hidden bg-gradient-to-br from-violet-400 to-indigo-500 shadow-sm flex items-center justify-center text-white shrink-0"
+                        title={memberObj.name}
+                      >
+                        <img
+                          className="h-full w-full object-cover"
+                          src={memberObj.avatar}
+                          alt={memberObj.name}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        key={idx}
+                        className="w-5.5 h-5.5 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-400 shrink-0"
+                        title={initial}
+                      >
+                        {initial}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="w-5.5 h-5.5 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400 shrink-0">
+                    ?
+                  </div>
+                )}
+              </div>
                     <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

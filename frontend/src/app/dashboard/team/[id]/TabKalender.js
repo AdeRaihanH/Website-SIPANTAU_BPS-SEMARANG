@@ -32,7 +32,13 @@ function parseTaskDate(dateStr) {
   return { day, month, year };
 }
 
-export default function TabKalender({ tasks, setTasks, setSelectedTask, team }) {
+export default function TabKalender({
+  tasks,
+  setTasks,
+  setSelectedTask,
+  team,
+  members = [],
+}){
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
@@ -60,6 +66,16 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask, team }) 
         bg: "bg-violet-500"
       }))
     : [];
+
+    const availableMembers = (members || []).map((p) => ({
+  initial: p.full_name?.charAt(0).toUpperCase() || "?",
+  name: p.full_name || "Tanpa Nama",
+  avatar:
+    p.avatar_url ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      p.full_name || "?"
+    )}&background=random`,
+  }));
 
   const popoverRef = useRef(null);
 
@@ -105,7 +121,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask, team }) 
     const match = currentUrl.match(/\/team\/([^/]+)/);
     const teamId = match ? match[1] : "1";
     
-    const mappedPriority = newPriority === "Tertinggi" ? "urgent" : newPriority === "Tinggi" ? "high" : newPriority === "Sedang" ? "medium" : "low";
+    const mappedPriority = newPriority === "Tertinggi" ? "high" : newPriority === "Tinggi" ? "high" : newPriority === "Sedang" ? "medium" : "low";
     
     const dateStr = `${day} ${monthNames[calMonth]} ${calYear}`;
     const parsedDate = parseTaskDate(dateStr);
@@ -114,32 +130,41 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask, team }) 
       dbDate = `${parsedDate.year}-${String(parsedDate.month + 1).padStart(2, '0')}-${String(parsedDate.day).padStart(2, '0')}`;
     }
 
+    let meta = {};
+    if (newPriority === "Tertinggi") meta.priority = "urgent";
+
     let assignedToId = null;
     if (newOrang.length > 0) {
-      const member = teamMembers.find(m => m.initial === newOrang[0]);
-      if (member && member.id) {
-        assignedToId = member.id;
+      const memberIds = newOrang.map(initial => teamMembers.find(m => m.initial === initial)?.id).filter(Boolean);
+      if (memberIds.length > 0) {
+        assignedToId = memberIds[0];
+        if (memberIds.length > 1) meta.assignees = memberIds;
       }
     }
 
+    const dbStatus = "todo";
     const newTaskData = {
       title: newTitle,
       description: newDesc || "Tidak ada deskripsi",
-      status: "todo",
+      status: dbStatus,
       type: newType,
       priority: mappedPriority,
-      group_id: teamId,
       due_date: dbDate,
+      group_id: teamId,
       assigned_to: assignedToId
     };
+
+    if (Object.keys(meta).length > 0) {
+      newTaskData.description = `${newTaskData.description || ""} <!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
+    }
 
     try {
       const created = await createTask(newTaskData);
       const newTask = {
         id: created.id,
-        title: newTitle,
+        title: created.title,
         desc: newDesc || "Tidak ada deskripsi",
-        date: dateStr,
+        date: parsedDate ? `${parsedDate.day} ${monthNames[parsedDate.month]} ${parsedDate.year}` : "",
         type: newType,
         priority: newPriority,
         status: "todo",
@@ -425,7 +450,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask, team }) 
                           <div className="flex items-center gap-2">
                             <button onClick={() => { setShowAssignDrop(!showAssignDrop); setShowTypeDrop(false); setShowPriorityDrop(false); }} className="flex -space-x-1.5 outline-none">
                               {newOrang.length > 0 ? newOrang.map((mInit, i) => {
-                                const mem = teamMembers.find(d => d.initial === mInit);
+                                const mem = availableMembers.find((d) => d.initial === mInit);
                                 return mem ? (
                                   <div key={i} className="w-5 h-5 rounded-full border border-white bg-slate-200 shadow-sm overflow-hidden z-10" title={mem.name}>
                                     <img src={mem.avatar} className="w-full h-full object-cover" alt="avatar" />
@@ -444,7 +469,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask, team }) 
                           {showAssignDrop && (
                             <div className="absolute right-0 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-3 z-30 w-48 flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
                               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">Pilih Anggota</div>
-                              {teamMembers.map(m => {
+                              {availableMembers.map((m) => {
                                 const isSelected = newOrang.includes(m.initial);
                                 return (
                                   <button

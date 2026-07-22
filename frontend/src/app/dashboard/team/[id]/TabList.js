@@ -3,22 +3,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { updateTask } from "../../../../backend/tasks";
 
-const availableMembers = [
-  { name: "Aisha Alida Putri", initial: "A", color: "bg-violet-400" },
-  { name: "Myesha Azka Hafizha", initial: "R", color: "bg-emerald-400" },
-  { name: "Nurul Kumala", initial: "H", color: "bg-amber-400" },
-];
-
-const userAvatars = {
-  "A": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=32&h=32&q=80",
-  "M": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=32&h=32&q=80",
-  "N": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=32&h=32&q=80",
-  "B": "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=32&h=32&q=80",
-  "R": "https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=32&h=32&q=80",
-  "H": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=32&h=32&q=80",
-};
-
-export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingTask }) {
+export default function TabList({
+  tasks,
+  setTasks,
+  setSelectedTask,
+  setIsAddingTask,
+  members = [],
+}) {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
 
@@ -32,6 +23,16 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const availableMembers = (members || []).map((p) => ({
+  initial: p.full_name?.charAt(0).toUpperCase() || "?",
+  name: p.full_name || "Tanpa Nama",
+  avatar:
+    p.avatar_url ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      p.full_name || "?"
+    )}&background=random`,
+}));
+
   const toggleTaskCheckbox = async (id, e) => {
     e.stopPropagation();
     const task = tasks.find(t => t.id === id);
@@ -39,12 +40,15 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
     
     const newDone = !task.done;
     const newStatus = newDone ? "done" : "todo";
-    const dbStatus = newDone ? "completed" : "todo";
+    
+    // Optimistic Update
+    setTasks(tasks.map((t) => t.id === id ? { ...t, done: newDone, status: newStatus } : t));
     
     try {
-      await updateTask(id, { status: dbStatus });
-      setTasks(tasks.map((t) => t.id === id ? { ...t, done: newDone, status: newStatus } : t));
+      await updateTask(id, { status: newStatus });
     } catch (err) {
+      // Revert if error
+      setTasks(tasks);
       alert("Gagal memperbarui status: " + err.message);
     }
   };
@@ -119,11 +123,12 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
                     onClick={() => setSelectedTask(task)}
                     className="text-xs text-slate-600 hover:bg-slate-50/50 transition-colors cursor-pointer"
                   >
-                    <td className="py-3">
+                    <td className="py-3" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={task.done}
                         onChange={(e) => toggleTaskCheckbox(task.id, e)}
+                        onClick={(e) => e.stopPropagation()}
                         className="w-4 h-4 rounded border-slate-200 text-violet-600 focus:ring-violet-500 cursor-pointer"
                       />
                     </td>
@@ -135,17 +140,43 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
                     <td className="py-3">
                       <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold">{task.type}</span>
                     </td>
-                    <td className="py-3">
-                      <div className="flex -space-x-1">
-                        {task.orang.map((m, i) => (
-                          userAvatars[m] ? (
-                            <img key={i} src={userAvatars[m]} alt={m} className="w-5 h-5 rounded-full border border-white object-cover shadow-sm" />
-                          ) : (
-                            <div key={i} className={`w-5 h-5 rounded-full border border-white ${["bg-violet-400", "bg-emerald-400", "bg-amber-400"][i % 3]} flex items-center justify-center text-white text-[8px] font-bold shadow-sm`}>{m}</div>
-                          )
-                        ))}
+                    <td className="py-3.5">
+                  <div className="flex -space-x-1.5 overflow-visible">
+                    {task.orang && task.orang.length > 0 ? (
+                      task.orang.map((initial, idx) => {
+                        const memberObj = availableMembers.find(
+                          (mem) => mem.initial === initial
+                        );
+
+                        return memberObj ? (
+                          <div
+                            key={idx}
+                            className="w-5.5 h-5.5 rounded-full ring-2 ring-white overflow-hidden bg-gradient-to-br from-violet-400 to-indigo-500 shadow-sm flex items-center justify-center text-white shrink-0"
+                            title={memberObj.name}
+                          >
+                            <img
+                              className="h-full w-full object-cover"
+                              src={memberObj.avatar}
+                              alt={memberObj.name}
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            key={idx}
+                            className="w-5.5 h-5.5 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-400 shrink-0"
+                            title={initial}
+                          >
+                            {initial}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="w-5.5 h-5.5 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-400 shrink-0">
+                        ?
                       </div>
-                    </td>
+                    )}
+                  </div>
+                </td>
                     <td className="py-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getPriorityStyle(task.priority)}`}>{task.priority}</span>
                     </td>

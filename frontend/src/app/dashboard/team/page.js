@@ -197,9 +197,9 @@ export default function TeamPage() {
     const mentor = allUsers.find(u => u.id === t.mentor_id);
     team.mentorName = mentor ? mentor.full_name : "Unknown";
     
-    // Task stats (if not loaded yet via join, placeholder 0)
-    team.totalTugas = 0;
-    team.selesai = 0;
+    // Task stats
+    team.totalTugas = t.tasks ? t.tasks.length : 0;
+    team.selesai = t.tasks ? t.tasks.filter(task => task.status === "completed" || task.status === "done").length : 0;
     
     return team;
   });
