@@ -58,6 +58,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadProfile();
+    const handleUpdate = () => loadProfile();
+    window.addEventListener('sipantau-avatar-updated', handleUpdate);
+    window.addEventListener('sipantau-profile-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('sipantau-avatar-updated', handleUpdate);
+      window.removeEventListener('sipantau-profile-updated', handleUpdate);
+    };
   }, []);
 
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userFullName)}&background=f1f5f9&color=64748b&bold=true`;

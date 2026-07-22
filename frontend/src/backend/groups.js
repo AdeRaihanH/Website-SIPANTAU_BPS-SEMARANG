@@ -90,3 +90,22 @@ export async function deleteGroup(groupId, hardDelete = false) {
     if (error) throw error;
   }
 }
+
+// Add a member to a group
+export async function addGroupMember(groupId, userId) {
+  const { data, error } = await supabase
+    .from('group_members')
+    .insert([{ group_id: groupId, user_id: userId }]);
+  if (error) throw error;
+  return data;
+}
+
+// Remove a member from a group
+export async function removeGroupMember(groupId, userId) {
+  const { error } = await supabase
+    .from('group_members')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('user_id', userId);
+  if (error) throw error;
+}

@@ -132,11 +132,12 @@ export default function SettingsPage() {
       <div className="flex flex-col items-start px-4 -mt-14 relative z-10 space-y-3">
         <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
           <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg bg-slate-100">
-            <img
-              src={avatar || defaultAvatar}
-              alt="Avatar Profile"
-              className="w-full h-full object-cover"
-            />
+          <img
+            key={avatar}
+            src={avatar || defaultAvatar}
+            alt="Avatar Profile"
+            className="w-full h-full object-cover"
+          />
           </div>
           <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-slate-900 border-2 border-white flex items-center justify-center text-white text-[10px] shadow-md hover:scale-110 active:scale-95 transition-all">
             📷

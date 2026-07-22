@@ -50,7 +50,7 @@ const getUserAvatar = (name) => {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=f1f5f9&color=64748b&bold=true`;
 };
 
-export default function TabDashboard({ tasks = [] }) {
+export default function TabDashboard({ tasks = [], activityLogs = [] }) {
   // 1. Stats Row calculations
   const selesai = tasks.filter(t => t.status === "done").length;
   const dijadwalkan = tasks.filter(t => t.status === "todo").length;
@@ -76,8 +76,8 @@ export default function TabDashboard({ tasks = [] }) {
   const maxTypeCount = Math.max(...typeCounts, 1);
 
   // 4. Activity Logs (Extract and sort by recency)
-  const logs = tasks
-    .flatMap(t => (t.riwayat || []).map(r => ({ ...r, taskTitle: t.title })))
+  const logs = (activityLogs && activityLogs.length > 0 ? activityLogs : tasks
+    .flatMap(t => (t.riwayat || []).map(r => ({ ...r, taskTitle: t.title }))))
     .sort((a, b) => parseRelativeTime(a.time) - parseRelativeTime(b.time))
     .slice(0, 20); // Show top 20 sorted activities for scrolling
 

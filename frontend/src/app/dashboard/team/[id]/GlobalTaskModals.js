@@ -84,16 +84,15 @@ export default function GlobalTaskModals({
     if (name) setCurrentUserFullName(name);
   }, []);
 
-  const dynamicMembers = [...availableMembers];
-  if (currentUserFullName && !dynamicMembers.find(m => m.name.toLowerCase() === currentUserFullName.toLowerCase())) {
-    const initial = currentUserFullName.charAt(0).toUpperCase();
-    dynamicMembers.unshift({
-      name: currentUserFullName,
-      initial: initial,
-      avatar: getUserAvatar(currentUserFullName),
-      color: "bg-slate-400"
-    });
-  }
+  const dynamicMembers = team?.membersList
+  ? [...team.membersList].map(member => ({
+      id: member.id,
+      name: member.full_name,
+      initial: member.full_name?.charAt(0).toUpperCase() || "?",
+      avatar: member.avatar_url,
+      color: "bg-slate-400",
+    }))
+  : [];
 
   // Filter dynamicMembers based on team.membersList if team is provided
   const filteredMembers = team && team.membersList
@@ -1047,11 +1046,17 @@ export default function GlobalTaskModals({
           
           <div 
             className={`fixed z-50 ${typeof isAddingTask !== "object" ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : ""}`}
-            style={
-              typeof isAddingTask === "object" && isAddingTask.top
-                ? { top: isAddingTask.top, right: isAddingTask.right }
-                : {}
-            }
+           style={
+          typeof isAddingTask === "object" && isAddingTask.top
+            ? {
+                top:
+                  isAddingTask.top + 500 > window.innerHeight
+                    ? window.innerHeight - 520
+                    : isAddingTask.top,
+                right: isAddingTask.right,
+              }
+            : {}
+        }
           >
             <div className="bg-white rounded-2xl w-full max-w-[300px] max-h-[75vh] overflow-y-auto shadow-2xl relative border border-slate-100 flex flex-col custom-scrollbar">
             

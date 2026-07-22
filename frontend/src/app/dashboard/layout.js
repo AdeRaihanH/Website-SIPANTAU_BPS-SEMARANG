@@ -78,11 +78,12 @@ export default function DashboardLayout({ children }) {
               onClick={() => setShowDropdown(!showDropdown)}
               className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none cursor-pointer"
             >
-              <img
-                src={avatar || defaultAvatar}
-                alt="User Avatar"
-                className="w-full h-full object-cover"
-              />
+            <img
+              key={avatar}
+              src={avatar || defaultAvatar}
+              alt="User Avatar"
+              className="w-full h-full object-cover"
+            />
             </button>
 
             {showDropdown && (

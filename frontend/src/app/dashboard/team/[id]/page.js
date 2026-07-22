@@ -10,8 +10,9 @@ import TabPapan from "./TabPapan";
 import TabKalender from "./TabKalender";
 import GlobalTaskModals from "./GlobalTaskModals";
 import { getActiveUser, getProfile } from "../../../../backend/auth";
-import { getGroupDetails, deleteGroup } from "../../../../backend/groups";
+import { getGroupDetails, deleteGroup, addGroupMember, removeGroupMember } from "../../../../backend/groups";
 import { deleteTask } from "../../../../backend/tasks";
+import { getTeamActivityLogs } from "../../../../backend/activity"; // New import
 
 
 
@@ -19,15 +20,7 @@ const memberColors = ["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-ros
 
 
 
-const userAvatars = {
-  "A": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=50&h=50&q=80",
-  "M": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=50&h=50&q=80",
-  "N": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=50&h=50&q=80",
-  "B": "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=50&h=50&q=80",
-  "R": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=50&h=50&q=80",
-  "H": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=50&h=50&q=80",
-  "C": "https://ui-avatars.com/api/?name=C&background=f1f5f9&color=64748b&bold=true",
-};
+// Avatar URLs are now derived from each member's profile. The static map is no longer needed.
 
 export default function TeamDetailPage({ params }) {
   const unwrappedParams = React.use ? React.use(params) : params;
@@ -54,6 +47,7 @@ export default function TeamDetailPage({ params }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isAddingTask, setIsAddingTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [teamActivityLogs, setTeamActivityLogs] = useState([]); // New state
 
   // Load backend data
   const loadData = async () => {
@@ -94,6 +88,8 @@ export default function TeamDetailPage({ params }) {
       }));
       setTasks(mappedTasks);
 
+      const logs = await getTeamActivityLogs(teamId);
+      setTeamActivityLogs(logs);
     } catch (e) {
       console.error("Gagal memuat detail kelompok:", e);
     }
@@ -117,20 +113,11 @@ export default function TeamDetailPage({ params }) {
 
   const isMentorOrAdmin = isMentor || isAdmin;
 
-  const availableMembers = [
-    { id: "A", name: "Aisha Alida Putri", initial: "A" },
-    { id: "M", name: "Myesha Azka Hafizha", initial: "M" },
-    { id: "N", name: "Nurul Kumala", initial: "N" },
-    { id: "B", name: "Budi Santoso", initial: "B" },
-    { id: "R", name: "Rizky Firmansyah", initial: "R" },
-    { id: "H", name: "Hendra Setiawan", initial: "H" },
-    { id: "C", name: "Citra Kirana", initial: "C" },
-    { id: "D", name: "Dewi Lestari", initial: "D" },
-    { id: "E", name: "Eko Prasetyo", initial: "E" },
-    { id: "F", name: "Fajar Nugraha", initial: "F" },
-    { id: "G", name: "Gita Savitri", initial: "G" },
-    { id: "I", name: "Indra Maulana", initial: "I" },
-  ];
+  const availableMembers = team?.membersList?.map(m => ({
+    id: m.id,
+    name: m.full_name,
+    initial: m.full_name?.charAt(0).toUpperCase()
+  })) || [];
 
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
@@ -214,7 +201,7 @@ export default function TeamDetailPage({ params }) {
                       .filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()))
                       .map((m, idx) => {
                       const isMember = team.membersList.some(mem => mem.id === m.id);
-                      let avatar = userAvatars[m.id];
+                      const avatar = m.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.full_name)}&background=f1f5f9&color=64748b&bold=true`;
 
                       return (
                         <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
@@ -229,19 +216,31 @@ export default function TeamDetailPage({ params }) {
                             <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
                           </div>
                           {isMember ? (
-                            <button 
+                            <button
                               onClick={async () => {
-                                // Add remove member logic if we have an API for it
-                                alert("Menghapus member dari UI ini belum diimplementasi di API");
+                                if (window.confirm("Hapus anggota ini?")) {
+                                  try {
+                                    await removeGroupMember(team.id, m.id);
+                                    await loadData();
+                                  } catch (e) {
+                                    alert("Gagal menghapus member: " + e.message);
+                                  }
+                                }
                               }}
-                              className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
+                              className="text-slate-300 hover:text-rose-500 transition-colors p-1"
+                              title="Hapus Anggota"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                           ) : (
                             <button 
                               onClick={async () => {
-                                alert("Menambah member dari UI ini belum diimplementasi di API");
+                                try {
+                                  await addGroupMember(team.id, m.id);
+                                  await loadData();
+                                } catch (e) {
+                                  alert("Gagal menambah member: " + e.message);
+                                }
                               }}
                               className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
                             >
@@ -353,7 +352,7 @@ export default function TeamDetailPage({ params }) {
 
       {/* Content */}
       <div className="flex-1 min-h-0 bg-slate-50/50 rounded-xl p-4 overflow-auto">
-        {activeTab === "dashboard" && <TabDashboard tasks={tasks} />}
+        {activeTab === "dashboard" && <TabDashboard tasks={tasks} activityLogs={teamActivityLogs} />}
         {activeTab === "list" && (
           <TabList
             tasks={tasks}
