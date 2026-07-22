@@ -242,7 +242,7 @@ export default function GlobalTaskModals({
     if (!selectedTask) return;
     const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
     let actionText = "telah memperbarui tugas";
-    
+
     let updates = {};
     if (typeof field === "object") {
       updates = field;
@@ -261,7 +261,7 @@ export default function GlobalTaskModals({
       }
     }
 
-    const newHistory = { name: activeUserName, text: actionText, time: "baru saja" };
+    const newHistory = { name: activeUserName, text: actionText, time: "baru saja", timestamp: Date.now() };
 
     // Avoid duplicate 'baru saja' logs for the same field if done rapidly
     let updatedRiwayat = selectedTask.riwayat || [];
@@ -299,6 +299,11 @@ export default function GlobalTaskModals({
 
     setSelectedTask(updated);
     setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+    setTimeout(() => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("sipantau-profile-updated"));
+      }
+    }, 100);
   };
 
   const handleAddComment = () => {
@@ -313,6 +318,11 @@ export default function GlobalTaskModals({
     setSelectedTask(updated);
     setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
     setNewComment("");
+    setTimeout(() => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("sipantau-profile-updated"));
+      }
+    }, 100);
   };
 
   const handleAddSubtask = () => {
@@ -327,7 +337,7 @@ export default function GlobalTaskModals({
   const handleToggleSubtask = (index) => {
     if (!selectedTask) return;
     const currentSubtasks = selectedTask.subtugas || [];
-    const updatedSubtasks = currentSubtasks.map((st, i) => 
+    const updatedSubtasks = currentSubtasks.map((st, i) =>
       i === index ? { ...st, done: !st.done } : st
     );
     handleUpdateTaskField("subtugas", updatedSubtasks);
@@ -590,9 +600,9 @@ export default function GlobalTaskModals({
                 }}
                 className={`w-full text-center px-4 py-2 text-xs font-bold text-slate-600 rounded-xl transition-colors cursor-pointer ${st.bg} ${selectedTask.status === st.id ? (
                   st.id === 'todo' ? 'bg-[#bbf7d0] text-teal-900' :
-                  st.id === 'inprogress' ? 'bg-[#fecdd3] text-rose-900' :
-                  st.id === 'review' ? 'bg-[#bae6fd] text-sky-900' :
-                  'bg-[#fef3c7] text-amber-900'
+                    st.id === 'inprogress' ? 'bg-[#fecdd3] text-rose-900' :
+                      st.id === 'review' ? 'bg-[#bae6fd] text-sky-900' :
+                        'bg-[#fef3c7] text-amber-900'
                 ) : ''}`}
               >
                 {st.label}
@@ -853,30 +863,30 @@ export default function GlobalTaskModals({
 
                 {/* Subtugas */}
                 <div className="space-y-3 pt-2">
-                  <button 
+                  <button
                     onClick={() => setIsSubtasksOpen(!isSubtasksOpen)}
                     className="text-[13px] font-extrabold text-slate-800 flex items-center gap-3 cursor-pointer w-max outline-none"
                   >
                     Subtugas
                     <span className="text-[10px] text-slate-600 transition-transform duration-200" style={{ transform: isSubtasksOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
                   </button>
-                  
+
                   {isSubtasksOpen && (
                     <div className="space-y-3">
                       {(selectedTask.subtugas || []).map((st, i) => (
                         <div key={i} className="flex items-center gap-3">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             checked={st.done}
                             onChange={() => handleToggleSubtask(i)}
-                            className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer shrink-0" 
+                            className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer shrink-0"
                           />
                           <span className={`text-xs font-semibold ${st.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{st.title}</span>
                         </div>
                       ))}
-                      
+
                       {!isAddingSubtask ? (
-                        <button 
+                        <button
                           onClick={() => setIsAddingSubtask(true)}
                           className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] px-3.5 py-2 rounded-lg transition-colors cursor-pointer w-max mt-2"
                         >
@@ -884,9 +894,9 @@ export default function GlobalTaskModals({
                         </button>
                       ) : (
                         <div className="space-y-2.5 mt-2 w-full max-w-[280px]">
-                          <input 
-                            type="text" 
-                            placeholder="Tambah subtugas" 
+                          <input
+                            type="text"
+                            placeholder="Tambah subtugas"
                             value={newSubtaskName}
                             onChange={(e) => setNewSubtaskName(e.target.value)}
                             onKeyDown={(e) => {
@@ -898,13 +908,13 @@ export default function GlobalTaskModals({
                             autoFocus
                           />
                           <div className="flex items-center gap-2">
-                            <button 
+                            <button
                               onClick={handleAddSubtask}
                               className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-[11px] px-4 py-2 rounded-lg transition-colors cursor-pointer shadow-sm shadow-violet-200"
                             >
                               Tambah
                             </button>
-                            <button 
+                            <button
                               onClick={() => {
                                 setIsAddingSubtask(false);
                                 setNewSubtaskName("");
@@ -929,11 +939,10 @@ export default function GlobalTaskModals({
                     <button
                       ref={editStatusBtnRef}
                       onClick={() => toggleDropdown("status", editStatusBtnRef)}
-                      className={`flex items-center justify-between w-32 border rounded-xl px-3 py-2 text-xs font-bold capitalize cursor-pointer transition-colors ${
-                        selectedTask.status === "todo" ? "bg-[#bbf7d0] text-teal-900 border-[#86efac] hover:bg-[#86efac]" :
+                      className={`flex items-center justify-between w-32 border rounded-xl px-3 py-2 text-xs font-bold capitalize cursor-pointer transition-colors ${selectedTask.status === "todo" ? "bg-[#bbf7d0] text-teal-900 border-[#86efac] hover:bg-[#86efac]" :
                         selectedTask.status === "inprogress" ? "bg-[#fecdd3] text-rose-900 border-[#fda4af] hover:bg-[#fda4af]" :
-                        selectedTask.status === "review" ? "bg-[#bae6fd] text-sky-900 border-[#7dd3fc] hover:bg-[#7dd3fc]" :
-                        "bg-[#fef3c7] text-amber-900 border-[#fde68a] hover:bg-[#fde68a]"
+                          selectedTask.status === "review" ? "bg-[#bae6fd] text-sky-900 border-[#7dd3fc] hover:bg-[#7dd3fc]" :
+                            "bg-[#fef3c7] text-amber-900 border-[#fde68a] hover:bg-[#fde68a]"
                         }`}
                     >
                       <span>{selectedTask.status === "todo" ? "To do" : selectedTask.status === "inprogress" ? "In Progress" : selectedTask.status === "review" ? "In Review" : "Done"}</span>
@@ -983,7 +992,12 @@ export default function GlobalTaskModals({
                   <div className="space-y-3 pt-4 flex-1 min-h-[140px] flex flex-col border-t border-slate-50 mt-2">
                     <h3 className="text-[13px] font-extrabold text-slate-800 block shrink-0">Komentar</h3>
                     <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
-                      {selectedTask.komentar && selectedTask.komentar.map((comment, i) => (
+                      {selectedTask.komentar && [...selectedTask.komentar].sort((a, b) => {
+                        if (a.timestamp && b.timestamp) return b.timestamp - a.timestamp;
+                        if (a.timestamp) return -1;
+                        if (b.timestamp) return 1;
+                        return 0;
+                      }).map((comment, i) => (
                         <div key={`com-${i}`} className="flex items-start gap-3">
                           <img
                             src={getUserAvatar(comment.name)}
@@ -1015,7 +1029,7 @@ export default function GlobalTaskModals({
                           placeholder="Tambahkan komentar..."
                           className="w-full text-[11px] font-semibold text-slate-600 border border-slate-200 rounded-xl py-2.5 pl-3 pr-10 outline-none focus:border-violet-500 transition-colors resize-none h-10 leading-tight"
                         />
-                        <button 
+                        <button
                           onClick={handleAddComment}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-600 transition-colors cursor-pointer"
                         >
@@ -1039,155 +1053,190 @@ export default function GlobalTaskModals({
       {isAddingTask && (
         <>
           {/* Overlay to close modal when clicking outside */}
-          <div 
+          <div
             className={`fixed inset-0 z-40 ${typeof isAddingTask === "string" ? "bg-slate-900/40 backdrop-blur-sm" : ""}`}
             onClick={() => { setIsAddingTask(null); setActiveDropdown(null); }}
           ></div>
-          
-          <div 
+
+          <div
             className={`fixed z-50 ${typeof isAddingTask !== "object" ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : ""}`}
-           style={
-          typeof isAddingTask === "object" && isAddingTask.top
-            ? {
-                top:
-                  isAddingTask.top + 500 > window.innerHeight
-                    ? window.innerHeight - 520
-                    : isAddingTask.top,
-                right: isAddingTask.right,
-              }
-            : {}
-        }
+style={
+  typeof isAddingTask === "object"
+    ? {
+        ...(isAddingTask.top !== undefined && {
+          top:
+            isAddingTask.top + 500 > window.innerHeight
+              ? window.innerHeight - 520
+              : isAddingTask.top,
+        }),
+        ...(isAddingTask.bottom !== undefined && {
+          bottom: isAddingTask.bottom,
+        }),
+        ...(isAddingTask.right !== undefined && {
+          right: isAddingTask.right,
+        }),
+        ...(isAddingTask.left !== undefined && {
+          left: isAddingTask.left,
+        }),
+      }
+    : {}
+}
           >
-            <div className="bg-white rounded-2xl w-full max-w-[300px] max-h-[75vh] overflow-y-auto shadow-2xl relative border border-slate-100 flex flex-col custom-scrollbar">
-            
-            {/* Header */}
-            <div className="px-4 py-3 flex items-start justify-between border-b border-slate-50">
-              <div className="w-full pr-3">
-                <input
-                  type="text"
-                  value={addTitle}
-                  onChange={(e) => setAddTitle(e.target.value)}
-                  placeholder="Masukkan Judul Tugas..."
-                  className="text-[14px] font-extrabold text-slate-800 bg-transparent border-none outline-none w-full p-0 placeholder-slate-400 focus:ring-0"
+            <div className="bg-white rounded-2xl w-full max-w-[300px] max-h-[380px] overflow-y-auto shadow-2xl relative border border-slate-100 flex flex-col custom-scrollbar">
+
+              {/* Header */}
+              <div className="px-3 py-2.5 flex items-start justify-between border-b border-slate-50">
+                <div className="w-full pr-3">
+                  <input
+                    type="text"
+                    value={addTitle}
+                    onChange={(e) => setAddTitle(e.target.value)}
+                    placeholder="Masukkan Judul Tugas..."
+                    className="text-[13px] font-extrabold text-slate-800 bg-transparent border-none outline-none w-full p-0 placeholder-slate-400 focus:ring-0"
+                  />
+                </div>
+                <button
+                  onClick={() => { setIsAddingTask(null); setActiveDropdown(null); }}
+                  className="text-slate-400 hover:text-slate-600 transition-colors font-bold cursor-pointer text-[11px] mt-1 shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="px-3 pb-3 pt-2 space-y-2">
+
+                <textarea
+                  value={addDesc}
+                  onChange={(e) => setAddDesc(e.target.value)}
+                  placeholder="Tambahkan deskripsi tugas di sini..."
+                  className="w-full h-14 border border-slate-100 rounded-xl p-2.5 text-[11px] font-medium text-slate-700 outline-none focus:border-violet-500 resize-none transition-colors shadow-sm bg-slate-50/50"
                 />
-              </div>
-              <button
-                onClick={() => { setIsAddingTask(null); setActiveDropdown(null); }}
-                className="text-slate-400 hover:text-slate-600 transition-colors font-bold cursor-pointer text-sm mt-2 shrink-0"
-              >
-                ✕
-              </button>
-            </div>
 
-            {/* Body */}
-            <div className="px-4 pb-4 pt-3 space-y-3">
-              
-              <textarea
-                value={addDesc}
-                onChange={(e) => setAddDesc(e.target.value)}
-                placeholder="Tambahkan deskripsi tugas di sini..."
-                className="w-full h-20 border border-slate-100 rounded-xl p-3 text-[12px] font-medium text-slate-700 outline-none focus:border-violet-500 resize-none transition-colors shadow-sm bg-slate-50/50"
-              />
-
-              <div className="space-y-1">
-                {/* Jenis Tugas */}
-                <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                  <div className="flex items-center gap-4">
-                    <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                    </svg>
-                    <button
-                      ref={addTypeBtnRef}
-                      onClick={() => toggleDropdown("add-jenis", addTypeBtnRef)}
-                      className={`rounded-full px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${getTypeStyle(addType)}`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${getTypeDotColor(addType)}`} />
-                      {addType}
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => toggleDropdown("add-jenis", addTypeBtnRef)}
-                    className="w-5 h-5 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-xs cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
-
-                {/* Prioritas */}
-                <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                  <div className="flex items-center gap-4">
-                    <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <button
-                      ref={addPriorityBtnRef}
-                      onClick={() => toggleDropdown("add-prioritas", addPriorityBtnRef)}
-                      className={`rounded-full px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${getPriorityStyle(addPriority)}`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${getPriorityDotColor(addPriority)}`} />
-                      {addPriority}
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => toggleDropdown("add-prioritas", addPriorityBtnRef)}
-                    className="w-5 h-5 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-xs cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
-
-                {/* Penerima Tugas */}
-                <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                  <div className="flex items-center gap-4">
-                    <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
-                    <div className="flex items-center -space-x-1.5">
-                      {addOrang.map((m, i) => {
-                        const memberObj = filteredMembers.find(mem => mem.initial === m);
-                        return memberObj ? (
-                          <img key={i} src={memberObj.avatar} alt={memberObj.name} className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-sm" />
-                        ) : (
-                          <div key={i} className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-slate-600 text-[9px] font-bold shadow-sm">
-                            {m}
-                          </div>
-                        );
-                      })}
+                <div className="space-y-0.5">
+                  {/* Jenis Tugas */}
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                    <div className="flex items-center gap-3">
+                      <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      <button
+                        ref={addTypeBtnRef}
+                        onClick={() => toggleDropdown("add-jenis", addTypeBtnRef)}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${getTypeStyle(addType)}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${getTypeDotColor(addType)}`} />
+                        {addType}
+                      </button>
                     </div>
-                  </div>
-                  <button
-                    ref={addAssigneeBtnRef}
-                    onClick={() => toggleDropdown("add-penerima", addAssigneeBtnRef)}
-                    className="w-5 h-5 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-xs cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
-
-                {/* Kalender */}
-                <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                  <div className="flex items-center gap-4">
-                    <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
                     <button
-                      ref={addDateBtnRef}
-                      onClick={() => toggleDropdown("add-kalender", addDateBtnRef)}
-                      className="text-xs font-semibold text-slate-600"
+                      onClick={() => toggleDropdown("add-jenis", addTypeBtnRef)}
+                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-[10px] cursor-pointer"
                     >
-                      {addDate === "18 Juli 2026" ? "Pilih Tanggal" : addDate}
+                      +
                     </button>
                   </div>
-                  <button
-                    onClick={() => toggleDropdown("add-kalender", addDateBtnRef)}
-                    className="w-5 h-5 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-xs cursor-pointer"
-                  >
-                    +
-                  </button>
+
+                  {/* Prioritas */}
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                    <div className="flex items-center gap-3">
+                      <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <button
+                        ref={addPriorityBtnRef}
+                        onClick={() => toggleDropdown("add-prioritas", addPriorityBtnRef)}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${getPriorityStyle(addPriority)}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${getPriorityDotColor(addPriority)}`} />
+                        {addPriority}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => toggleDropdown("add-prioritas", addPriorityBtnRef)}
+                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-[10px] cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Penerima Tugas */}
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                    <div className="flex items-center gap-3">
+                      <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      <div className="flex items-center -space-x-1">
+                        {addOrang.map((m, i) => {
+                          const memberObj = filteredMembers.find(mem => mem.initial === m);
+                          return memberObj ? (
+                            <img key={i} src={memberObj.avatar} alt={memberObj.name} className="w-5 h-5 rounded-full object-cover border border-white shadow-sm" />
+                          ) : (
+                            <div key={i} className="w-5 h-5 rounded-full bg-slate-200 border border-white flex items-center justify-center text-slate-600 text-[8px] font-bold shadow-sm">
+                              {m}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <button
+                      ref={addAssigneeBtnRef}
+                      onClick={() => toggleDropdown("add-penerima", addAssigneeBtnRef)}
+                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-[10px] cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Kalender */}
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                    <div className="flex items-center gap-3">
+                      <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <button
+                        ref={addDateBtnRef}
+                        onClick={() => toggleDropdown("add-kalender", addDateBtnRef)}
+                        className="text-[11px] font-semibold text-slate-600"
+                      >
+                        {addDate === "18 Juli 2026" ? "Pilih Tanggal" : addDate}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => toggleDropdown("add-kalender", addDateBtnRef)}
+                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-[10px] cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Status Tugas (Hidden visually but kept logically, or just defaulted since isAddingTask provides it) */}
                 </div>
 
-                {/* Status Tugas (Hidden visually but kept logically, or just defaulted since isAddingTask provides it) */}
-              </div>
+                {/* Action Button */}
+                <button
+                  onClick={() => {
+                    if (!addTitle.trim()) {
+                      alert("Judul tugas tidak boleh kosong!");
+                      return;
+                    }
+                    const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
+                    const newTask = {
+                      id: Date.now(),
+                      title: addTitle,
+                      desc: addDesc || "Tidak ada deskripsi",
+                      date: addDate,
+                      type: addType,
+                      priority: addPriority,
+                      status: addStatus,
+                      done: addStatus === "done",
+                      orang: addOrang.length > 0 ? addOrang : ["A"],
+                      riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja", timestamp: Date.now() }],
+                      komentar: [],
+                    };
+                    setTasks([...tasks, newTask]);
+                    setIsAddingTask(null);
+                    setActiveDropdown(null);
 
               {/* Action Button */}
               <button
@@ -1259,7 +1308,6 @@ export default function GlobalTaskModals({
               </button>
             </div>
           </div>
-        </div>
         </>
       )}
       {renderFloatingDropdown()}
