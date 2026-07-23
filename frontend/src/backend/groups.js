@@ -8,7 +8,7 @@ export async function getUserGroups(userId, role) {
       profiles(id, full_name, avatar_url)
     ),
     tasks(id, status)
-  `).eq("is_deleted", false);
+  `);
   
   if (role === "mentor") {
     query = query.eq("mentor_id", userId);
@@ -35,7 +35,7 @@ export async function getGroupDetails(groupId) {
       group_members(
         profiles(id, full_name, avatar_url, role)
       ),
-      tasks(*)
+      tasks(*, subtasks(*), task_comments(*, user:profiles(full_name, avatar_url)))
     `)
     .eq("id", groupId)
     .single();

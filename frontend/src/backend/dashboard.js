@@ -78,19 +78,23 @@ export async function getPersonalLogs(userId, role) {
     .limit(20);
 
   if (role !== "admin") {
-    // Get user's groups
-    const { data: groups } = await supabase
-      .from(role === "mentor" ? "groups" : "group_members")
-      .select(role === "mentor" ? "id" : "group_id")
-      .eq(role === "mentor" ? "mentor_id" : "user_id", userId);
-      
-    const groupIds = groups ? groups.map(g => role === "mentor" ? g.id : g.group_id) : [];
-    
-    if (groupIds.length > 0) {
-      query = query.in("group_id", groupIds);
-    } else {
-      // Fallback: only their own logs if no groups
+    if (role === "mentor") {
       query = query.eq("user_id", userId);
+    } else {
+      // Get user's groups
+      const { data: groups } = await supabase
+        .from("group_members")
+        .select("group_id")
+        .eq("user_id", userId);
+        
+      const groupIds = groups ? groups.map(g => g.group_id) : [];
+      
+      if (groupIds.length > 0) {
+        query = query.in("group_id", groupIds);
+      } else {
+        // Fallback: only their own logs if no groups
+        query = query.eq("user_id", userId);
+      }
     }
   }
 

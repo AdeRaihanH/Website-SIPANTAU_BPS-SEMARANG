@@ -47,6 +47,7 @@ export default function TeamDetailPage({ params }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isAddingTask, setIsAddingTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [showToast, setShowToast] = useState(false);
   const [teamActivityLogs, setTeamActivityLogs] = useState([]); // New state
 
   // Load backend data
@@ -70,41 +71,57 @@ export default function TeamDetailPage({ params }) {
       };
       setTeam(mappedTeam);
       
-      // Dump the first task to investigate the schema
-      if (teamDetails.tasks && teamDetails.tasks.length > 0) {
-        fetch('/api/dump-schema', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(teamDetails.tasks)
-        }).catch(e => console.error(e));
-      }
-      
-      const mappedTasks = (teamDetails.tasks || []).map(t => ({
-        id: t.id,
-        title: t.title,
-        desc: t.description || "",
-        date: t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' }) : "",
-        type: t.type || "Tugas",
-        priority: t.priority === "high" ? "Tinggi" : t.priority === "medium" ? "Sedang" : t.priority === "urgent" ? "Tertinggi" : "Rendah",
-        status: (t.status === "completed" || t.status === "done") ? "done" 
-              : (t.status === "in_progress" || t.status === "inprogress") ? "inprogress" 
-              : t.status === "review" ? "review" 
-              : "todo",
-        done: t.status === "completed" || t.status === "done",
-        orang: t.assignees && t.assignees.length > 0 
-               ? t.assignees.map(id => mappedTeam.membersList.find(m => m.id === id)?.full_name?.charAt(0).toUpperCase() || "A")
-               : t.assigned_to 
-                 ? [mappedTeam.membersList.find(m => m.id === t.assigned_to)?.full_name?.charAt(0).toUpperCase() || "A"] 
-                 : [],
-        assigned_to: t.assigned_to,
-        riwayat: [],
-        komentar: [],
-        subtugas: []
-      }));
-      setTasks(mappedTasks);
-
       const logs = await getTeamActivityLogs(teamId);
       setTeamActivityLogs(logs);
+
+      // Schema dump removed for performance
+      const mappedTasks = (teamDetails.tasks || []).map(t => {
+        const taskLogs = logs
+          .filter(l => l.task_id === t.id)
+          .map(l => ({
+             name: l.profiles?.full_name || "Sistem",
+             text: (l.description || "").replace("telah ", ""), 
+             time: new Date(l.created_at).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' })
+          }));
+
+        const taskComments = (t.task_comments || []).map(c => ({
+             name: c.user?.full_name || "Sistem",
+             text: c.content,
+             time: new Date(c.created_at).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }),
+             avatar: c.user?.avatar_url || null
+        }));
+
+        const taskSubtasks = (t.subtasks || []).map(st => ({
+            id: st.id,
+            title: st.title,
+            done: st.is_completed
+        }));
+
+        return {
+          id: t.id,
+          title: t.title,
+          desc: t.description || "",
+          date: t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' }) : "",
+          type: t.type || "Tugas",
+          priority: t.priority === "high" ? "Tinggi" : t.priority === "medium" ? "Sedang" : t.priority === "urgent" ? "Tertinggi" : "Rendah",
+          status: (t.status === "completed" || t.status === "done") ? "done" 
+                : (t.status === "in_progress" || t.status === "inprogress") ? "inprogress" 
+                : t.status === "review" ? "review" 
+                : "todo",
+          done: t.status === "completed" || t.status === "done",
+          orang: t.assignees && t.assignees.length > 0 
+                 ? t.assignees.map(id => mappedTeam.membersList.find(m => m.id === id)?.full_name?.charAt(0).toUpperCase() || "A")
+                 : t.assigned_to 
+                   ? [mappedTeam.membersList.find(m => m.id === t.assigned_to)?.full_name?.charAt(0).toUpperCase() || "A"] 
+                   : [],
+          assigned_to: t.assigned_to,
+          riwayat: taskLogs,
+          komentar: taskComments,
+          subtugas: taskSubtasks
+        };
+      });
+      setTasks(mappedTasks);
+
     } catch (e) {
       console.error("Gagal memuat detail kelompok:", e);
     }
@@ -439,6 +456,8 @@ export default function TeamDetailPage({ params }) {
                     setTasks(tasks.filter(t => t.id !== taskToDelete.id));
                     setTaskToDelete(null);
                     setSelectedTask(null);
+                    setShowToast(true);
+                    setTimeout(() => setShowToast(false), 3000);
                   } catch (e) {
                     alert("Gagal menghapus tugas: " + e.message);
                   }
@@ -449,6 +468,26 @@ export default function TeamDetailPage({ params }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Success Toast */}
+      {showToast && (
+        <div className="fixed top-6 right-6 z-[150] bg-[#e6f4ea] border border-[#a8d5ba] rounded-xl shadow-lg p-3 flex items-start gap-3 min-w-[280px] animate-fade-in-down">
+          <div className="bg-[#34a853] text-white rounded-full p-1 mt-0.5 shrink-0">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <h4 className="text-xs font-extrabold text-[#115e34]">Sukses</h4>
+            <p className="text-[11px] font-medium text-[#146c3b]">Perubahan berhasil disimpan.</p>
+          </div>
+          <button onClick={() => setShowToast(false)} className="text-[#146c3b] hover:text-[#0b4d27] mt-0.5 shrink-0">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
     </div>

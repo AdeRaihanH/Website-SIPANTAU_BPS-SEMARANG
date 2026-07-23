@@ -10,7 +10,8 @@ export async function getAllUsers() {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data;
+  // Filter out soft-deleted users
+  return data.filter(u => u.full_name !== 'DELETED_USER');
 }
 
 /**
@@ -69,13 +70,12 @@ export async function updateUserProfile(userId, updates) {
  * Delete users by their IDs
  */
 export async function deleteUsers(userIds) {
-  // Since they are in profiles table, and auth.users is managed by Supabase Auth,
-  // we typically delete from profiles, or we'd need admin API to delete from auth.
-  // For now, we delete from profiles. Wait, Supabase requires calling admin API for auth.users.
-  // We'll soft-delete them or just delete from profiles for now.
+  // We use soft-delete by setting full_name to 'DELETED_USER'
+  // because hard deleting from auth.users requires admin privileges/service role key
+  // and RLS might block DELETE on profiles.
   const { error } = await supabase
     .from("profiles")
-    .delete()
+    .update({ status: 'rejected', full_name: 'DELETED_USER' })
     .in("id", userIds);
 
   if (error) throw error;

@@ -338,13 +338,6 @@ export default function TabPapan({
                   </button>
                 </div>
 
-                <textarea
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="Tambahkan deskripsi tugas di sini..."
-                  className="w-full text-[11px] font-medium text-slate-700 border border-slate-100 bg-slate-50/50 rounded-xl p-3 outline-none focus:border-violet-500 h-20 resize-none placeholder-slate-400 shadow-sm"
-                />
-
                 <div className="flex flex-col divide-y divide-slate-100 pt-1">
 
                   {/* Tipe / Label */}
@@ -399,7 +392,7 @@ export default function TabPapan({
                       </svg>
                       <button onClick={() => setShowAssignDrop(!showAssignDrop)} className="flex -space-x-1.5 outline-none hover:opacity-80 transition-opacity">
                         {newOrang.length > 0 ? newOrang.map((mInit, i) => {
-                          const mem = dynamicMembers.find(d => d.initial === mInit);
+                          const mem = teamMembers.find(d => d.initial === mInit);
                           return mem ? (
                             <div key={i} className="w-5 h-5 rounded-full border border-white shadow-sm overflow-hidden z-10">
                               <img src={mem.avatar} className="w-full h-full object-cover" />
@@ -417,7 +410,7 @@ export default function TabPapan({
                     </button>
                     {showAssignDrop && (
                       <div className="absolute left-10 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-2 z-30 w-48 flex flex-col gap-1 max-h-40 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        {dynamicMembers.map((member) => (
+                        {teamMembers.map((member) => (
                           <button key={member.name}
                             onClick={() => {
                               const has = newOrang.includes(member.initial);

@@ -27,14 +27,15 @@ export default function SettingsPage() {
         const profile = await getProfile(activeUser.id);
         if (profile) {
           setCurrentUser(profile);
-          setName(profile.full_name || "");
-          setEmail(profile.email || "");
-          setPhone(profile.phone || "");
-          setAddress(profile.address || "");
-          setInstitution(profile.institution || "");
-          setMajor(profile.major || "");
-          setRole(profile.role || "pemagang");
-          setAvatar(profile.avatar_url || "");
+          const meta = activeUser.user_metadata || {};
+          setName(profile.full_name || meta.full_name || "");
+          setEmail(profile.email || activeUser.email || "");
+          setPhone(profile.phone || meta.phone || "");
+          setAddress(profile.address || meta.address || "");
+          setInstitution(profile.institution || meta.institution || "");
+          setMajor(profile.major || meta.major || "");
+          setRole(profile.role || meta.role || "pemagang");
+          setAvatar(profile.avatar_url || meta.avatar_url || "");
         }
       }
     } catch (e) {
@@ -302,7 +303,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Jurusan */}
-            {role !== "mentor" && (
+            {role !== "mentor" && role !== "admin" && (
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0 mt-1">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

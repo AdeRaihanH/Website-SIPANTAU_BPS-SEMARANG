@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { createTask, updateTask } from "../../../../backend/tasks";
+import { createTask, updateTask, createTaskComment } from "../../../../backend/tasks";
+import { getActiveUser } from "../../../../backend/auth";
 
 const parseTaskDate = (dateStr) => {
   if (!dateStr) return null;
@@ -304,7 +305,9 @@ export default function GlobalTaskModals({
       dbUpdates.description = `${dbUpdates.description || ""} <!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
     }
 
-    updateTask(selectedTask.id, dbUpdates).catch(e => console.error("Failed to update task", e));
+    updateTask(selectedTask.id, dbUpdates).catch(e => {
+      console.error("Failed to update task:", e.message || JSON.stringify(e), e);
+    });
 
     setSelectedTask(updated);
     setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
@@ -315,41 +318,80 @@ export default function GlobalTaskModals({
     }, 100);
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim() || !selectedTask) return;
-    const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
-    const comment = { name: activeUserName, text: newComment };
-    const updated = {
-      ...selectedTask,
-      komentar: [...selectedTask.komentar, comment],
-    };
-    setSelectedTask(updated);
-    setSelectedTask(updated);
-    setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
-    setNewComment("");
-    setTimeout(() => {
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("sipantau-profile-updated"));
-      }
-    }, 100);
+    try {
+      const authUser = await getActiveUser();
+      if (!authUser) throw new Error("Not authenticated");
+      
+      const created = await createTaskComment(selectedTask.id, authUser.id, newComment);
+      
+      const comment = { 
+        name: created.user?.full_name || "Sistem", 
+        text: created.content,
+        time: "baru saja",
+        avatar: created.user?.avatar_url || null 
+      };
+      
+      const updated = {
+        ...selectedTask,
+        komentar: [...(selectedTask.komentar || []), comment],
+      };
+      setSelectedTask(updated);
+      setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+      setNewComment("");
+      
+      setTimeout(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("sipantau-profile-updated"));
+        }
+      }, 100);
+    } catch (e) {
+      alert("Gagal menambahkan komentar: " + e.message);
+    }
   };
 
-  const handleAddSubtask = () => {
+  const handleAddSubtask = async () => {
     if (!newSubtaskName.trim() || !selectedTask) return;
-    const currentSubtasks = selectedTask.subtugas || [];
-    const updatedSubtasks = [...currentSubtasks, { title: newSubtaskName, done: false }];
-    handleUpdateTaskField("subtugas", updatedSubtasks);
-    setIsAddingSubtask(false);
-    setNewSubtaskName("");
+    try {
+      const { createSubtask } = await import("../../../../backend/tasks");
+      const created = await createSubtask(selectedTask.id, newSubtaskName);
+      
+      const newSubtask = { id: created.id, title: created.title, done: created.is_completed };
+      const currentSubtasks = selectedTask.subtugas || [];
+      const updatedSubtasks = [...currentSubtasks, newSubtask];
+      
+      const updated = { ...selectedTask, subtugas: updatedSubtasks };
+      setSelectedTask(updated);
+      setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+      
+      setIsAddingSubtask(false);
+      setNewSubtaskName("");
+    } catch (e) {
+      alert("Gagal menambahkan subtugas: " + e.message);
+    }
   };
 
-  const handleToggleSubtask = (index) => {
+  const handleToggleSubtask = async (index) => {
     if (!selectedTask) return;
-    const currentSubtasks = selectedTask.subtugas || [];
-    const updatedSubtasks = currentSubtasks.map((st, i) =>
-      i === index ? { ...st, done: !st.done } : st
-    );
-    handleUpdateTaskField("subtugas", updatedSubtasks);
+    try {
+      const currentSubtasks = selectedTask.subtugas || [];
+      const target = currentSubtasks[index];
+      if (!target || !target.id) return;
+      
+      const { updateSubtaskStatus } = await import("../../../../backend/tasks");
+      await updateSubtaskStatus(target.id, !target.done);
+
+      const updatedSubtasks = currentSubtasks.map((st, i) =>
+        i === index ? { ...st, done: !st.done } : st
+      );
+      
+      const updated = { ...selectedTask, subtugas: updatedSubtasks };
+      setSelectedTask(updated);
+      setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+    } catch (e) {
+      alert("Gagal memperbarui subtugas: " + e.message);
+    }
   };
 
   const handleDeleteTask = (id) => {

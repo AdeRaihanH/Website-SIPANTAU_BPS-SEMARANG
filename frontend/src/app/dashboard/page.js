@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "../../backend/client";
 import { getActiveUser, getProfile } from "../../backend/auth";
 import { getAllUsers } from "../../backend/admin";
 import { getAdminStats, getPersonalStats, getPersonalLogs } from "../../backend/dashboard";
@@ -69,9 +70,27 @@ export default function Dashboard() {
     const handleUpdate = () => checkAuth();
     window.addEventListener('sipantau-avatar-updated', handleUpdate);
     window.addEventListener('sipantau-profile-updated', handleUpdate);
+
+    // Realtime subscriptions for admin dashboard updates
+    const activitySubscription = supabase
+      .channel('public:activity_logs')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
+        checkAuth();
+      })
+      .subscribe();
+
+    const profilesSubscription = supabase
+      .channel('public:profiles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        checkAuth();
+      })
+      .subscribe();
+
     return () => {
       window.removeEventListener('sipantau-avatar-updated', handleUpdate);
       window.removeEventListener('sipantau-profile-updated', handleUpdate);
+      supabase.removeChannel(activitySubscription);
+      supabase.removeChannel(profilesSubscription);
     };
   }, []);
 
@@ -81,7 +100,7 @@ export default function Dashboard() {
   const handleDownloadPDF = async () => {
     try {
       const { getUserTasks } = await import("../../backend/tasks");
-      const allTasks = await getUserTasks(userId);
+      const allTasks = await getUserTasks(userId, userRole);
       
       const total = allTasks.length;
       const selesai = allTasks.filter(t => t.status === "completed" || t.status === "done" || t.status === "Selesai").length;
@@ -109,12 +128,15 @@ export default function Dashboard() {
               .info-container { margin-bottom: 30px; font-size: 14px; line-height: 1.6; }
               .info-row { display: flex; }
               .info-label { width: 180px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-              th { background-color: #7c3aed; color: white; text-align: left; padding: 12px 15px; font-weight: 600; }
-              td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; color: #475569; }
-              tr:nth-child(even) { background-color: #f8fafc; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; margin-bottom: 40px; }
+              th, td { border: 1px solid #94a3b8; }
+              th { background-color: #7c3aed !important; color: white !important; text-align: left; padding: 12px 15px; font-weight: 600; }
+              td { padding: 12px 15px; color: #334155; }
+              tr:nth-child(even) td { background-color: #f8fafc !important; }
+              .section-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #333; border-bottom: 2px solid #7c3aed; padding-bottom: 5px; display: inline-block; }
               @media print {
                 body { padding: 0; }
+                * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
               }
             </style>
           </head>
@@ -122,10 +144,11 @@ export default function Dashboard() {
             <h2>Laporan Log Aktivitas Pribadi</h2>
             <div class="info-container">
               <div class="info-row"><div class="info-label">Nama Pengguna</div><div>: ${userFullName}</div></div>
-              <div class="info-row"><div class="info-label">Total Aktivitas</div><div>: ${activityLogs.length} Aktivitas Terbaru</div></div>
+              <div class="info-row"><div class="info-label">Peran</div><div>: ${userRole === "mentor" ? "Mentor" : "Pemagang"}</div></div>
               <div class="info-row"><div class="info-label">Tanggal Cetak</div><div>: ${today}</div></div>
             </div>
             
+            <div class="section-title">Log Aktivitas Terbaru</div>
             <table>
               <thead>
                 <tr>
@@ -145,6 +168,38 @@ export default function Dashboard() {
                   </tr>
                 `).join('')}
                 ${activityLogs.length === 0 ? '<tr><td colspan="4" style="text-align: center;">Tidak ada aktivitas tercatat</td></tr>' : ''}
+              </tbody>
+            </table>
+
+            <div class="section-title">Daftar Tugas Terkait</div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="border-top-left-radius: 8px; width: 40px; text-align: center;">No</th>
+                  <th>Kelompok/Tim</th>
+                  <th>Nama Tugas</th>
+                  <th>Status</th>
+                  <th>Prioritas</th>
+                  <th style="border-top-right-radius: 8px;">Tenggat</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${allTasks.map((t, idx) => {
+                  let statusStr = (t.status === "completed" || t.status === "done" || t.status === "Selesai") ? "Done" : (t.status === "review" ? "In Review" : (t.status === "inprogress" || t.status === "in_progress" ? "In Progress" : "To Do"));
+                  let priorityStr = t.priority === "urgent" ? "Tertinggi" : t.priority === "high" ? "Tinggi" : t.priority === "medium" ? "Sedang" : t.priority === "low" ? "Rendah" : "Terendah";
+                  let dueStr = t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-";
+                  return `
+                  <tr>
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td>${t.group?.name || "-"}</td>
+                    <td>${t.title || "-"}</td>
+                    <td>${statusStr}</td>
+                    <td>${priorityStr}</td>
+                    <td>${dueStr}</td>
+                  </tr>
+                  `;
+                }).join('')}
+                ${allTasks.length === 0 ? '<tr><td colspan="6" style="text-align: center;">Tidak ada tugas tercatat</td></tr>' : ''}
               </tbody>
             </table>
           </body>
