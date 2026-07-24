@@ -239,7 +239,7 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
 
   if (isForgotPassword) {
     return (
-      <div className="w-full max-w-[480px] min-h-[400px] bg-white p-6 sm:p-10 flex flex-col rounded-[2.5rem] shadow-xl border border-slate-100/50 justify-center">
+      <div className="w-full max-w-[420px] flex flex-col py-6 self-center">
         <div className="text-center mb-8">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight flex items-center justify-center gap-2">
             Reset Password
@@ -305,7 +305,9 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
   }
 
   return (
-    <div className="w-full max-w-[480px] h-[600px] bg-white p-6 sm:p-10 flex flex-col rounded-[2.5rem] shadow-xl border border-slate-100/50">
+    <div className={`w-full max-w-[420px] flex flex-col py-6 ${isSignUp ? "h-[650px] justify-between self-stretch" : "self-center"}`}>
+
+
       {/* Title */}
       <div className="text-center mb-8">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight flex items-center justify-center gap-2">
@@ -348,11 +350,11 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
         </button>
       </div>
 
-
-
       {/* Authentication Form */}
-      <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-        <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pr-1 space-y-5 transition-all duration-300">
+      <form onSubmit={handleSubmit} className={`flex flex-col ${isSignUp ? "flex-1 min-h-0" : "space-y-6"}`}>
+        <div className={isSignUp ? "flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pr-1 space-y-5 transition-all duration-300" : "space-y-4"}>
+
+
           {!isSignUp ? (
           /* ==========================================
              SIGN IN FORM
@@ -568,42 +570,45 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
               </div>
             </div>
 
-            {/* Asal Instansi Field */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
-                <span className="text-rose-500 font-bold">*</span> Asal Instansi
-              </label>
-              <input
-                type="text"
-                value={signUpInstitution}
-                onChange={(e) => setSignUpInstitution(e.target.value)}
-                readOnly={signUpRole === "mentor"}
-                placeholder={signUpRole === "mentor" ? "BPS Kota Semarang" : "Masukkan nama universitas / instansi"}
-                className={`w-full border rounded-full px-5 py-2.5 text-sm text-slate-800 outline-none focus:ring-1 transition-all duration-200 ${
-                  signUpRole === "mentor" 
-                    ? "border-slate-200 bg-slate-100/70 text-slate-500 cursor-not-allowed" 
-                    : "border-slate-200 bg-slate-50/30 placeholder-slate-400 focus:border-violet-500 focus:ring-violet-500"
-                }`}
-                required
-              />
-            </div>
-
-            {/* Jurusan / Jabatan Field */}
-            {signUpRole !== "mentor" && (
-              <div className="flex flex-col gap-1.5">
+            {/* Asal Instansi & Jurusan Fields (Side by Side / Sejajar) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5" style={{ gridColumn: signUpRole === "mentor" ? "span 2 / span 2" : undefined }}>
                 <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
-                  <span className="text-rose-500 font-bold">*</span> Jurusan
+                  <span className="text-rose-500 font-bold">*</span> Asal Instansi
                 </label>
                 <input
                   type="text"
-                  value={signUpMajor}
-                  onChange={(e) => setSignUpMajor(e.target.value)}
-                  placeholder="Contoh: Teknik Komputer"
-                  className="w-full border border-slate-200 bg-slate-50/30 rounded-full px-5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all duration-200"
+                  value={signUpInstitution}
+                  onChange={(e) => setSignUpInstitution(e.target.value)}
+                  readOnly={signUpRole === "mentor"}
+                  placeholder={signUpRole === "mentor" ? "BPS Kota Semarang" : "Masukkan nama universitas / instansi"}
+                  className={`w-full border rounded-full px-5 py-2.5 text-sm text-slate-800 outline-none focus:ring-1 transition-all duration-200 ${
+                    signUpRole === "mentor" 
+                      ? "border-slate-200 bg-slate-100/70 text-slate-500 cursor-not-allowed" 
+                      : "border-slate-200 bg-slate-50/30 placeholder-slate-400 focus:border-violet-500 focus:ring-violet-500"
+                  }`}
                   required
                 />
               </div>
-            )}
+
+              {/* Jurusan / Jabatan Field */}
+              {signUpRole !== "mentor" && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+                    <span className="text-rose-500 font-bold">*</span> Jurusan
+                  </label>
+                  <input
+                    type="text"
+                    value={signUpMajor}
+                    onChange={(e) => setSignUpMajor(e.target.value)}
+                    placeholder="Contoh: Teknik Komputer"
+                    className="w-full border border-slate-200 bg-slate-50/30 rounded-full px-5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all duration-200"
+                    required
+                  />
+                </div>
+              )}
+            </div>
+
 
             {/* Password Field */}
             <div className="flex flex-col gap-1.5">

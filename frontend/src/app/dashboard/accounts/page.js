@@ -9,7 +9,10 @@ export default function AccountsPage() {
   const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [expandedRow, setExpandedRow] = useState(null);
+
   const [editingRow, setEditingRow] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [selectedUsers, setSelectedUsers] = useState([]);
@@ -146,6 +149,17 @@ export default function AccountsPage() {
 
     return true;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery]);
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -318,8 +332,9 @@ export default function AccountsPage() {
               </tr>
             </thead>
             <tbody className="text-slate-700 divide-y-0 divide-transparent" style={{ border: 'none' }}>
-              {filteredUsers.map((user, idx) => {
+              {paginatedUsers.map((user, idx) => {
                 const isExpanded = expandedRow === user.id;
+
                 const isSelected = selectedUsers.includes(user.id);
 
                 return (
@@ -634,8 +649,11 @@ export default function AccountsPage() {
               })}
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-xs font-semibold text-slate-400">
-                    Tidak ada akun yang ditemukan.
+                  <td colSpan="8" className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center p-6">
+                      <img src="/empty-accounts.svg" alt="Belum ada akun terdaftar" className="w-56 h-36 object-contain mb-4" />
+                      <p className="text-sm font-extrabold text-slate-800">Belum ada akun terdaftar</p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -643,6 +661,98 @@ export default function AccountsPage() {
           </table>
         </div>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 py-2 shrink-0">
+          <button
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+            className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold transition-all ${
+              currentPage === 1
+                ? "bg-[#e9ecef] text-violet-600 opacity-60 cursor-not-allowed"
+                : "bg-violet-600 text-white hover:bg-violet-700 cursor-pointer"
+            }`}
+          >
+            «
+          </button>
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold transition-all ${
+              currentPage === 1
+                ? "bg-[#e9ecef] text-violet-600 opacity-60 cursor-not-allowed"
+                : "bg-violet-600 text-white hover:bg-violet-700 cursor-pointer"
+            }`}
+          >
+            ‹
+          </button>
+
+          {(() => {
+            const pages = [];
+            if (totalPages <= 5) {
+              for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+              }
+            } else {
+              if (currentPage <= 2) {
+                pages.push(1, 2, 3, "...", totalPages);
+              } else if (currentPage >= totalPages - 1) {
+                pages.push(1, "...", totalPages - 2, totalPages - 1, totalPages);
+              } else {
+                pages.push(1, "...", currentPage, "...", totalPages);
+              }
+            }
+            return pages.map((p, idx) => {
+              if (p === "...") {
+                return (
+                  <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-xs font-bold text-violet-600">
+                    ...
+                  </span>
+                );
+              }
+              const isActive = currentPage === p;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setCurrentPage(p)}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
+                    isActive
+                      ? "bg-violet-600 border border-violet-600 text-white shadow-sm cursor-default"
+                      : "bg-white border border-violet-600 text-violet-600 hover:bg-violet-50 cursor-pointer"
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            });
+          })()}
+
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold transition-all ${
+              currentPage === totalPages
+                ? "bg-[#e9ecef] text-violet-600 opacity-60 cursor-not-allowed"
+                : "bg-violet-600 text-white hover:bg-violet-700 cursor-pointer"
+            }`}
+          >
+            ›
+          </button>
+          <button
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={currentPage === totalPages}
+            className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold transition-all ${
+              currentPage === totalPages
+                ? "bg-[#e9ecef] text-violet-600 opacity-60 cursor-not-allowed"
+                : "bg-violet-600 text-white hover:bg-violet-700 cursor-pointer"
+            }`}
+          >
+            »
+          </button>
+        </div>
+      )}
+
 
       {/* Tambah Akun Modal */}
       {showAddModal && (

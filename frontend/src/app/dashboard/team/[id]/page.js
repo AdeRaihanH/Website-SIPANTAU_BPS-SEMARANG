@@ -39,8 +39,26 @@ export default function TeamDetailPage({ params }) {
   const teamMembersRef = React.useRef(null);
   
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("list");
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && teamId) {
+      const savedTab = localStorage.getItem(`sipantau_team_tab_${teamId}`);
+      if (savedTab) {
+        setActiveTab(savedTab);
+      }
+    }
+  }, [teamId]);
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    if (typeof window !== "undefined" && teamId) {
+      localStorage.setItem(`sipantau_team_tab_${teamId}`, newTab);
+    }
+  };
+
   const [isMentor, setIsMentor] = useState(false);
+
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [showAddMemberDrop, setShowAddMemberDrop] = useState(false);
@@ -396,7 +414,7 @@ export default function TeamDetailPage({ params }) {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             className={`flex-1 pb-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-all ${activeTab === tab.id
               ? "border-violet-600 text-violet-700"
               : "border-transparent text-slate-400 hover:text-slate-600"
@@ -407,6 +425,7 @@ export default function TeamDetailPage({ params }) {
           </button>
         ))}
       </div>
+
 
       {/* Content */}
       <div className="flex-1 min-h-0 bg-slate-50/50 rounded-xl p-4 overflow-auto">
