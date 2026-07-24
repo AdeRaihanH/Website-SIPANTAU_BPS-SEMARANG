@@ -1202,35 +1202,13 @@ export default function GlobalTaskModals({
 
                   {/* Status Tugas (Hidden visually but kept logically, or just defaulted since isAddingTask provides it) */}
                 </div>
+              </div>
 
                 {/* Action Button */}
-                <button
-                  onClick={() => {
-                    if (!addTitle.trim()) {
-                      alert("Judul tugas tidak boleh kosong!");
-                      return;
-                    }
-                    const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
-                    const newTask = {
-                      id: Date.now(),
-                      title: addTitle,
-                      desc: addDesc || "Tidak ada deskripsi",
-                      date: addDate,
-                      type: addType,
-                      priority: addPriority,
-                      status: addStatus,
-                      done: addStatus === "done",
-                      orang: addOrang.length > 0 ? addOrang : ["A"],
-                      riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja", timestamp: Date.now() }],
-                      komentar: [],
-                    };
-                    setTasks([...tasks, newTask]);
-                    setIsAddingTask(null);
-                    setActiveDropdown(null);
 
-              {/* Action Button */}
-              <button
-                onClick={async () => {
+                <button
+                  onClick={async () => {
+
                   if (!addTitle.trim()) {
                     alert("Judul tugas tidak boleh kosong!");
                     return;

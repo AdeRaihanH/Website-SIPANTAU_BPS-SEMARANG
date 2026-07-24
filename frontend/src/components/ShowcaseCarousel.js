@@ -35,24 +35,11 @@ export default function ShowcaseCarousel() {
   }, []);
 
   return (
-<<<<<<< Updated upstream
-    <div className="relative w-full max-w-[550px] flex-1 min-h-[550px] rounded-[2.5rem] bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 p-8 flex flex-col justify-between overflow-hidden shadow-2xl shadow-indigo-200">
+    <div className="relative w-full max-w-[550px] flex-1 min-h-[650px] h-[650px] rounded-[2.5rem] bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 p-8 flex flex-col justify-between overflow-hidden shadow-2xl shadow-indigo-200">
       {/* Decorative Background Elements */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16" />
       <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-300/20 rounded-full blur-3xl -ml-16 -mb-16" />
-=======
-    <>
-      <style dangerouslySetInnerHTML={{ __html: CAROUSEL_STYLES }} />
-      <div
-        className="relative w-full max-w-[550px] flex-1 min-h-[650px] h-[650px] rounded-[2.5rem] bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 p-8 flex flex-col justify-between overflow-hidden shadow-2xl shadow-indigo-200"
-      >
 
-
-
-        {/* Decorative background glows */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-300/20 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none" />
->>>>>>> Stashed changes
 
       {/* Slide Illustration Preview */}
       <div className="relative flex-1 flex items-center justify-center min-h-[300px] w-full">

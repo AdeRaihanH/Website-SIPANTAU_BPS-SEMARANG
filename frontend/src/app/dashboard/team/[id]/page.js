@@ -256,22 +256,12 @@ export default function TeamDetailPage({ params }) {
                             </div>
                             {isMember ? (
                               <button
-                                onClick={() => {
-                                  const newMembers = team.members.filter(memId => memId !== m.id);
-                                  const newTeam = { ...team, members: newMembers };
-                                  setTeam(newTeam);
-
-                                  // Save to localStorage if not default team (or even if default)
-                                  const saved = localStorage.getItem("sipantau_teams");
-                                  if (saved) {
-                                    try {
-                                      const parsed = JSON.parse(saved);
-                                      const idx = parsed.findIndex(t => t.id === team.id);
-                                      if (idx !== -1) {
-                                        parsed[idx] = newTeam;
-                                        localStorage.setItem("sipantau_teams", JSON.stringify(parsed));
-                                      }
-                                    } catch (e) { }
+                                onClick={async () => {
+                                  try {
+                                    await removeGroupMember(team.id, m.id);
+                                    await loadData();
+                                  } catch (e) {
+                                    alert("Gagal menghapus anggota: " + e.message);
                                   }
                                 }}
                                 className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
@@ -280,21 +270,12 @@ export default function TeamDetailPage({ params }) {
                               </button>
                             ) : (
                               <button
-                                onClick={() => {
-                                  const newMembers = [...team.members, m.id];
-                                  const newTeam = { ...team, members: newMembers };
-                                  setTeam(newTeam);
-
-                                  const saved = localStorage.getItem("sipantau_teams");
-                                  if (saved) {
-                                    try {
-                                      const parsed = JSON.parse(saved);
-                                      const idx = parsed.findIndex(t => t.id === team.id);
-                                      if (idx !== -1) {
-                                        parsed[idx] = newTeam;
-                                        localStorage.setItem("sipantau_teams", JSON.stringify(parsed));
-                                      }
-                                    } catch (e) { }
+                                onClick={async () => {
+                                  try {
+                                    await addGroupMember(team.id, m.id);
+                                    await loadData();
+                                  } catch (e) {
+                                    alert("Gagal menambah anggota: " + e.message);
                                   }
                                 }}
                                 className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
@@ -303,27 +284,7 @@ export default function TeamDetailPage({ params }) {
                               </button>
                             )}
                           </div>
-                          {isMember ? (
-                            <button 
-                              onClick={async () => {
-                                // Add remove member logic if we have an API for it
-                                alert("Menghapus member dari UI ini belum diimplementasi di API");
-                              }}
-                              className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={async () => {
-                                alert("Menambah member dari UI ini belum diimplementasi di API");
-                              }}
-                              className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            </button>
-                          )}
-                        </div>
+
                       );
                     })}
                   </div>
