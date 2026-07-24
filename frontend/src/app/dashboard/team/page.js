@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { getActiveUser, getProfile } from "../../../backend/auth";
 import { getUserGroups, createGroup, deleteGroup, updateGroup } from "../../../backend/groups";
 import { getAllUsers } from "../../../backend/admin";
+import ToastContainer from "../../../components/Toast";
+
 
 const memberColors = ["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-rose-400", "bg-sky-400", "bg-indigo-400"];
 
@@ -37,6 +39,20 @@ export default function TeamPage() {
   const [viewDeleted, setViewDeleted] = useState(false);
   const [deleteConfirmTeam, setDeleteConfirmTeam] = useState(null);
   const [hardDeleteConfirmTeam, setHardDeleteConfirmTeam] = useState(null);
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (title, message, type = "success") => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
 
   const loadData = async () => {
     try {
@@ -118,6 +134,7 @@ export default function TeamPage() {
       setDeletedTeams(deletedTeams.filter(t => t.id !== team.id));
       setTeams([...teams, { ...team, is_deleted: false }]);
       setOpenDropdown(null);
+      showToast("Success", "Kelompok magang berhasil dipulihkan.", "success");
     } catch (e) {
       alert("Gagal memulihkan kelompok: " + e.message);
     }
@@ -146,7 +163,11 @@ export default function TeamPage() {
   }, []);
 
   const handleAddTeam = async () => {
-    if (!newName.trim() || !currentUser) return;
+    if (!newName.trim()) {
+      showToast("Warning", "Nama kelompok tidak boleh kosong!", "warning");
+      return;
+    }
+    if (!currentUser) return;
     try {
       const selectedMentorId = isMentor ? currentUser.id : (newMentor || allMentors[0]?.id);
       const memberIds = selectedMembers.map(m => m.id);
@@ -165,10 +186,12 @@ export default function TeamPage() {
 
       setShowAddModal(false);
       setNewName(""); setNewDesc(""); setSelectedMembers([]); setMemberSearch("");
+      showToast("Success", "Kelompok magang baru berhasil ditambahkan.", "success");
     } catch (e) {
       alert("Gagal menambah kelompok: " + e.message);
     }
   };
+
 
   const isMentorOrAdmin = isMentor || isAdmin;
   const sourceTeams = viewDeleted ? deletedTeams : teams;
@@ -588,6 +611,8 @@ export default function TeamPage() {
           </div>
         </div>
       )}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
+

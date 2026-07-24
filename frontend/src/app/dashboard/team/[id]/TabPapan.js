@@ -2,8 +2,23 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { createTask, updateTask } from "../../../../backend/tasks";
+import ToastContainer from "../../../../components/Toast";
 
 export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDelete, team }) {
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (title, message, type = "success") => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
   const [showAddForm, setShowAddForm] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -67,6 +82,10 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
   const getFirstDay = (y, m) => { const d = new Date(y, m, 1).getDay(); return d === 0 ? 6 : d - 1; };
 
   const handleAddTask = async (status) => {
+    if (!newTitle.trim()) {
+      showToast("Warning", "Judul tugas tidak boleh kosong!", "warning");
+      return;
+    }
     const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
     
     let dbStatus = status;
@@ -75,14 +94,6 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
     
     const mappedPriority = newPriority === "Tertinggi" ? "urgent" : newPriority === "Tinggi" ? "high" : newPriority === "Sedang" ? "medium" : "low";
     
-    // We don't have the team id easily accessible unless we pass it.
-    // For now we assume a task created here will just lack group_id unless passed,
-    // wait, TabPapan receives team as a prop?
-    // Let's check props: { tasks, setTasks, setSelectedTask, setTaskToDelete }
-    // Since we don't have team prop, we can't properly assign group_id!
-    // But since `tasks` are passed, we could get group_id from the first task, but what if empty?
-    // Actually, I should just pass `teamId` from page.js or use localStorage...
-    // Let's try to get teamId from URL since it's `dashboard/team/[id]`
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
     const match = currentUrl.match(/\/team\/([^/]+)/);
     const teamId = match ? match[1] : "1";
@@ -127,6 +138,7 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
       setNewOrang(["A"]);
       setShowAddForm(null);
       setShowCalendar(false);
+      showToast("Success", "Tugas baru telah berhasil ditambahkan.", "success");
     } catch (e) {
       alert("Gagal menambahkan tugas: " + e.message);
     }
@@ -153,6 +165,7 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
     try {
       await updateTask(draggedTaskId, { status: dbStatus });
       setTasks(tasks.map(t => t.id === draggedTaskId ? { ...t, status } : t));
+      showToast("Info", "Status tugas telah diperbarui.", "info");
     } catch (e) {
       alert("Gagal memperbarui status: " + e.message);
     }
@@ -164,6 +177,7 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
       }
     }, 100);
   };
+
 
   const getPriorityBadge = (priority) => {
     switch (priority) {
@@ -446,6 +460,8 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setTaskToDe
           </div>
         );
       })}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
+

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { getAllUsers, updateUserStatus, updateUserProfile, deleteUsers } from "../../../backend/admin";
 import { getActiveUser, signUpUser } from "../../../backend/auth";
+import ToastContainer from "../../../components/Toast";
 
 export default function AccountsPage() {
   const [activeAdminId, setActiveAdminId] = useState(null);
@@ -32,13 +33,14 @@ export default function AccountsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [toasts, setToasts] = useState([]);
 
-  const showToast = (title, message) => {
+  const showToast = (title, message, type = "success") => {
     const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, title, message }]);
+    setToasts(prev => [...prev, { id, title, message, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
   };
+
 
   const removeToast = (id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -205,40 +207,8 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-6 relative">
-      {/* Toast Notification Container */}
-      <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            className="pointer-events-auto flex items-start gap-3 bg-[#f0fdf4] border-l-4 border-[#4ade80] rounded shadow-md p-4 min-w-[320px] transform transition-all animate-[slideIn_0.3s_ease-out_forwards]"
-          >
-            <div className="bg-[#4ade80] rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <h4 className="text-sm font-extrabold text-slate-800">{toast.title}</h4>
-              <p className="text-xs font-semibold text-slate-500 mt-0.5">{toast.message}</p>
-            </div>
-            <button
-              onClick={() => removeToast(toast.id)}
-              className="text-[#86efac] hover:text-[#4ade80] transition-colors p-0.5"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        ))}
-      </div>
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes slideIn {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `}} />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+
 
       <div className="border-b border-slate-100 pb-5">
         <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Direktori Tim</h1>
