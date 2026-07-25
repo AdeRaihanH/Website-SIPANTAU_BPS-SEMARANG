@@ -153,12 +153,23 @@ export async function updateSubtaskStatus(subtaskId, isCompleted) {
  * Create a new task
  */
 export async function createTask(taskData) {
-  // Try getting current active user to log activity
-  const { data: { user } } = await supabase.auth.getUser();
+  const isUUID = (str) => typeof str === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
-  const { data, error } = await supabase
+  const cleanData = { ...taskData };
+  if (cleanData.group_id && !isUUID(cleanData.group_id)) {
+    delete cleanData.group_id;
+  }
+  if (cleanData.assigned_to && !isUUID(cleanData.assigned_to)) {
+    delete cleanData.assigned_to;
+  }
+
+  // Try getting current active user to log activity
+  const { data } = await supabase.auth.getUser().catch(() => ({ data: {} }));
+  const user = data?.user;
+
+  const { data: insertedTask, error } = await supabase
     .from("tasks")
-    .insert(taskData)
+    .insert(cleanData)
     .select()
     .single();
 
@@ -166,26 +177,29 @@ export async function createTask(taskData) {
 
   // Log activity if user is authenticated
   if (user && user.id) {
-    const { logActivity } = await import('./dashboard.js');
-    await logActivity(user.id, `telah membuat penugasan baru`, data.id, taskData.group_id || data.group_id);
+    try {
+      const { logActivity } = await import('./dashboard.js');
+      await logActivity(user.id, `telah membuat penugasan baru`, insertedTask.id, cleanData.group_id || insertedTask.group_id);
 
-    // Also add entry to task_history so it appears in "Log Aktivitas Tim" on dashboard tab
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", user.id)
-      .single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
 
-    const userName = profile?.full_name || user.email || "User";
-    await supabase.from("task_history").insert({
-      task_id: data.id,
-      name: userName,
-      text: "telah menambahkan tugas baru",
-      time: "baru saja"
-    });
+      const userName = profile?.full_name || user.email || "User";
+      await supabase.from("task_history").insert({
+        task_id: insertedTask.id,
+        name: userName,
+        text: "telah menambahkan tugas baru",
+        time: "baru saja"
+      }).catch(() => null);
+    } catch (e) {
+      console.warn("Log activity for createTask failed silently:", e);
+    }
   }
 
-  return data;
+  return insertedTask;
 }
 
 /**

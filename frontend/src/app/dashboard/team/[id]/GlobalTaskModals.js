@@ -63,11 +63,15 @@ export default function GlobalTaskModals({
   const [toasts, setToasts] = useState([]);
 
   const addToast = (message, type = "warning") => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
+    setToasts(prev => {
+      if (prev.some(t => t.message === message)) return prev;
+      const id = Date.now() + Math.random();
+      setTimeout(() => {
+        setToasts(p => p.filter(t => t.id !== id));
+      }, 3000);
+      const updated = [...prev, { id, message, type }];
+      return updated.slice(-2);
+    });
   };
   const triggerWarning = (message) => addToast(message, "warning");
 
@@ -87,19 +91,19 @@ export default function GlobalTaskModals({
   // Filter members strictly based on team.membersList
   const filteredMembers = team && team.membersList && team.membersList.length > 0
     ? team.membersList.map(member => ({
-        id: member.id,
-        name: member.full_name,
-        initial: member.full_name ? member.full_name.charAt(0).toUpperCase() : "?",
-        avatar: member.avatar_url || getUserAvatar(member.full_name),
-        color: "bg-slate-400"
-      }))
+      id: member.id,
+      name: member.full_name,
+      initial: member.full_name ? member.full_name.charAt(0).toUpperCase() : "?",
+      avatar: member.avatar_url || getUserAvatar(member.full_name),
+      color: "bg-slate-400"
+    }))
     : (currentUserFullName ? [{
-        id: "current",
-        name: currentUserFullName,
-        initial: currentUserFullName.charAt(0).toUpperCase(),
-        avatar: getUserAvatar(currentUserFullName),
-        color: "bg-slate-400"
-      }] : []);
+      id: "current",
+      name: currentUserFullName,
+      initial: currentUserFullName.charAt(0).toUpperCase(),
+      avatar: getUserAvatar(currentUserFullName),
+      color: "bg-slate-400"
+    }] : []);
 
   // Edit Task Local State
   const [editTitle, setEditTitle] = useState("");
@@ -255,13 +259,18 @@ export default function GlobalTaskModals({
 
   const updateAndSaveTasks = (newTasksList) => {
     setTasks(newTasksList);
+    if (team?.id) {
+      if (typeof window !== "undefined" && window._sipantauMemoryCache) {
+        window._sipantauMemoryCache.set(`tasks_${team.id}`, newTasksList);
+      }
+    }
   };
 
-  const handleUpdateTaskField = (field, value) => {
+  const handleUpdateTaskField = (field, value, showToast = true) => {
     if (!selectedTask) return;
     const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
     let actionText = "telah memperbarui tugas";
-    
+
     let updates = {};
     if (typeof field === "object") {
       updates = field;
@@ -269,7 +278,9 @@ export default function GlobalTaskModals({
       else actionText = "telah memperbarui tugas";
     } else {
       updates[field] = value;
-      if (field === "status") actionText = "telah mengubah status tugas";
+      if (field === "title") actionText = "telah mengubah judul tugas";
+      else if (field === "desc") actionText = "telah memperbarui deskripsi tugas";
+      else if (field === "status") actionText = "telah mengubah status tugas";
       else if (field === "priority") actionText = "telah memperbarui prioritas pada";
       else if (field === "type") actionText = "telah mengubah jenis tugas";
       else if (field === "orang") actionText = "telah mengubah penerima tugas";
@@ -288,7 +299,7 @@ export default function GlobalTaskModals({
       // Do not add duplicate
     } else {
       updatedRiwayat = [newHistory, ...updatedRiwayat];
-      
+
       // Save history entry to DB (fire and forget, don't block the UI)
       addHistory(selectedTask.id, newHistory).catch(e => {
         console.warn("Failed to save history to DB:", e);
@@ -296,12 +307,12 @@ export default function GlobalTaskModals({
     }
 
     const updated = { ...selectedTask, ...updates, riwayat: updatedRiwayat };
-    
+
     // Convert status to DB format
     let dbStatus = updated.status;
     if (dbStatus === "done" || dbStatus === "completed") dbStatus = "done";
     else if (dbStatus === "inprogress") dbStatus = "in_progress";
-    
+
     // Map to DB
     const dbUpdates = {
       title: updated.title,
@@ -311,12 +322,17 @@ export default function GlobalTaskModals({
       priority: updated.priority === "Tertinggi" ? "urgent" : updated.priority === "Tinggi" ? "high" : updated.priority === "Sedang" ? "medium" : "low"
     };
 
-    if (updates.orang && updates.orang.length > 0) {
-      const selectedMember = filteredMembers.find(m => m.initial === updates.orang[0]);
-      if (selectedMember && selectedMember.id) {
-        dbUpdates.assigned_to = selectedMember.id;
-        updated.assigned_to = selectedMember.id;
-      }
+    if (updates.orang) {
+      const assigneeIds = updates.orang.map(init => filteredMembers.find(m => m.initial === init)?.id).filter(Boolean);
+      dbUpdates.assigned_to = assigneeIds[0] || null;
+      updated.assigned_to = assigneeIds[0] || null;
+
+      const cleanDesc = (updated.desc || "").replace(/<!-- SIPANTAU_META:(.*?) -->/g, '').trim();
+      const meta = {
+        priority: dbUpdates.priority,
+        assignees: assigneeIds
+      };
+      dbUpdates.description = `${cleanDesc}\n<!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
     }
 
     updateTask(selectedTask.id, dbUpdates).catch(e => {
@@ -326,30 +342,33 @@ export default function GlobalTaskModals({
     setSelectedTask(updated);
     updateAndSaveTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
 
-    // Trigger Info Toast for successful field edit
-    let toastMsg = "Detail tugas berhasil diperbarui.";
-    if (field === "orang") toastMsg = "Penerima tugas berhasil diperbarui.";
-    else if (field === "status" || (typeof field === "object" && field.status)) toastMsg = "Status tugas berhasil diperbarui.";
-    else if (field === "priority") toastMsg = "Prioritas tugas berhasil diperbarui.";
-    else if (field === "type") toastMsg = "Jenis tugas berhasil diperbarui.";
-    else if (field === "date") toastMsg = "Tenggat waktu berhasil diperbarui.";
+    if (showToast) {
+      let toastMsg = "Detail tugas berhasil diperbarui.";
+      if (field === "title") toastMsg = "Judul tugas berhasil diperbarui.";
+      else if (field === "desc") toastMsg = "Deskripsi tugas berhasil diperbarui.";
+      else if (field === "orang") toastMsg = "Penerima tugas berhasil diperbarui.";
+      else if (field === "status" || (typeof field === "object" && field.status)) toastMsg = "Status tugas berhasil diperbarui.";
+      else if (field === "priority") toastMsg = "Prioritas tugas berhasil diperbarui.";
+      else if (field === "type") toastMsg = "Jenis tugas berhasil diperbarui.";
+      else if (field === "date") toastMsg = "Tenggat waktu berhasil diperbarui.";
 
-    addToast(toastMsg, "info");
+      addToast(toastMsg, "info");
+    }
   };
 
   const handleAddComment = async () => {
     if (!newComment.trim() || !selectedTask) return;
     const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
-    
+
     try {
       // Save to DB
       const user = await getActiveUser();
       const userId = user?.id;
       const dbComment = await createTaskComment(selectedTask.id, userId, newComment);
-      
-      const comment = { 
-        id: dbComment.id, 
-        name: activeUserName, 
+
+      const comment = {
+        id: dbComment.id,
+        name: activeUserName,
         text: newComment,
         created_at: dbComment.created_at
       };
@@ -369,18 +388,18 @@ export default function GlobalTaskModals({
 
   const handleAddSubtask = async () => {
     if (!newSubtaskName.trim() || !selectedTask) return;
-    
+
     try {
       // Save to DB first
       const dbSubtask = await createSubtask(selectedTask.id, newSubtaskName);
-      
+
       const currentSubtasks = selectedTask.subtugas || [];
-      const updatedSubtasks = [...currentSubtasks, { 
-        id: dbSubtask.id, 
-        title: newSubtaskName, 
-        done: false 
+      const updatedSubtasks = [...currentSubtasks, {
+        id: dbSubtask.id,
+        title: newSubtaskName,
+        done: false
       }];
-      
+
       const updated = { ...selectedTask, subtugas: updatedSubtasks };
       setSelectedTask(updated);
       updateAndSaveTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
@@ -398,14 +417,14 @@ export default function GlobalTaskModals({
     const currentSubtasks = selectedTask.subtugas || [];
     const target = currentSubtasks[index];
     if (!target || !target.id) return;
-    
+
     const newDone = !target.done;
-    
+
     try {
       // Update DB
       await updateSubtaskStatus(target.id, newDone);
-      
-      const updatedSubtasks = currentSubtasks.map((st, i) => 
+
+      const updatedSubtasks = currentSubtasks.map((st, i) =>
         i === index ? { ...st, done: newDone } : st
       );
       const updated = { ...selectedTask, subtugas: updatedSubtasks };
@@ -425,24 +444,26 @@ export default function GlobalTaskModals({
   };
 
   const getPriorityStyle = (priority) => {
-    switch (priority) {
-      case "Tertinggi": return "bg-rose-100/70 text-rose-600 border border-rose-200/40 hover:bg-rose-200/50";
-      case "Tinggi": return "bg-emerald-100/70 text-emerald-600 border border-emerald-200/40 hover:bg-emerald-200/50";
-      case "Sedang": return "bg-amber-100/70 text-amber-600 border border-amber-200/40 hover:bg-amber-200/50";
-      case "Rendah": return "bg-cyan-100/70 text-cyan-600 border border-cyan-200/40 hover:bg-cyan-200/50";
-      case "Terendah": return "bg-violet-100/70 text-violet-600 border border-violet-200/40 hover:bg-violet-200/50";
-      default: return "bg-slate-100 text-slate-700 border-slate-200";
+    const p = (priority || "").toLowerCase();
+    switch (p) {
+      case "terendah": return "bg-violet-100/70 text-violet-600 border border-violet-200/40 hover:bg-violet-200/50";
+      case "rendah": case "low": return "bg-cyan-100/70 text-cyan-600 border border-cyan-200/40 hover:bg-cyan-200/50";
+      case "sedang": case "medium": return "bg-amber-100/70 text-amber-600 border border-amber-200/40 hover:bg-amber-200/50";
+      case "tinggi": case "high": return "bg-emerald-100/70 text-emerald-600 border border-emerald-200/40 hover:bg-emerald-200/50";
+      case "tertinggi": case "urgent": case "critical": return "bg-rose-100/70 text-rose-600 border border-rose-200/40 hover:bg-rose-200/50";
+      default: return "bg-cyan-100/70 text-cyan-600 border border-cyan-200/40 hover:bg-cyan-200/50";
     }
   };
 
   const getPriorityDotColor = (priority) => {
-    switch (priority) {
-      case "Tertinggi": return "bg-rose-500";
-      case "Tinggi": return "bg-emerald-500";
-      case "Sedang": return "bg-amber-500";
-      case "Rendah": return "bg-cyan-500";
-      case "Terendah": return "bg-violet-500";
-      default: return "bg-slate-500";
+    const p = (priority || "").toLowerCase();
+    switch (p) {
+      case "terendah": return "bg-violet-500";
+      case "rendah": case "low": return "bg-cyan-500";
+      case "sedang": case "medium": return "bg-amber-500";
+      case "tinggi": case "high": return "bg-emerald-500";
+      case "tertinggi": case "urgent": case "critical": return "bg-rose-500";
+      default: return "bg-cyan-500";
     }
   };
 
@@ -492,13 +513,13 @@ export default function GlobalTaskModals({
     const firstDay = getFirstDayOfMonth(year, month);
 
     const style = parentStyle || (dropdownCoords
-      ? { 
-          position: "fixed", 
-          left: `${dropdownCoords.left}px`,
-          zIndex: 9999999,
-          ...(dropdownCoords.top !== undefined ? { top: `${dropdownCoords.top}px` } : {}),
-          ...(dropdownCoords.bottom !== undefined ? { bottom: `${dropdownCoords.bottom}px` } : {})
-        }
+      ? {
+        position: "fixed",
+        left: `${dropdownCoords.left}px`,
+        zIndex: 9999999,
+        ...(dropdownCoords.top !== undefined ? { top: `${dropdownCoords.top}px` } : {}),
+        ...(dropdownCoords.bottom !== undefined ? { bottom: `${dropdownCoords.bottom}px` } : {})
+      }
       : { position: "absolute", top: "100%", left: 0, marginTop: "6px" });
 
     return (
@@ -681,9 +702,9 @@ export default function GlobalTaskModals({
                 }}
                 className={`w-full text-center px-4 py-2 text-xs font-bold text-slate-600 rounded-xl transition-colors cursor-pointer ${st.bg} ${selectedTask.status === st.id ? (
                   st.id === 'todo' ? 'bg-[#bbf7d0] text-teal-900' :
-                  st.id === 'inprogress' ? 'bg-[#fecdd3] text-rose-900' :
-                  st.id === 'review' ? 'bg-[#bae6fd] text-sky-900' :
-                  'bg-[#fef3c7] text-amber-900'
+                    st.id === 'inprogress' ? 'bg-[#fecdd3] text-rose-900' :
+                      st.id === 'review' ? 'bg-[#bae6fd] text-sky-900' :
+                        'bg-[#fef3c7] text-amber-900'
                 ) : ''}`}
               >
                 {st.label}
@@ -874,7 +895,7 @@ export default function GlobalTaskModals({
       if (top + modalHeight > window.innerHeight - padding) {
         top = (rect.top || 100) - modalHeight - 6;
       }
-      
+
       if (rect.right && (rect.right > window.innerWidth / 2)) {
         left = rect.right - modalWidth;
       } else {
@@ -904,9 +925,16 @@ export default function GlobalTaskModals({
               <input
                 type="text"
                 value={editTitle}
-                onChange={(e) => {
-                  setEditTitle(e.target.value);
-                  handleUpdateTaskField("title", e.target.value);
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={() => {
+                  if (selectedTask && editTitle !== selectedTask.title) {
+                    handleUpdateTaskField("title", editTitle, true);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.target.blur();
+                  }
                 }}
                 className="text-xl font-extrabold text-slate-800 border border-transparent hover:border-slate-200 focus:border-violet-300 rounded-lg outline-none w-full px-2 py-1 transition-all"
                 placeholder="Judul tugas..."
@@ -928,11 +956,14 @@ export default function GlobalTaskModals({
                   <label className="text-[13px] font-extrabold text-slate-800 block">Deskripsi</label>
                   <textarea
                     value={editDesc}
-                    onChange={(e) => {
-                      setEditDesc(e.target.value);
-                      handleUpdateTaskField("desc", e.target.value);
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    onBlur={() => {
+                      if (selectedTask && editDesc !== selectedTask.desc) {
+                        handleUpdateTaskField("desc", editDesc, true);
+                      }
                     }}
                     className="w-full text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl p-3 bg-white outline-none focus:border-violet-500 h-20 resize-none transition-colors"
+                    placeholder="Tambahkan deskripsi tugas di sini..."
                   />
                 </div>
 
@@ -943,9 +974,9 @@ export default function GlobalTaskModals({
                     <button
                       ref={editTypeBtnRef}
                       onClick={() => toggleDropdown("jenis", editTypeBtnRef)}
-                      className={`flex items-center gap-2 border rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer w-max transition-colors ${getTypeStyle(selectedTask.type)}`}
+                      className={`flex items-center gap-2 border rounded-full px-3 py-1.5 text-xs font-bold cursor-pointer w-max transition-colors ${getTypeStyle(selectedTask.type)}`}
                     >
-                      <span className={`w-2 h-2 rounded-full ${getTypeDotColor(selectedTask.type)}`} />
+                      <span className={`w-2 h-2 rounded-xs ${getTypeDotColor(selectedTask.type)}`} />
                       <span>{selectedTask.type}</span>
                       <span className="text-[10px] ml-1">▼</span>
                     </button>
@@ -957,7 +988,7 @@ export default function GlobalTaskModals({
                     <button
                       ref={editPriorityBtnRef}
                       onClick={() => toggleDropdown("prioritas", editPriorityBtnRef)}
-                      className={`flex items-center gap-2 border rounded-xl px-3 py-1.5 text-xs font-bold ${getPriorityStyle(selectedTask.priority)} cursor-pointer w-max transition-colors`}
+                      className={`flex items-center gap-2 border rounded-full px-3 py-1.5 text-xs font-bold ${getPriorityStyle(selectedTask.priority)} cursor-pointer w-max transition-colors`}
                     >
                       <span className={`w-2 h-2 rounded-full ${getPriorityDotColor(selectedTask.priority)}`} />
                       <span>{selectedTask.priority}</span>
@@ -1007,30 +1038,30 @@ export default function GlobalTaskModals({
 
                 {/* Subtugas */}
                 <div className="space-y-3 pt-2">
-                  <button 
+                  <button
                     onClick={() => setIsSubtasksOpen(!isSubtasksOpen)}
                     className="text-[13px] font-extrabold text-slate-800 flex items-center gap-3 cursor-pointer w-max outline-none"
                   >
                     Subtugas
                     <span className="text-[10px] text-slate-600 transition-transform duration-200" style={{ transform: isSubtasksOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
                   </button>
-                  
+
                   {isSubtasksOpen && (
                     <div className="space-y-3">
                       {(selectedTask.subtugas || []).map((st, i) => (
                         <div key={i} className="flex items-center gap-3">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             checked={st.done}
                             onChange={() => handleToggleSubtask(i)}
-                            className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer shrink-0" 
+                            className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer shrink-0"
                           />
                           <span className={`text-xs font-semibold ${st.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{st.title}</span>
                         </div>
                       ))}
-                      
+
                       {!isAddingSubtask ? (
-                        <button 
+                        <button
                           onClick={() => setIsAddingSubtask(true)}
                           className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] px-3.5 py-2 rounded-lg transition-colors cursor-pointer w-max mt-2"
                         >
@@ -1038,9 +1069,9 @@ export default function GlobalTaskModals({
                         </button>
                       ) : (
                         <div className="space-y-2.5 mt-2 w-full max-w-[280px]">
-                          <input 
-                            type="text" 
-                            placeholder="Tambah subtugas" 
+                          <input
+                            type="text"
+                            placeholder="Tambah subtugas"
                             value={newSubtaskName}
                             onChange={(e) => setNewSubtaskName(e.target.value)}
                             onKeyDown={(e) => {
@@ -1052,13 +1083,13 @@ export default function GlobalTaskModals({
                             autoFocus
                           />
                           <div className="flex items-center gap-2">
-                            <button 
+                            <button
                               onClick={handleAddSubtask}
                               className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-[11px] px-4 py-2 rounded-lg transition-colors cursor-pointer shadow-sm shadow-violet-200"
                             >
                               Tambah
                             </button>
-                            <button 
+                            <button
                               onClick={() => {
                                 setIsAddingSubtask(false);
                                 setNewSubtaskName("");
@@ -1083,11 +1114,10 @@ export default function GlobalTaskModals({
                     <button
                       ref={editStatusBtnRef}
                       onClick={() => toggleDropdown("status", editStatusBtnRef)}
-                      className={`flex items-center justify-between w-32 border rounded-xl px-3 py-2 text-xs font-bold capitalize cursor-pointer transition-colors ${
-                        selectedTask.status === "todo" ? "bg-[#bbf7d0] text-teal-900 border-[#86efac] hover:bg-[#86efac]" :
-                        selectedTask.status === "inprogress" ? "bg-[#fecdd3] text-rose-900 border-[#fda4af] hover:bg-[#fda4af]" :
-                        selectedTask.status === "review" ? "bg-[#bae6fd] text-sky-900 border-[#7dd3fc] hover:bg-[#7dd3fc]" :
-                        "bg-[#fef3c7] text-amber-900 border-[#fde68a] hover:bg-[#fde68a]"
+                      className={`flex items-center justify-between w-32 border rounded-xl px-3 py-2 text-xs font-bold capitalize cursor-pointer transition-colors ${selectedTask.status === "todo" ? "bg-[#bbf7d0] text-teal-900 border-[#86efac] hover:bg-[#86efac]" :
+                          selectedTask.status === "inprogress" ? "bg-[#fecdd3] text-rose-900 border-[#fda4af] hover:bg-[#fda4af]" :
+                            selectedTask.status === "review" ? "bg-[#bae6fd] text-sky-900 border-[#7dd3fc] hover:bg-[#7dd3fc]" :
+                              "bg-[#fef3c7] text-amber-900 border-[#fde68a] hover:bg-[#fde68a]"
                         }`}
                     >
                       <span>{selectedTask.status === "todo" ? "To do" : selectedTask.status === "inprogress" ? "In Progress" : selectedTask.status === "review" ? "In Review" : "Done"}</span>
@@ -1170,7 +1200,7 @@ export default function GlobalTaskModals({
                           placeholder="Tambahkan komentar..."
                           className="w-full text-[11px] font-semibold text-slate-600 border border-slate-200 rounded-xl py-2.5 pl-3 pr-10 outline-none focus:border-violet-500 transition-colors resize-none h-10 leading-tight"
                         />
-                        <button 
+                        <button
                           onClick={handleAddComment}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-600 transition-colors cursor-pointer"
                         >
@@ -1193,12 +1223,12 @@ export default function GlobalTaskModals({
       {/* ================= ADD MODAL ================= */}
       {isAddingTask && (
         <>
-          <div 
+          <div
             className="fixed inset-0 z-[999998]"
             onClick={() => { setIsAddingTask(null); setActiveDropdown(null); }}
           ></div>
-          
-          <div 
+
+          <div
             className="fixed z-[999999] bg-white rounded-3xl w-full max-w-[288px] max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-100/90 flex flex-col custom-scrollbar p-4 space-y-3 text-left animate-[scaleIn_0.15s_ease-out_forwards]"
             style={calculateModalPosition(isAddingTask)}
           >
@@ -1223,7 +1253,7 @@ export default function GlobalTaskModals({
 
             {/* Body */}
             <div className="space-y-2.5 pt-0.5">
-              
+
               <textarea
                 value={addDesc}
                 onChange={(e) => setAddDesc(e.target.value)}
@@ -1324,7 +1354,7 @@ export default function GlobalTaskModals({
                     <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">TANGGAL</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">TENGGAT</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1360,7 +1390,7 @@ export default function GlobalTaskModals({
                     return;
                   }
                   const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
-                  
+
                   let localUiStatus = typeof isAddingTask === "object" && isAddingTask.status ? isAddingTask.status : (addStatus || "todo");
                   let dbStatus = localUiStatus;
                   if (localUiStatus === "done" || localUiStatus === "completed") { dbStatus = "done"; localUiStatus = "done"; }
@@ -1373,24 +1403,23 @@ export default function GlobalTaskModals({
                   if (parsedDate) {
                     dbDate = `${parsedDate.year}-${String(parsedDate.month + 1).padStart(2, '0')}-${String(parsedDate.day).padStart(2, '0')}`;
                   }
-                  
-                  let assignedToId = null;
-                  if (addOrang.length > 0) {
-                     const member = filteredMembers.find(m => m.initial === addOrang[0]);
-                     if (member && member.id) {
-                       assignedToId = member.id;
-                     }
-                  }
+
+                  const assigneeIds = addOrang.map(init => filteredMembers.find(m => m.initial === init)?.id).filter(Boolean);
+                  const cleanDesc = (addDesc || "Tidak ada deskripsi").replace(/<!-- SIPANTAU_META:(.*?) -->/g, '').trim();
+                  const meta = { priority: mappedPriority, assignees: assigneeIds };
+                  const descWithMeta = `${cleanDesc}\n<!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
+
+                  const isUUID = (str) => typeof str === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
                   const newTaskData = {
                     title: addTitle,
-                    description: addDesc || "Tidak ada deskripsi",
+                    description: descWithMeta,
                     status: dbStatus,
                     type: addType,
                     priority: mappedPriority,
                     due_date: dbDate,
-                    group_id: team?.id || "1",
-                    assigned_to: assignedToId
+                    group_id: team?.id && isUUID(team.id) ? team.id : null,
+                    assigned_to: assigneeIds[0] && isUUID(assigneeIds[0]) ? assigneeIds[0] : null
                   };
 
                   let createdTaskId = "task-" + Date.now();
@@ -1413,7 +1442,7 @@ export default function GlobalTaskModals({
                     status: localUiStatus,
                     done: localUiStatus === "completed" || localUiStatus === "done",
                     orang: addOrang.length > 0 ? addOrang : [],
-                    riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
+                    riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja", created_at: new Date().toISOString() }],
                     komentar: [],
                     subtugas: []
                   };
@@ -1453,12 +1482,11 @@ export default function GlobalTaskModals({
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto flex items-start gap-3 rounded-2xl shadow-xl p-4 min-w-[300px] max-w-sm transform transition-all animate-[slideIn_0.3s_ease-out_forwards] ${
-                isSuccess ? "bg-[#f0fdf4] border-l-4 border-emerald-500 text-emerald-950" :
-                isInfo ? "bg-[#eff6ff] border-l-4 border-sky-500 text-sky-950" :
-                isError ? "bg-[#fef2f2] border-l-4 border-rose-500 text-rose-950" :
-                "bg-[#fffbeb] border-l-4 border-amber-500 text-amber-950"
-              }`}
+              className={`pointer-events-auto flex items-start gap-3 rounded-2xl shadow-xl p-4 min-w-[300px] max-w-sm transform transition-all animate-[slideIn_0.3s_ease-out_forwards] ${isSuccess ? "bg-[#f0fdf4] border-l-4 border-emerald-500 text-emerald-950" :
+                  isInfo ? "bg-[#eff6ff] border-l-4 border-sky-500 text-sky-950" :
+                    isError ? "bg-[#fef2f2] border-l-4 border-rose-500 text-rose-950" :
+                      "bg-[#fffbeb] border-l-4 border-amber-500 text-amber-950"
+                }`}
             >
               {/* Icon */}
               {isSuccess && (
@@ -1495,12 +1523,11 @@ export default function GlobalTaskModals({
               {/* Close Button */}
               <button
                 onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-                className={`p-0.5 cursor-pointer font-bold text-xs ${
-                  isSuccess ? "text-emerald-500 hover:text-emerald-700" :
-                  isInfo ? "text-sky-500 hover:text-sky-700" :
-                  isError ? "text-rose-500 hover:text-rose-700" :
-                  "text-amber-400 hover:text-amber-600"
-                }`}
+                className={`p-0.5 cursor-pointer font-bold text-xs ${isSuccess ? "text-emerald-500 hover:text-emerald-700" :
+                    isInfo ? "text-sky-500 hover:text-sky-700" :
+                      isError ? "text-rose-500 hover:text-rose-700" :
+                        "text-amber-400 hover:text-amber-600"
+                  }`}
               >
                 ✕
               </button>

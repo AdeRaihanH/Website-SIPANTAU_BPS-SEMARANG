@@ -20,6 +20,9 @@ const userAvatars = {
   "H": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=32&h=32&q=80",
 };
 
+// Module-level in-memory cache (0ms latency, zero quota limits, 100% safe)
+const memoryCache = new Map();
+
 export default function TeamPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState(null);
@@ -39,18 +42,46 @@ export default function TeamPage() {
   const [deleteConfirmTeam, setDeleteConfirmTeam] = useState(null);
   const [hardDeleteConfirmTeam, setHardDeleteConfirmTeam] = useState(null);
 
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Restore instant cache on mount (0ms delay)
+  useEffect(() => {
+    try {
+      const cachedRole = localStorage.getItem("sipantau_role");
+      if (cachedRole) {
+        setRole(cachedRole);
+        setIsMentor(cachedRole === "mentor");
+        setIsAdmin(cachedRole === "admin");
+      }
+      const cachedTeams = memoryCache.get("teams");
+      if (cachedTeams && cachedTeams.length > 0) {
+        setTeams(cachedTeams);
+        setIsLoading(false);
+      }
+      const cachedUsers = memoryCache.get("users");
+      if (cachedUsers && cachedUsers.length > 0) {
+        setAllUsers(cachedUsers);
+        setAllMentors(cachedUsers.filter(u => u.role === "mentor"));
+        setAvailableMembers(cachedUsers.filter(u => u.role === "pemagang" || u.role === "intern"));
+      }
+    } catch (e) {}
+  }, []);
+
   const loadData = async () => {
     try {
       const authUser = await getActiveUser();
       if (!authUser) return;
       
-      const profile = await getProfile(authUser.id);
+      const [profile, allSysUsers, dbGroups] = await Promise.all([
+        getProfile(authUser.id),
+        getAllUsers(),
+        getUserGroups(authUser.id, "all")
+      ]);
+
       setCurrentUser(profile);
       setRole(profile.role);
       setIsMentor(profile.role === "mentor");
       setIsAdmin(profile.role === "admin");
-
-      const allSysUsers = await getAllUsers();
       setAllUsers(allSysUsers);
       
       const mentors = allSysUsers.filter(u => u.role === "mentor");
@@ -59,14 +90,34 @@ export default function TeamPage() {
       const members = allSysUsers.filter(u => u.role === "pemagang" || u.role === "intern");
       setAvailableMembers(members);
 
-      const dbGroups = await getUserGroups(profile.id, profile.role);
-      const activeGroups = dbGroups.filter(g => !g.is_deleted);
-      const delGroups = dbGroups.filter(g => g.is_deleted);
+      // Filter active and deleted groups
+      let userGroups = dbGroups;
+      if (profile.role === "pemagang") {
+        userGroups = dbGroups.filter(g => 
+          g.group_members && g.group_members.some(m => m.user_id === authUser.id)
+        );
+      } else if (profile.role === "mentor") {
+        userGroups = dbGroups.filter(g => g.mentor_id === authUser.id);
+      }
+
+      const sortNewest = (arr) => [...(arr || [])].sort((a, b) => {
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bTime - aTime;
+      });
+
+      const activeGroups = sortNewest(userGroups.filter(g => !g.is_deleted));
+      const delGroups = sortNewest(userGroups.filter(g => g.is_deleted));
       
       setTeams(activeGroups);
       setDeletedTeams(delGroups);
+      setIsLoading(false);
+
+      memoryCache.set("teams", activeGroups);
+      memoryCache.set("users", allSysUsers);
     } catch (e) {
       console.error("Gagal memuat data:", e);
+      setIsLoading(false);
     }
   };
 
@@ -286,9 +337,13 @@ export default function TeamPage() {
     const mentor = allUsers.find(u => u.id === t.mentor_id);
     team.mentorName = mentor ? mentor.full_name : "Unknown";
     
-    // Task stats (if not loaded yet via join, placeholder 0)
-    team.totalTugas = 0;
-    team.selesai = 0;
+    // Calculate real-time active task stats
+    const cachedGroupTasks = memoryCache.get(`tasks_${t.id}`);
+    const dbTasks = t.tasks || [];
+    const groupTasks = cachedGroupTasks && cachedGroupTasks.length > dbTasks.length ? cachedGroupTasks : dbTasks;
+    
+    team.totalTugas = groupTasks.length;
+    team.selesai = groupTasks.filter(task => task.status === "done" || task.status === "completed").length;
     
     return team;
   });
@@ -640,14 +695,25 @@ export default function TeamPage() {
           );
         })}
 
-        {/* Empty state */}
-        {displayTeams.length === 0 && (
+        {/* Loading Skeleton */}
+        {isLoading && displayTeams.length === 0 ? (
+          [1, 2, 3, 4].map(i => (
+            <div key={i} className="border border-slate-100 p-6 bg-white flex flex-col gap-4 animate-pulse">
+              <div className="h-5 bg-slate-200 rounded w-1/2" />
+              <div className="h-3 bg-slate-100 rounded w-3/4" />
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="h-12 bg-slate-100 rounded-md" />
+                <div className="h-12 bg-slate-100 rounded-md" />
+              </div>
+            </div>
+          ))
+        ) : displayTeams.length === 0 ? (
           <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center w-full">
             <img src="/empty-team.svg" alt="Belum ada Kelompok" className="w-56 h-36 object-contain mb-4" />
             <p className="text-sm font-extrabold text-slate-800">Belum ada Kelompok</p>
             <p className="text-xs text-slate-400 font-semibold mt-1.5">Kelompok belum dibentuk oleh mentor.</p>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Delete Confirmation Modal */}

@@ -7,6 +7,9 @@ import { getAllUsers } from "../../backend/admin";
 import { getAdminStats, getPersonalStats, getPersonalLogs } from "../../backend/dashboard";
 import { supabase } from "../../backend/client";
 
+// Module-level in-memory cache (0ms latency, zero quota limits, 100% safe)
+const memoryCache = new Map();
+
 export default function Dashboard() {
   const router = useRouter();
   const [userName, setUserName] = useState("User");
@@ -22,6 +25,28 @@ export default function Dashboard() {
   const [activityLogs, setActivityLogs] = useState([]);
   const [adminActivityLogs, setAdminActivityLogs] = useState([]);
   const adminReloadRef = useRef(null);
+
+  // Instant cache restore on mount (0ms delay)
+  useEffect(() => {
+    try {
+      const cachedRole = localStorage.getItem("sipantau_role");
+      const cachedName = localStorage.getItem("sipantau_name");
+      if (cachedName) setUserName(cachedName.split(" ")[0]);
+      if (cachedRole) setUserRole(cachedRole.toLowerCase());
+
+      const cachedAdminStats = memoryCache.get("adminStats");
+      if (cachedAdminStats) setAdminStats(cachedAdminStats);
+      
+      const cachedPersonalStats = memoryCache.get("personalStats");
+      if (cachedPersonalStats) setPersonalStats(cachedPersonalStats);
+
+      const cachedLogs = memoryCache.get("activityLogs");
+      if (cachedLogs && Array.isArray(cachedLogs)) {
+        setActivityLogs(cachedLogs);
+        setAdminActivityLogs(cachedLogs);
+      }
+    } catch (e) {}
+  }, []);
 
   const loadProfile = async () => {
     try {
@@ -41,25 +66,27 @@ export default function Dashboard() {
         setUserAvatar(profile.avatar_url || "");
         
         if (role === "admin") {
-          const users = await getAllUsers();
+          const [users, stats, logs] = await Promise.all([
+            getAllUsers().catch(() => []),
+            getAdminStats().catch(() => ({ total: 0, pending: 0, approved: 0, rejected: 0 })),
+            getPersonalLogs(user.id, "admin").catch(() => [])
+          ]);
           setAdminUsers(users);
-          
-          const stats = await getAdminStats();
           setAdminStats(stats);
-          
-          // Fetch activity logs for admin (shows all users' activities)
-          try {
-            const logs = await getPersonalLogs(user.id, "admin");
-            setAdminActivityLogs(logs || []);
-          } catch (e) {
-            console.warn("Gagal memuat log aktivitas admin:", e);
-          }
+          setAdminActivityLogs(logs || []);
+
+          memoryCache.set("adminStats", stats);
+          memoryCache.set("activityLogs", logs || []);
         } else {
-          const stats = await getPersonalStats(user.id, role);
+          const [stats, logs] = await Promise.all([
+            getPersonalStats(user.id, role).catch(() => ({ completed: 0, scheduled: 0, updated: 0, overdue: 0 })),
+            getPersonalLogs(user.id, role).catch(() => [])
+          ]);
           setPersonalStats(stats);
-          
-          const logs = await getPersonalLogs(user.id, role);
-          setActivityLogs(logs);
+          setActivityLogs(logs || []);
+
+          memoryCache.set("personalStats", stats);
+          memoryCache.set("activityLogs", logs || []);
         }
       }
     } catch (e) {
@@ -154,70 +181,186 @@ export default function Dashboard() {
   const handleDownloadPDF = async () => {
     try {
       const { getUserTasks } = await import("../../backend/tasks");
-      const tasks = await getUserTasks(userId);
+      const dbTasks = await getUserTasks(userId, userRole).catch(() => []);
       
-      const total = tasks.length;
-      const selesai = tasks.filter(t => t.status === "completed" || t.status === "done" || t.status === "Selesai").length;
-      const proses = total - selesai;
-      const progress = total === 0 ? 0 : Math.round((selesai / total) * 100);
+      let cachedTasks = [];
+      if (typeof window !== "undefined" && window._sipantauMemoryCache) {
+        window._sipantauMemoryCache.forEach((value, key) => {
+          if (key.startsWith("tasks_") && Array.isArray(value)) {
+            const teamId = key.replace("tasks_", "");
+            const teamObj = (window._sipantauMemoryCache.get("teams") || []).find(t => t.id === teamId);
+            value.forEach(t => {
+              cachedTasks.push({
+                ...t,
+                group: t.group || { name: teamObj ? teamObj.name : "Kelompok Magang" }
+              });
+            });
+          }
+        });
+      }
 
+      const taskMap = new Map();
+      [...dbTasks, ...cachedTasks].forEach(t => {
+        if (t && (t.id || t.title)) {
+          const key = t.id || t.title;
+          taskMap.set(key, t);
+        }
+      });
+      const tasks = Array.from(taskMap.values());
+
+      const roleName = userRole === "mentor" ? "Mentor" : userRole === "admin" ? "Admin" : "Pemagang";
       const today = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+
+      const now = new Date();
+      const m = now.getMonth() + 1;
+      const d = now.getDate();
+      const yy = String(now.getFullYear()).slice(-2);
+      let hh = now.getHours();
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ampm = hh >= 12 ? 'PM' : 'AM';
+      hh = hh % 12 || 12;
+      const printTimeHeader = `${m}/${d}/${yy}, ${hh}:${mm} ${ampm}`;
+
+      const statusMap = {
+        todo: "To Do",
+        inprogress: "In Progress",
+        in_progress: "In Progress",
+        review: "In Review",
+        in_review: "In Review",
+        done: "Selesai",
+        completed: "Selesai"
+      };
+
+      const prioMap = {
+        urgent: "Tertinggi",
+        critical: "Tertinggi",
+        high: "Tinggi",
+        medium: "Sedang",
+        low: "Rendah"
+      };
 
       const printWindow = window.open('', '_blank');
       printWindow.document.write(`
+        <!DOCTYPE html>
         <html>
           <head>
-            <title>Laporan Tugas & Perkembangan Magang - ${userFullName}</title>
+            <title>Laporan Aktivitas Pribadi - ${userFullName}</title>
             <style>
-              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
-              h2 { text-align: center; margin-bottom: 30px; font-size: 24px; color: #111; }
-              .info-container { margin-bottom: 30px; font-size: 14px; line-height: 1.6; }
-              .info-row { display: flex; }
-              .info-label { width: 180px; }
-              table { w-full; border-collapse: collapse; margin-top: 20px; width: 100%; font-size: 12px; }
-              th { background-color: #7c3aed; color: white; text-align: left; padding: 12px 15px; font-weight: 600; }
-              td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; color: #475569; }
+              @page { size: A4; margin: 12mm 15mm; }
+              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+              body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; padding: 15px 25px 40px 25px; color: #1e293b; max-width: 850px; margin: 0 auto; line-height: 1.5; position: relative; min-height: 98vh; box-sizing: border-box; }
+              
+              /* Top Browser Header Simulation */
+              .top-header-bar { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #475569; font-weight: 500; margin-bottom: 25px; }
+              .top-header-left { text-align: left; }
+              .top-header-right { text-align: center; margin-left: auto; padding-right: 60px; font-weight: 500; color: #334155; }
+              
+              .title { text-align: center; margin-bottom: 25px; font-size: 24px; font-weight: 800; color: #0f172a; margin-top: 10px; }
+              .meta-section { margin-bottom: 30px; font-size: 13px; color: #334155; font-weight: 600; line-height: 1.8; }
+              .meta-row { display: flex; }
+              .meta-label { width: 150px; color: #475569; }
+              
+              .section-header { margin-top: 30px; margin-bottom: 12px; }
+              .section-title { font-size: 16px; font-weight: 800; color: #1e293b; border-bottom: 3px solid #7c3aed; padding-bottom: 4px; display: inline-block; }
+              
+              table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; margin-bottom: 25px; font-size: 11px; border: 1px solid #7c3aed; border-radius: 8px; overflow: hidden; table-layout: fixed; }
+              thead tr { background-color: #7c3aed !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              th { background-color: #7c3aed !important; color: #ffffff !important; text-align: center; padding: 11px 14px; font-weight: 700; border-right: 1px solid rgba(255,255,255,0.4) !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              th:last-child { border-right: none !important; }
+              th.left { text-align: left; }
+              td { padding: 10px 14px; border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; color: #334155; text-align: center; font-weight: 500; }
+              td:last-child { border-right: none; }
+              tr:last-child td { border-bottom: none; }
               tr:nth-child(even) { background-color: #f8fafc; }
-              .status-badge { padding: 4px 8px; border-radius: 9999px; font-weight: bold; font-size: 10px; }
+
+              /* Bottom Browser Footer Simulation */
+              .bottom-footer-bar { position: absolute; bottom: 10px; left: 25px; right: 25px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; font-weight: 500; }
+
               @media print {
-                body { padding: 0; }
+                body { padding: 0; min-height: auto; }
+                .top-header-bar { margin-bottom: 15px; }
+                .bottom-footer-bar { position: fixed; bottom: 5px; left: 0; right: 0; }
               }
             </style>
           </head>
           <body>
-            <h2>Laporan Tugas & Perkembangan Magang</h2>
-            <div class="info-container">
-              <div class="info-row"><div class="info-label">Nama Pemagang</div><div>: ${userFullName}</div></div>
-              <div class="info-row"><div class="info-label">Progress Penyelesaian</div><div>: ${progress}%</div></div>
-              <div class="info-row"><div class="info-label">Total Tugas Kelompok</div><div>: ${total} (${selesai} Selesai, ${proses} Proses)</div></div>
-              <div class="info-row"><div class="info-label">Tanggal Cetak</div><div>: ${today}</div></div>
+            <div class="top-header-bar">
+              <div class="top-header-left">${printTimeHeader}</div>
+              <div class="top-header-right">Laporan Aktivitas Pribadi - ${userFullName}</div>
+            </div>
+
+            <h2 class="title">Laporan Log Aktivitas Pribadi</h2>
+            
+            <div class="meta-section">
+              <div class="meta-row"><span class="meta-label">Nama Pengguna</span><span>: ${userFullName}</span></div>
+              <div class="meta-row"><span class="meta-label">Peran</span><span>: ${roleName}</span></div>
+              <div class="meta-row"><span class="meta-label">Tanggal Cetak</span><span>: ${today}</span></div>
             </div>
             
+            <div class="section-header">
+              <div class="section-title">Log Aktivitas Terbaru</div>
+            </div>
             <table>
               <thead>
                 <tr>
-                  <th style="border-top-left-radius: 8px;">No</th>
-                  <th>Kelompok/Tim</th>
-                  <th>Nama Tugas</th>
-                  <th>Status</th>
-                  <th>Prioritas</th>
-                  <th style="border-top-right-radius: 8px;">Tenggat</th>
+                  <th style="width: 35px; text-align: center;">No</th>
+                  <th style="width: 130px;" class="left">Waktu</th>
+                  <th class="left">Aktivitas</th>
+                  <th class="left" style="width: 220px;">Tugas Terkait</th>
                 </tr>
               </thead>
               <tbody>
-                ${tasks.map((t, idx) => `
+                ${activityLogs && activityLogs.length > 0 ? activityLogs.map((log, idx) => `
                   <tr>
-                    <td>${idx + 1}</td>
-                    <td>${t.group ? t.group.name : "-"}</td>
-                    <td style="font-weight: 600; color: #1e293b;">${t.title}</td>
-                    <td>${t.status}</td>
-                    <td>${t.priority}</td>
-                    <td>${t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-"}</td>
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td class="left" style="white-space: nowrap;">${new Date(log.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</td>
+                    <td class="left">${log.description || "telah beraktivitas"}</td>
+                    <td class="left" style="font-weight: 700; color: #1e293b;">${log.task?.title || "-"}</td>
                   </tr>
-                `).join('')}
-                ${tasks.length === 0 ? '<tr><td colspan="6" style="text-align: center;">Tidak ada tugas</td></tr>' : ''}
+                `).join('') : `
+                  <tr>
+                    <td colspan="4" style="text-align: center; color: #64748b; padding: 15px;">Tidak ada aktivitas tercatat</td>
+                  </tr>
+                `}
               </tbody>
             </table>
+
+            <div class="section-header">
+              <div class="section-title">Daftar Tugas Terkait</div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 35px; text-align: center;">No</th>
+                  <th class="left" style="width: 20%;">Kelompok/Tim</th>
+                  <th class="left" style="width: 22%;">Nama Tugas</th>
+                  <th style="width: 18%; text-align: center; white-space: nowrap;">Status</th>
+                  <th style="width: 18%; text-align: center; white-space: nowrap;">Prioritas</th>
+                  <th style="width: 20%; text-align: center; white-space: nowrap;">Tenggat</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tasks && tasks.length > 0 ? tasks.map((t, idx) => `
+                  <tr>
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td class="left" style="word-break: break-word;">${t.group ? (typeof t.group === 'string' ? t.group : t.group.name) : "-"}</td>
+                    <td class="left" style="font-weight: 700; color: #1e293b; word-break: break-word;">${t.title || t.desc || "-"}</td>
+                    <td style="text-align: center; white-space: nowrap;">${statusMap[t.status] || t.status || "To Do"}</td>
+                    <td style="text-align: center; white-space: nowrap;">${prioMap[t.priority] || t.priority || "Sedang"}</td>
+                    <td style="text-align: center; white-space: nowrap;">${t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : (t.date || "-")}</td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="6" style="text-align: center; color: #64748b; padding: 15px;">Tidak ada tugas</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+
+            <div class="bottom-footer-bar">
+              <div>about:blank</div>
+              <div>1/1</div>
+            </div>
           </body>
         </html>
       `);
@@ -457,7 +600,7 @@ export default function Dashboard() {
                 {
                   icon: (
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   ),
                   color: "amber",
