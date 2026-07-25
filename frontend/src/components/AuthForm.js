@@ -77,7 +77,7 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
           address: "Kantor Pusat BPS",
           institution: "BPS Kota Semarang",
           role: "admin",
-          status: "approved"
+          status: "active"
         }
       ];
 
