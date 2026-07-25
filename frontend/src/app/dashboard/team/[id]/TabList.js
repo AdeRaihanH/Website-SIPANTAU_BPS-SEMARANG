@@ -51,14 +51,26 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
     });
   };
 
-  const getPriorityStyle = (priority) => {
-    switch (priority) {
-      case "Tertinggi": return "bg-rose-50 text-rose-600 border border-rose-100";
-      case "Tinggi": return "bg-emerald-50 text-emerald-600 border border-emerald-100";
-      case "Sedang": return "bg-amber-50 text-amber-600 border border-amber-100";
-      case "Rendah": return "bg-cyan-50 text-cyan-600 border border-cyan-100";
-      case "Terendah": return "bg-violet-50 text-violet-600 border border-violet-100";
-      default: return "bg-slate-50 text-slate-600 border border-slate-100";
+  const getTypeBadge = (type) => {
+    const t = (type || "").toLowerCase();
+    switch (t) {
+      case "design": return { bg: "bg-violet-100/80 text-violet-600 border border-violet-200/50", dot: "bg-violet-500" };
+      case "bug": return { bg: "bg-cyan-100/80 text-cyan-600 border border-cyan-200/50", dot: "bg-cyan-500" };
+      case "aset": return { bg: "bg-amber-100/80 text-amber-600 border border-amber-200/50", dot: "bg-amber-500" };
+      case "fitur": return { bg: "bg-rose-100/80 text-rose-600 border border-rose-200/50", dot: "bg-rose-500" };
+      default: return { bg: "bg-indigo-100/80 text-indigo-600 border border-indigo-200/50", dot: "bg-indigo-500" };
+    }
+  };
+
+  const getPriorityBadge = (priority) => {
+    const p = (priority || "").toLowerCase();
+    switch (p) {
+      case "tertinggi": case "urgent": case "critical": return { bg: "bg-rose-100/80 text-rose-600 border border-rose-200/50", dot: "bg-rose-500" };
+      case "tinggi": case "high": return { bg: "bg-emerald-100/80 text-emerald-600 border border-emerald-200/50", dot: "bg-emerald-500" };
+      case "sedang": case "medium": return { bg: "bg-amber-100/80 text-amber-600 border border-amber-200/50", dot: "bg-amber-500" };
+      case "rendah": case "low": return { bg: "bg-cyan-100/80 text-cyan-600 border border-cyan-200/50", dot: "bg-cyan-500" };
+      case "terendah": return { bg: "bg-violet-100/80 text-violet-600 border border-violet-200/50", dot: "bg-violet-500" };
+      default: return { bg: "bg-amber-100/80 text-amber-600 border border-amber-200/50", dot: "bg-amber-500" };
     }
   };
 
@@ -98,17 +110,17 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
           <div className="text-center py-6 text-[10px] font-semibold text-slate-400">Tidak ada tugas</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
+            <table className="w-full text-left border-collapse table-fixed min-w-[750px]">
               <thead>
                 <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  <th className="py-2.5 w-8"></th>
-                  <th className="py-2.5 w-1/4">Nama Tugas</th>
-                  <th className="py-2.5 w-1/3">Deskripsi</th>
-                  <th className="py-2.5">Tenggat</th>
-                  <th className="py-2.5">Jenis</th>
-                  <th className="py-2.5">Orang</th>
-                  <th className="py-2.5">Prioritas</th>
-                  <th className="py-2.5 w-8 text-center"></th>
+                  <th className="py-2.5" style={{ width: "36px" }}></th>
+                  <th className="py-2.5" style={{ width: "22%" }}>Nama Tugas</th>
+                  <th className="py-2.5" style={{ width: "24%" }}>Deskripsi</th>
+                  <th className="py-2.5" style={{ width: "16%" }}>Tenggat</th>
+                  <th className="py-2.5" style={{ width: "14%" }}>Jenis</th>
+                  <th className="py-2.5" style={{ width: "11%" }}>Orang</th>
+                  <th className="py-2.5" style={{ width: "13%" }}>Prioritas</th>
+                  <th className="py-2.5 text-center" style={{ width: "36px" }}></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -126,28 +138,46 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
                         className="w-4 h-4 rounded border-slate-200 text-violet-600 focus:ring-violet-500 cursor-pointer"
                       />
                     </td>
-                    <td className={`py-3 font-extrabold text-slate-800 ${task.done ? "line-through text-slate-400" : ""}`}>
+                    <td className={`py-3 font-extrabold text-slate-800 truncate pr-3 ${task.done ? "line-through text-slate-400" : ""}`} title={task.title}>
                       {task.title}
                     </td>
-                    <td className="py-3 text-slate-400 font-medium max-w-xs truncate">{task.desc}</td>
-                    <td className="py-3 font-semibold text-slate-700">{task.date}</td>
-                    <td className="py-3">
-                      <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold">{task.type}</span>
+                    <td className="py-3 text-slate-400 font-medium truncate pr-3" title={task.desc}>
+                      {task.desc || "-"}
+                    </td>
+                    <td className="py-3 font-semibold text-slate-700 truncate pr-2" title={task.date}>
+                      {task.date || "-"}
                     </td>
                     <td className="py-3">
-                      <div className="flex -space-x-1">
-                        {task.orang && task.orang.map((m, i) => {
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1.5 ${getTypeBadge(task.type).bg}`}>
+                        <span className={`w-2 h-2 rounded-xs ${getTypeBadge(task.type).dot}`}></span>
+                        {task.type || "Tugas"}
+                      </span>
+                    </td>
+                    <td className="py-3">
+                      <div className="flex -space-x-1.5 items-center">
+                        {task.orang && task.orang.slice(0, 2).map((m, i) => {
                           const mem = teamMembers.find(d => d.initial === m);
                           return mem && mem.avatar ? (
-                            <img key={i} src={mem.avatar} alt={mem.name} className="w-5.5 h-5.5 rounded-full border border-white object-cover shadow-sm" />
+                            <img key={i} src={mem.avatar} alt={mem.name} className="w-6 h-6 rounded-full border-2 border-white object-cover shadow-sm shrink-0" title={mem.name} />
                           ) : (
-                            <div key={i} className={`w-5.5 h-5.5 rounded-full border border-white ${["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-sky-400"][i % 4]} flex items-center justify-center text-white text-[9px] font-bold shadow-sm`}>{m}</div>
+                            <div key={i} className={`w-6 h-6 rounded-full border-2 border-white ${["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-sky-400"][i % 4]} flex items-center justify-center text-white text-[9px] font-bold shadow-sm shrink-0`} title={m}>{m}</div>
                           );
                         })}
+                        {task.orang && task.orang.length > 2 && (
+                          <div className="w-6 h-6 rounded-full border-2 border-white bg-slate-100 text-slate-600 flex items-center justify-center text-[9px] font-extrabold shadow-sm shrink-0 z-10" title={task.orang.slice(2).join(", ")}>
+                            +{task.orang.length - 2}
+                          </div>
+                        )}
+                        {(!task.orang || task.orang.length === 0) && (
+                          <span className="text-[10px] text-slate-300 font-semibold">-</span>
+                        )}
                       </div>
                     </td>
                     <td className="py-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getPriorityStyle(task.priority)}`}>{task.priority}</span>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1.5 ${getPriorityBadge(task.priority).bg}`}>
+                        <span className={`w-2 h-2 rounded-full ${getPriorityBadge(task.priority).dot}`}></span>
+                        {task.priority || "Sedang"}
+                      </span>
                     </td>
                     <td className="py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => setSelectedTask(task)} className="text-slate-400 hover:text-slate-700 p-1 text-sm font-bold cursor-pointer">···</button>

@@ -42,6 +42,14 @@ const getUserAvatar = (name) => {
 };
 
 export default function TabDashboard({ tasks = [] }) {
+  const [, setTick] = React.useState(0);
+
+  // Ticker to auto-update relative timestamps in real-time
+  React.useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   // 1. Stats Row calculations
   const selesai = tasks.filter(t => t.status === "done").length;
   const dijadwalkan = tasks.filter(t => t.status === "todo").length;
@@ -70,11 +78,17 @@ export default function TabDashboard({ tasks = [] }) {
   const logs = tasks
     .flatMap(t => (t.riwayat || []).map(r => ({ ...r, taskTitle: t.title })))
     .sort((a, b) => {
-      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return bTime - aTime; // descending = newest first
+      const getTimestamp = (item) => {
+        if (item.created_at) {
+          const t = new Date(item.created_at).getTime();
+          if (!isNaN(t)) return t;
+        }
+        if (item.time === "baru saja") return Date.now();
+        return 0;
+      };
+      return getTimestamp(b) - getTimestamp(a);
     })
-    .slice(0, 20); // Show top 20 sorted activities for scrolling
+    .slice(0, 30); // Show top 20 sorted activities for scrolling
 
   const priorityColors = {
     "Tertinggi": "bg-[#fca5a5]", // Soft pink/rose-300
@@ -123,7 +137,7 @@ export default function TabDashboard({ tasks = [] }) {
           {
             icon: (
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             ),
             color: "amber",
@@ -264,7 +278,10 @@ export default function TabDashboard({ tasks = [] }) {
 
         <div className="divide-y divide-slate-50/80 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
           {logs.length === 0 ? (
-            <p className="text-center py-6 text-xs text-slate-400 font-semibold">Belum ada aktivitas tercatat</p>
+            <div className="py-8 flex flex-col items-center justify-center text-center w-full">
+              <img src="/empty-activity.svg" alt="Belum ada Aktivitas" className="w-40 h-28 object-contain mb-3" />
+              <p className="text-xs font-bold text-slate-800">Belum ada Aktivitas</p>
+            </div>
           ) : (
             logs.map((log, index) => (
               <div key={index} className="flex items-center justify-between py-3.5">

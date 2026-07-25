@@ -173,20 +173,37 @@ function Slide1Dashboard() {
           <div className="w-[64px] border-r border-slate-100 bg-slate-50/60 p-1.5 flex flex-col justify-between flex-shrink-0">
             <div className="space-y-2">
               <div className="w-5 h-5 rounded-full bg-slate-200 mx-auto mb-2 flex items-center justify-center">
-                <span className="text-[8px]">👤</span>
+                <svg className="w-2.5 h-2.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
               </div>
               <div className="flex items-center gap-1 bg-white border border-slate-100 rounded px-1 py-0.5 shadow-sm">
-                <span className="text-[6px]">🏠</span>
+                <svg className="w-2 h-2 text-violet-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
                 <span className="text-[5px] font-bold text-slate-800">Beranda</span>
               </div>
               <div className="flex items-center gap-1 px-1 py-0.5 text-slate-400">
-                <span className="text-[6px]">👥</span>
+                <svg className="w-2 h-2 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
                 <span className="text-[5px]">Team</span>
               </div>
             </div>
             <div className="space-y-1 text-slate-400 text-[4px]">
-              <div>⚙️ Pengaturan</div>
-              <div>🚪 Keluar</div>
+              <div className="flex items-center gap-0.5">
+                <svg className="w-1.5 h-1.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Pengaturan
+              </div>
+              <div className="flex items-center gap-0.5">
+                <svg className="w-1.5 h-1.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Keluar
+              </div>
             </div>
           </div>
 
@@ -208,14 +225,42 @@ function Slide1Dashboard() {
 
             <div className="grid grid-cols-4 gap-1">
               {[
-                { icon: "✓", label: "2 Selesai", color: "text-emerald-500" },
-                { icon: "📄", label: "4 Dijadwalkan", color: "text-blue-500" },
-                { icon: "🔄", label: "1 Diperbarui", color: "text-amber-500" },
-                { icon: "⚠️", label: "1 Terlambat", color: "text-rose-500" },
+                { 
+                  icon: (
+                    <svg className="w-2 h-2 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ), 
+                  label: "2 Selesai" 
+                },
+                { 
+                  icon: (
+                    <svg className="w-2 h-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  ), 
+                  label: "4 Dijadwalkan" 
+                },
+                { 
+                  icon: (
+                    <svg className="w-2 h-2 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  ), 
+                  label: "1 Diperbarui" 
+                },
+                { 
+                  icon: (
+                    <svg className="w-2 h-2 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  ), 
+                  label: "1 Terlambat" 
+                },
               ].map((item, i) => (
                 <div key={i} className="p-1 border border-slate-100 bg-white rounded flex flex-col items-start">
-                  <span className={`text-[6px] font-bold ${item.color}`}>{item.icon}</span>
-                  <span className="text-[4px] font-bold text-slate-700">{item.label}</span>
+                  {item.icon}
+                  <span className="text-[4px] font-bold text-slate-700 mt-0.5">{item.label}</span>
                   <span className="text-[3px] text-slate-400">Status terkait</span>
                 </div>
               ))}
@@ -236,7 +281,9 @@ function Slide1Dashboard() {
         }}
       >
         <div className="w-6 h-6 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-500 font-bold text-xs flex-shrink-0">
-          ✓
+          <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
         </div>
         <div>
           <div className="text-[8px] font-extrabold text-slate-800">2 Selesai</div>
@@ -250,7 +297,9 @@ function Slide1Dashboard() {
           animation: "badgeBerandaOut 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both",
         }}
       >
-        <span className="text-[9px]">🏠</span>
+        <svg className="w-3 h-3 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
         <span className="text-[7.5px] font-bold text-slate-700">Beranda</span>
       </div>
 
@@ -262,7 +311,9 @@ function Slide1Dashboard() {
         }}
       >
         <div className="w-6 h-6 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500 font-bold text-xs flex-shrink-0">
-          🔄
+          <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
         </div>
         <div>
           <div className="text-[8px] font-extrabold text-slate-800">1 Diperbarui</div>
@@ -310,11 +361,16 @@ function Slide2TaskDetail() {
 
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
           <div className="flex -space-x-2">
-            <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600">👤</div>
-            <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600">👤</div>
-            <div className="w-6 h-6 rounded-full bg-slate-300 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-700">+</div>
+            <div className="w-6 h-6 rounded-full bg-indigo-500 border-2 border-white flex items-center justify-center text-[7px] font-bold text-white shadow-sm">AB</div>
+            <div className="w-6 h-6 rounded-full bg-purple-500 border-2 border-white flex items-center justify-center text-[7px] font-bold text-white shadow-sm">MA</div>
+            <div className="w-6 h-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-500">+</div>
           </div>
-          <span className="text-[8px] text-slate-400 font-semibold">📅 1 Jul 2026</span>
+          <span className="text-[8px] text-slate-400 font-semibold flex items-center gap-1">
+            <svg className="w-2.5 h-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+          </span>
         </div>
       </div>
 
@@ -331,14 +387,20 @@ function Slide2TaskDetail() {
           <div>
             <div className="text-[6.5px] font-bold text-slate-800 mb-1">Jenis Tugas</div>
             <div className="flex items-center justify-between border border-slate-200 rounded px-1.5 py-1 text-[6.5px] font-bold text-indigo-600 bg-indigo-50/50">
-              <span>■ Design</span>
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-violet-500 rounded-sm" />
+                Design
+              </span>
               <span className="text-slate-400">▾</span>
             </div>
           </div>
           <div>
             <div className="text-[6.5px] font-bold text-slate-800 mb-1">Prioritas Tugas</div>
             <div className="flex items-center justify-between border border-slate-200 rounded px-1.5 py-1 text-[6.5px] font-bold text-rose-600 bg-rose-50/50">
-              <span>● Tertinggi</span>
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
+                Tertinggi
+              </span>
               <span className="text-slate-400">▾</span>
             </div>
           </div>
@@ -352,7 +414,12 @@ function Slide2TaskDetail() {
           </div>
           <div>
             <div className="text-[6.5px] font-bold text-slate-800 mb-0.5">Tenggat Tugas</div>
-            <div className="text-[6px] text-slate-500 font-medium">📅 4 Juli 2026</div>
+            <div className="text-[6px] text-slate-500 font-medium flex items-center gap-1">
+              <svg className="w-2.5 h-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {new Date(Date.now() + 3 * 86400000).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+            </div>
           </div>
         </div>
       </div>
@@ -414,11 +481,14 @@ function Slide3SettingsProfile() {
           <div className="p-3 bg-white flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <div className="relative">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 flex items-center justify-center text-white text-[10px] font-bold border-2 border-white shadow">
-                  👤
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white text-[10px] font-bold border-2 border-white shadow">
+                  AB
                 </div>
                 <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-slate-800 border border-white flex items-center justify-center">
-                  <span className="text-[5px] text-white">📷</span>
+                  <svg className="w-1.5 h-1.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
                 </div>
               </div>
               <div>
@@ -429,11 +499,17 @@ function Slide3SettingsProfile() {
 
             <div className="pt-2 border-t border-slate-100 space-y-1">
               <div className="text-[5px] font-bold text-slate-400 uppercase tracking-wide">Detail Profil</div>
-              <div className="border border-slate-100 rounded-lg p-1 text-[5.5px] text-slate-600 flex items-center gap-1 bg-slate-50/40">
-                <span>👤</span> <span>Nama: Andi Basudara</span>
+              <div className="border border-slate-100 rounded-lg p-1 text-[5.5px] text-slate-600 flex items-center gap-1.5 bg-slate-50/40">
+                <svg className="w-2.5 h-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>Nama: Andi Basudara</span>
               </div>
-              <div className="border border-slate-100 rounded-lg p-1 text-[5.5px] text-slate-600 flex items-center gap-1 bg-slate-50/40">
-                <span>✉️</span> <span>Email: andi@bps.go.id</span>
+              <div className="border border-slate-100 rounded-lg p-1 text-[5.5px] text-slate-600 flex items-center gap-1.5 bg-slate-50/40">
+                <svg className="w-2.5 h-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span>Email: andi@bps.go.id</span>
               </div>
             </div>
           </div>
@@ -458,7 +534,9 @@ function Slide3SettingsProfile() {
 
           <div className="grid grid-cols-2 gap-1.5 mb-2">
             <div className="border border-slate-100 rounded-xl p-1.5 flex items-center gap-1.5 bg-slate-50/50">
-              <span className="text-[11px]">📋</span>
+              <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+              </svg>
               <div>
                 <div className="text-[4.5px] text-slate-400">Mentor</div>
                 <div className="text-[7px] font-bold text-slate-800">Bambang Heru</div>
@@ -466,7 +544,9 @@ function Slide3SettingsProfile() {
             </div>
 
             <div className="border border-indigo-100 rounded-xl p-1.5 flex items-center gap-1.5 bg-indigo-50/60 shadow-sm">
-              <span className="text-[11px]">☑️</span>
+              <svg className="w-3 h-3 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
               <div>
                 <div className="text-[4.5px] text-indigo-600 font-bold">Tugas Aktif</div>
                 <div className="text-[7px] font-bold text-slate-800">5 Tugas</div>

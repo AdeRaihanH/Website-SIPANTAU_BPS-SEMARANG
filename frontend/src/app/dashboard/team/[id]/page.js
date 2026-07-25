@@ -17,26 +17,26 @@ import { deleteTask } from "../../../../backend/tasks";
 
 
 
+// Module-level in-memory cache (0ms latency, zero quota limits, 100% safe)
+const memoryCache = new Map();
+
 const memberColors = ["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-rose-400", "bg-sky-400", "bg-indigo-400"];
 
 export default function TeamDetailPage({ params }) {
   const unwrappedParams = React.use ? React.use(params) : params;
   const teamId = unwrappedParams?.id;
+  const router = useRouter();
 
   const [team, setTeam] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [showTeamMembersDrop, setShowTeamMembersDrop] = useState(false);
-  const teamMembersRef = React.useRef(null);
-
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [currentUser, setCurrentUser] = useState(null);
   const [isMentor, setIsMentor] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-
+  const [showTeamMembersDrop, setShowTeamMembersDrop] = useState(false);
   const [showAddMemberDrop, setShowAddMemberDrop] = useState(false);
   const [showTeamActionsDrop, setShowTeamActionsDrop] = useState(false);
-  const [memberSearch, setMemberSearch] = useState("");
 
+  const teamMembersRef = React.useRef(null);
   const addMemberRef = React.useRef(null);
   const teamActionsRef = React.useRef(null);
 
@@ -46,6 +46,17 @@ export default function TeamDetailPage({ params }) {
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
   const reloadTimerRef = React.useRef(null);
+  const [memberSearch, setMemberSearch] = useState("");
+
+  // Instant cache restore on mount (0ms delay)
+  useEffect(() => {
+    if (teamId) {
+      const cachedTeam = memoryCache.get(`team_${teamId}`);
+      if (cachedTeam) setTeam(cachedTeam);
+      const cachedTasks = memoryCache.get(`tasks_${teamId}`);
+      if (cachedTasks && Array.isArray(cachedTasks)) setTasks(cachedTasks);
+    }
+  }, [teamId]);
 
   // Load backend data
   const loadData = async () => {
@@ -53,20 +64,32 @@ export default function TeamDetailPage({ params }) {
       if (!teamId) return;
 
       const authUser = await getActiveUser();
-      if (authUser) {
-        const profile = await getProfile(authUser.id);
+      
+      const [teamDetails, users, profile] = await Promise.all([
+        getGroupDetails(teamId).catch(() => null),
+        getAllUsers().catch(() => []),
+        authUser ? getProfile(authUser.id).catch(() => null) : Promise.resolve(null)
+      ]);
+
+      if (profile) {
         setCurrentUser(profile);
         setIsMentor(profile.role === "mentor");
         setIsAdmin(profile.role === "admin");
       }
 
-      const teamDetails = await getGroupDetails(teamId);
+      if (!teamDetails) return;
 
       const mappedTeam = {
-        ...teamDetails,
-        membersList: (teamDetails.group_members || []).map(gm => gm.profiles)
+        id: teamDetails.id,
+        name: teamDetails.name,
+        description: teamDetails.description,
+        mentor_id: teamDetails.mentor_id,
+        created_by: teamDetails.created_by,
+        is_deleted: teamDetails.is_deleted,
+        membersList: (teamDetails.group_members || []).map(gm => gm?.profiles).filter(Boolean)
       };
       setTeam(mappedTeam);
+      memoryCache.set(`team_${teamId}`, mappedTeam);
 
       // The backend returns tasks inside teamDetails. Let's map them to the frontend format.
       const mappedTasks = (teamDetails.tasks || []).map(t => {
@@ -120,6 +143,8 @@ export default function TeamDetailPage({ params }) {
           'high': 'Tinggi',
           'medium': 'Sedang',
           'low': 'Rendah',
+          'lowest': 'Terendah',
+          'terendah': 'Terendah',
           'urgent': 'Tertinggi',
           'critical': 'Tertinggi'
         };
@@ -150,20 +175,56 @@ export default function TeamDetailPage({ params }) {
         };
       });
 
-      // Set tasks langsung dari database (tanpa localStorage caching)
-      setTasks(mappedTasks);
+      setTasks(prevTasks => {
+        const prevTaskMap = new Map((prevTasks || []).map(t => [t.id, t]));
+        
+        const mergedMappedTasks = mappedTasks.map(t => {
+          const prev = prevTaskMap.get(t.id);
+          let finalOrang = t.orang || [];
+          let finalRiwayat = t.riwayat || [];
 
-      // Fetch all registered users from DB for member management
-      try {
-        const users = await getAllUsers();
-        setAllUsers(users || []);
-      } catch (e) {
-        console.warn("Gagal memuat daftar pengguna:", e);
-      }
+          if (prev) {
+            if (prev.orang && prev.orang.length > 0) {
+              finalOrang = Array.from(new Set([...(t.orang || []), ...prev.orang]));
+            }
+
+            if (prev.riwayat && prev.riwayat.length > 0) {
+              const existingKeys = new Set((t.riwayat || []).map(r => `${r.name}_${r.text}_${r.created_at || r.time}`));
+              const prevOnly = prev.riwayat.filter(r => !existingKeys.has(`${r.name}_${r.text}_${r.created_at || r.time}`));
+              finalRiwayat = [...(t.riwayat || []), ...prevOnly];
+            }
+          }
+
+          return {
+            ...t,
+            orang: finalOrang,
+            riwayat: finalRiwayat
+          };
+        });
+
+        const dbIds = new Set(mergedMappedTasks.map(t => t.id));
+        const localTasks = (prevTasks || []).filter(t => typeof t.id === "string" && t.id.startsWith("task-") && !dbIds.has(t.id));
+        const finalTasks = [...mergedMappedTasks, ...localTasks];
+        memoryCache.set(`tasks_${teamId}`, finalTasks);
+        return finalTasks;
+      });
 
     } catch (e) {
       console.error("Gagal memuat detail kelompok:", e);
     }
+  };
+
+  const updateAndSaveTasks = (newTasksList) => {
+    setTasks(prev => {
+      const updated = typeof newTasksList === "function" ? newTasksList(prev) : newTasksList;
+      if (teamId) {
+        memoryCache.set(`tasks_${teamId}`, updated);
+        if (typeof window !== "undefined" && window._sipantauMemoryCache) {
+          window._sipantauMemoryCache.set(`tasks_${teamId}`, updated);
+        }
+      }
+      return updated;
+    });
   };
 
   useEffect(() => {
@@ -549,7 +610,7 @@ export default function TeamDetailPage({ params }) {
         {activeTab === "list" && (
           <TabList
             tasks={tasks}
-            setTasks={setTasks}
+            setTasks={updateAndSaveTasks}
             setSelectedTask={setSelectedTask}
             setIsAddingTask={setIsAddingTask}
             team={team}
@@ -558,7 +619,7 @@ export default function TeamDetailPage({ params }) {
         {activeTab === "papan" && (
           <TabPapan
             tasks={tasks}
-            setTasks={setTasks}
+            setTasks={updateAndSaveTasks}
             setSelectedTask={setSelectedTask}
             setIsAddingTask={setIsAddingTask}
             setTaskToDelete={setTaskToDelete}
@@ -568,7 +629,7 @@ export default function TeamDetailPage({ params }) {
         {activeTab === "kalender" && (
           <TabKalender
             tasks={tasks}
-            setTasks={setTasks}
+            setTasks={updateAndSaveTasks}
             setSelectedTask={setSelectedTask}
             setIsAddingTask={setIsAddingTask}
             team={team}
@@ -578,7 +639,7 @@ export default function TeamDetailPage({ params }) {
 
       <GlobalTaskModals
         tasks={tasks}
-        setTasks={setTasks}
+        setTasks={updateAndSaveTasks}
         selectedTask={selectedTask}
         setSelectedTask={setSelectedTask}
         isAddingTask={isAddingTask}
@@ -612,7 +673,7 @@ export default function TeamDetailPage({ params }) {
                   try {
                     deleteTask(taskToDelete.id).catch(e => console.warn("Supabase deleteTask error:", e));
                     const newTasksList = tasks.filter(t => t.id !== taskToDelete.id);
-                    setTasks(newTasksList);
+                    updateAndSaveTasks(newTasksList);
                     setTaskToDelete(null);
                     setSelectedTask(null);
 

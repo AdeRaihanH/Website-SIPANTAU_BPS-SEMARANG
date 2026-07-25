@@ -474,7 +474,7 @@ export default function AccountsPage({ searchParams }) {
                         </td>
                         <td className="px-6 py-4 border-none">
                           <span className="text-[11px] font-semibold text-slate-800">
-                            {user.created_at ? new Date(user.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : (user.signupDate || "15 Juli 2026")}
+                            {user.created_at ? new Date(user.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : (user.signupDate || new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }))}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center border-none">

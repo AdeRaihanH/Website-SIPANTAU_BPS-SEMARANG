@@ -32,20 +32,14 @@ export async function updateUserStatus(adminId, targetUserId, newStatus, notes =
 
   if (profileError) throw profileError;
 
-  // Insert a record into verification_logs if table exists (optional based on ERD)
-  // Assuming the table is verification_logs with fields: verified_user_id, verified_by, action, notes
-  const { error: logError } = await supabase
-    .from("verification_logs")
-    .insert({
-      verified_user_id: targetUserId,
-      verified_by: adminId,
-      action: newStatus,
-      notes: notes
-    });
-
-  if (logError) {
-    console.error("Failed to log verification action", logError);
-    // Not throwing here so the status update still succeeds
+  // Record activity in activity_logs
+  try {
+    const { logActivity } = await import('./dashboard.js');
+    const statusText = newStatus === 'active' ? 'menyetujui' : 'menolak';
+    const targetName = updatedProfile?.full_name || updatedProfile?.email || targetUserId;
+    await logActivity(adminId, `telah ${statusText} pendaftaran akun ${targetName}`);
+  } catch (logErr) {
+    // Silently ignore activity logging errors so the primary status update always succeeds
   }
 
   return updatedProfile;
