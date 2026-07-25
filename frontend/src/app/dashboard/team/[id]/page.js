@@ -193,36 +193,68 @@ export default function TeamDetailPage({ params }) {
   useEffect(() => {
     if (!teamId) return;
 
-    // 1. Supabase Realtime: subscribe to changes on the tasks table for this group
-    const channel = supabase
+    const scheduleReload = () => {
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      reloadTimerRef.current = setTimeout(() => {
+        loadData();
+        reloadTimerRef.current = null;
+      }, 500);
+    };
+
+    // 1. Subscribe to changes on tasks table for this group
+    const tasksChannel = supabase
       .channel(`tasks-${teamId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'tasks',
           filter: `group_id=eq.${teamId}`
-        },
-        () => {
-          // Debounce: wait 500ms after last change before reloading
-          if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-          reloadTimerRef.current = setTimeout(() => {
-            loadData();
-            reloadTimerRef.current = null;
-          }, 500);
-        }
-      )
+        }, scheduleReload)
       .subscribe();
 
-    // 2. Periodic polling fallback (every 30 seconds)
+    // 2. Subscribe to subtasks changes (any subtask belonging to tasks in this group)
+    const subtasksChannel = supabase
+      .channel(`subtasks-${teamId}`)
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'subtasks'
+        }, scheduleReload)
+      .subscribe();
+
+    // 3. Subscribe to task_comments changes
+    const commentsChannel = supabase
+      .channel(`comments-${teamId}`)
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'task_comments'
+        }, scheduleReload)
+      .subscribe();
+
+    // 4. Subscribe to task_history changes
+    const historyChannel = supabase
+      .channel(`history-${teamId}`)
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'task_history'
+        }, scheduleReload)
+      .subscribe();
+
+    // 5. Subscribe to group_members changes (team members added/removed)
+    const membersChannel = supabase
+      .channel(`members-${teamId}`)
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'group_members',
+          filter: `group_id=eq.${teamId}`
+        }, scheduleReload)
+      .subscribe();
+
+    // 6. Periodic polling fallback (every 30 seconds)
     const pollInterval = setInterval(() => {
       loadData();
     }, 30000);
 
     // Cleanup
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(subtasksChannel);
+      supabase.removeChannel(commentsChannel);
+      supabase.removeChannel(historyChannel);
+      supabase.removeChannel(membersChannel);
       clearInterval(pollInterval);
       if (reloadTimerRef.current) {
         clearTimeout(reloadTimerRef.current);

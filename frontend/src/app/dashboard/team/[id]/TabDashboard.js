@@ -76,10 +76,14 @@ export default function TabDashboard({ tasks = [] }) {
   );
   const maxTypeCount = Math.max(...typeCounts, 1);
 
-  // 4. Activity Logs (Extract and sort by recency)
+  // 4. Activity Logs (Extract and sort by recency - newest first)
   const logs = tasks
     .flatMap(t => (t.riwayat || []).map(r => ({ ...r, taskTitle: t.title })))
-    .sort((a, b) => parseRelativeTime(a.time) - parseRelativeTime(b.time))
+    .sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return bTime - aTime; // descending = newest first
+    })
     .slice(0, 20); // Show top 20 sorted activities for scrolling
 
   const priorityColors = {

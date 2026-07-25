@@ -168,6 +168,21 @@ export async function createTask(taskData) {
   if (user && user.id) {
     const { logActivity } = await import('./dashboard.js');
     await logActivity(user.id, `telah membuat penugasan baru`, data.id, taskData.group_id || data.group_id);
+
+    // Also add entry to task_history so it appears in "Log Aktivitas Tim" on dashboard tab
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+
+    const userName = profile?.full_name || user.email || "User";
+    await supabase.from("task_history").insert({
+      task_id: data.id,
+      name: userName,
+      text: "telah menambahkan tugas baru",
+      time: "baru saja"
+    });
   }
 
   return data;
