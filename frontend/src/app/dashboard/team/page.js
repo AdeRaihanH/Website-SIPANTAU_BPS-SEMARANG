@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "../../../backend/client";
 import { getActiveUser, getProfile } from "../../../backend/auth";
 import { getUserGroups, createGroup, deleteGroup, updateGroup } from "../../../backend/groups";
 import { getAllUsers } from "../../../backend/admin";
@@ -84,6 +85,66 @@ export default function TeamPage() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  // ========== REALTIME GROUPS UPDATE & PERIODIC POLLING ==========
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    // 1. Supabase Realtime: subscribe to changes on groups table
+    const channel = supabase
+      .channel('groups-all')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'groups'
+        },
+        () => {
+          // Debounce reload
+          if (window._groupsReloadTimer) clearTimeout(window._groupsReloadTimer);
+          window._groupsReloadTimer = setTimeout(() => {
+            loadData();
+          }, 1000);
+        }
+      )
+      .subscribe();
+
+    // Also subscribe to group_members changes (in case members are added/removed)
+    const membersChannel = supabase
+      .channel('group-members-all')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'group_members'
+        },
+        () => {
+          if (window._groupsReloadTimer) clearTimeout(window._groupsReloadTimer);
+          window._groupsReloadTimer = setTimeout(() => {
+            loadData();
+          }, 1000);
+        }
+      )
+      .subscribe();
+
+    // 2. Periodic polling fallback (every 30s)
+    const pollInterval = setInterval(() => {
+      loadData();
+    }, 30000);
+
+    // Cleanup
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(membersChannel);
+      clearInterval(pollInterval);
+      if (window._groupsReloadTimer) {
+        clearTimeout(window._groupsReloadTimer);
+        window._groupsReloadTimer = null;
+      }
+    };
+  }, [currentUser?.id]);
 
 
 

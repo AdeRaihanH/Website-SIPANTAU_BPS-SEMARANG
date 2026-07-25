@@ -47,7 +47,7 @@ export default function Dashboard() {
           const stats = await getPersonalStats(user.id, role);
           setPersonalStats(stats);
           
-          const logs = await getPersonalLogs(user.id);
+          const logs = await getPersonalLogs(user.id, role);
           setActivityLogs(logs);
         }
       }
@@ -59,6 +59,28 @@ export default function Dashboard() {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  // ========== REALTIME STATS UPDATE ==========
+  useEffect(() => {
+    if (!userId || !userRole || userRole === "admin") return;
+
+    // Periodic polling every 30s untuk refresh stats & logs
+    const pollInterval = setInterval(async () => {
+      try {
+        const stats = await getPersonalStats(userId, userRole);
+        setPersonalStats(stats);
+        const logs = await getPersonalLogs(userId, userRole);
+        setActivityLogs(logs);
+      } catch (e) {
+        console.warn("Polling refresh error:", e);
+      }
+    }, 30000);
+
+    // Cleanup
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [userId, userRole]);
 
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userFullName)}&background=f1f5f9&color=64748b&bold=true`;
   const avatarToUse = userAvatar || defaultAvatar;
