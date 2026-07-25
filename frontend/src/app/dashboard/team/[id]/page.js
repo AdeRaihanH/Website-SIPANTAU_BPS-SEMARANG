@@ -10,17 +10,12 @@ import TabPapan from "./TabPapan";
 import TabKalender from "./TabKalender";
 import GlobalTaskModals from "./GlobalTaskModals";
 import { getActiveUser, getProfile } from "../../../../backend/auth";
-import { getGroupDetails, deleteGroup, addGroupMember, removeGroupMember } from "../../../../backend/groups";
+import { getGroupDetails, deleteGroup } from "../../../../backend/groups";
 import { deleteTask } from "../../../../backend/tasks";
-import { getTeamActivityLogs } from "../../../../backend/activity"; // New import
 
 
 
 const memberColors = ["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-rose-400", "bg-sky-400", "bg-indigo-400"];
-
-
-
-// Avatar URLs are now derived from each member's profile. The static map is no longer needed.
 
 export default function TeamDetailPage({ params }) {
   const unwrappedParams = React.use ? React.use(params) : params;
@@ -47,8 +42,6 @@ export default function TeamDetailPage({ params }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isAddingTask, setIsAddingTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
-  const [showToast, setShowToast] = useState(false);
-  const [teamActivityLogs, setTeamActivityLogs] = useState([]); // New state
 
   // Load backend data
   const loadData = async () => {
@@ -71,56 +64,50 @@ export default function TeamDetailPage({ params }) {
       };
       setTeam(mappedTeam);
 
-      const logs = await getTeamActivityLogs(teamId);
-      setTeamActivityLogs(logs);
+      // The backend returns tasks inside teamDetails. Let's map them to the frontend format.
+      const mappedTasks = (teamDetails.tasks || []).map(t => ({
+        id: t.id,
+        title: t.title,
+        desc: t.description || "",
+        date: t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' }) : "",
+        type: t.type || "Tugas",
+        priority: t.priority === "high" ? "Tinggi" : t.priority === "medium" ? "Sedang" : t.priority === "urgent" ? "Tertinggi" : "Rendah",
+        status: t.status === "completed" ? "done" : t.status === "in_progress" ? "inprogress" : "todo",
+        done: t.status === "completed",
+        orang: t.assigned_to ? (mappedTeam.membersList.find(m => m.id === t.assigned_to)?.full_name ? [mappedTeam.membersList.find(m => m.id === t.assigned_to).full_name.charAt(0).toUpperCase()] : []) : [],
+        assigned_to: t.assigned_to,
+        riwayat: [],
+        komentar: [],
+        subtugas: []
+      }));
 
-      // Schema dump removed for performance
-      const mappedTasks = (teamDetails.tasks || []).map(t => {
-        const taskLogs = logs
-          .filter(l => l.task_id === t.id)
-          .map(l => ({
-             name: l.profiles?.full_name || "Sistem",
-             text: (l.description || "").replace("telah ", ""),
-             time: new Date(l.created_at).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' })
-          }));
+      // Get blacklist of deleted task IDs for this team
+      let deletedTaskIds = [];
+      if (typeof window !== "undefined" && teamId) {
+        try {
+          deletedTaskIds = JSON.parse(localStorage.getItem(`sipantau_deleted_task_ids_${teamId}`) || "[]");
+        } catch (e) { }
+      }
 
-        const taskComments = (t.task_comments || []).map(c => ({
-             name: c.user?.full_name || "Sistem",
-             text: c.content,
-             time: new Date(c.created_at).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }),
-             avatar: c.user?.avatar_url || null
-        }));
+      // Merge with localStorage persisted tasks for this team
+      let localTasks = [];
+      if (typeof window !== "undefined" && teamId) {
+        try {
+          const stored = localStorage.getItem(`sipantau_team_tasks_${teamId}`);
+          if (stored) localTasks = JSON.parse(stored);
+        } catch (e) { }
+      }
 
-        const taskSubtasks = (t.subtasks || []).map(st => ({
-            id: st.id,
-            title: st.title,
-            done: st.is_completed
-        }));
-
-        return {
-          id: t.id,
-          title: t.title,
-          desc: t.description || "",
-          date: t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' }) : "",
-          type: t.type || "Tugas",
-          priority: t.priority === "high" ? "Tinggi" : t.priority === "medium" ? "Sedang" : t.priority === "urgent" ? "Tertinggi" : "Rendah",
-          status: (t.status === "completed" || t.status === "done") ? "done"
-                : (t.status === "in_progress" || t.status === "inprogress") ? "inprogress"
-                : t.status === "review" ? "review"
-                : "todo",
-          done: t.status === "completed" || t.status === "done",
-          orang: t.assignees && t.assignees.length > 0
-                 ? t.assignees.map(id => mappedTeam.membersList.find(m => m.id === id)?.full_name?.charAt(0).toUpperCase() || "A")
-                 : t.assigned_to
-                   ? [mappedTeam.membersList.find(m => m.id === t.assigned_to)?.full_name?.charAt(0).toUpperCase() || "A"]
-                   : [],
-          assigned_to: t.assigned_to,
-          riwayat: taskLogs,
-          komentar: taskComments,
-          subtugas: taskSubtasks
-        };
+      const combinedMap = new Map();
+      mappedTasks.forEach(t => {
+        if (!deletedTaskIds.includes(t.id)) combinedMap.set(t.id, t);
       });
-      setTasks(mappedTasks);
+      localTasks.forEach(t => {
+        if (!deletedTaskIds.includes(t.id)) combinedMap.set(t.id, t);
+      });
+
+      const mergedTasks = Array.from(combinedMap.values());
+      setTasks(mergedTasks);
 
     } catch (e) {
       console.error("Gagal memuat detail kelompok:", e);
@@ -152,12 +139,20 @@ export default function TeamDetailPage({ params }) {
 
   const isMentorOrAdmin = isMentor || isAdmin;
 
-  const availableMembers = team?.membersList?.map(m => ({
-    id: m.id,
-    name: m.full_name,
-    avatar_url: m.avatar_url,
-    initial: m.full_name?.charAt(0).toUpperCase()
-  })) || [];
+  const availableMembers = [
+    { id: "A", name: "Aisha Alida Putri", initial: "A" },
+    { id: "M", name: "Myesha Azka Hafizha", initial: "M" },
+    { id: "N", name: "Nurul Kumala", initial: "N" },
+    { id: "B", name: "Budi Santoso", initial: "B" },
+    { id: "R", name: "Rizky Firmansyah", initial: "R" },
+    { id: "H", name: "Hendra Setiawan", initial: "H" },
+    { id: "C", name: "Citra Kirana", initial: "C" },
+    { id: "D", name: "Dewi Lestari", initial: "D" },
+    { id: "E", name: "Eko Prasetyo", initial: "E" },
+    { id: "F", name: "Fajar Nugraha", initial: "F" },
+    { id: "G", name: "Gita Savitri", initial: "G" },
+    { id: "I", name: "Indra Maulana", initial: "I" },
+  ];
 
   const tabs = [
     {
@@ -272,8 +267,8 @@ export default function TeamDetailPage({ params }) {
                     {availableMembers
                       .filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()))
                       .map((m, idx) => {
-                      const isMember = team.membersList.some(mem => mem.id === m.id);
-                      const avatar = m.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=f1f5f9&color=64748b&bold=true`;
+                        const isMember = team.membersList.some(mem => mem.id === m.id);
+                        let avatar = m.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=f1f5f9&color=64748b&bold=true`;
 
                         return (
                           <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
@@ -287,42 +282,29 @@ export default function TeamDetailPage({ params }) {
                               )}
                               <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
                             </div>
-
-                          {isMember ? (
-                            <button
-                              onClick={async () => {
-                                if (window.confirm("Hapus anggota ini?")) {
-                                  try {
-                                    await removeGroupMember(team.id, m.id);
-                                    await loadData();
-                                  } catch (e) {
-                                    alert("Gagal menghapus member: " + e.message);
-                                  }
-                                }
-                              }}
-                              className="text-slate-300 hover:text-rose-500 transition-colors p-1"
-                              title="Hapus Anggota"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await addGroupMember(team.id, m.id);
-                                  await loadData();
-                                } catch (e) {
-                                  alert("Gagal menambah member: " + e.message);
-                                }
-                              }}
-                              className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
+                            {isMember ? (
+                              <button
+                                onClick={async () => {
+                                  // Add remove member logic if we have an API for it
+                                  alert("Menghapus member dari UI ini belum diimplementasi di API");
+                                }}
+                                className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={async () => {
+                                  alert("Menambah member dari UI ini belum diimplementasi di API");
+                                }}
+                                className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}
@@ -431,16 +413,16 @@ export default function TeamDetailPage({ params }) {
 
       {/* Content */}
       <div className="flex-1 min-h-0 bg-slate-50/50 rounded-xl p-4 overflow-auto">
-        {activeTab === "dashboard" && <TabDashboard tasks={tasks} activityLogs={teamActivityLogs} />}
+        {activeTab === "dashboard" && <TabDashboard tasks={tasks} />}
         {activeTab === "list" && (
-        <TabList
-          tasks={tasks}
-          setTasks={setTasks}
-          setSelectedTask={setSelectedTask}
-          setIsAddingTask={setIsAddingTask}
-          members={team.membersList || []}
-        />
-      )}
+          <TabList
+            tasks={tasks}
+            setTasks={setTasks}
+            setSelectedTask={setSelectedTask}
+            setIsAddingTask={setIsAddingTask}
+            team={team}
+          />
+        )}
         {activeTab === "papan" && (
           <TabPapan
             tasks={tasks}
@@ -449,7 +431,6 @@ export default function TeamDetailPage({ params }) {
             setIsAddingTask={setIsAddingTask}
             setTaskToDelete={setTaskToDelete}
             team={team}
-            members={team.membersList || []}
           />
         )}
         {activeTab === "kalender" && (
@@ -459,7 +440,6 @@ export default function TeamDetailPage({ params }) {
             setSelectedTask={setSelectedTask}
             setIsAddingTask={setIsAddingTask}
             team={team}
-            members={team.membersList || []}
           />
         )}
       </div>
@@ -473,7 +453,6 @@ export default function TeamDetailPage({ params }) {
         setIsAddingTask={setIsAddingTask}
         setTaskToDelete={setTaskToDelete}
         team={team}
-        members={team?.membersList || []}
       />
 
       {/* Custom Delete Confirmation Modal */}
@@ -515,8 +494,12 @@ export default function TeamDetailPage({ params }) {
                     }
                     setTaskToDelete(null);
                     setSelectedTask(null);
-                    setShowToast(true);
-                    setTimeout(() => setShowToast(false), 3000);
+
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("sipantau-toast", {
+                        detail: { message: "Tugas berhasil dihapus.", type: "success" }
+                      }));
+                    }
                   } catch (e) {
                     console.error("Gagal menghapus tugas:", e);
                   }
@@ -527,26 +510,6 @@ export default function TeamDetailPage({ params }) {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Success Toast */}
-      {showToast && (
-        <div className="fixed top-6 right-6 z-[150] bg-[#e6f4ea] border border-[#a8d5ba] rounded-xl shadow-lg p-3 flex items-start gap-3 min-w-[280px] animate-fade-in-down">
-          <div className="bg-[#34a853] text-white rounded-full p-1 mt-0.5 shrink-0">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <div className="flex-1">
-            <h4 className="text-xs font-extrabold text-[#115e34]">Sukses</h4>
-            <p className="text-[11px] font-medium text-[#146c3b]">Perubahan berhasil disimpan.</p>
-          </div>
-          <button onClick={() => setShowToast(false)} className="text-[#146c3b] hover:text-[#0b4d27] mt-0.5 shrink-0">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
       )}
     </div>

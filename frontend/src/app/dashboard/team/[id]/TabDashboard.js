@@ -51,7 +51,7 @@ const getUserAvatar = (name) => {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=f1f5f9&color=64748b&bold=true`;
 };
 
-export default function TabDashboard({ tasks = [], activityLogs = [] }) {
+export default function TabDashboard({ tasks = [] }) {
   // 1. Stats Row calculations
   const selesai = tasks.filter(t => t.status === "done").length;
   const dijadwalkan = tasks.filter(t => t.status === "todo").length;
@@ -77,25 +77,9 @@ export default function TabDashboard({ tasks = [], activityLogs = [] }) {
   const maxTypeCount = Math.max(...typeCounts, 1);
 
   // 4. Activity Logs (Extract and sort by recency)
-  const logs = (
-    activityLogs && activityLogs.length > 0
-      ? activityLogs.map(log => ({
-          name: log.profiles?.full_name || "Seseorang",
-          avatar: log.profiles?.avatar_url || null,
-          text: log.description || "telah beraktivitas",
-          taskTitle: log.tasks?.title || "",
-          time: new Date(log.created_at).toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-          timestamp: new Date(log.created_at).getTime()
-        }))
-      : tasks.flatMap(t =>
-          (t.riwayat || []).map(r => ({
-            ...r,
-            taskTitle: t.title,
-            timestamp: r.time ? new Date().getTime() - parseRelativeTime(r.time) * 86400000 : 0
-          }))
-        )
-  )
-    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+  const logs = tasks
+    .flatMap(t => (t.riwayat || []).map(r => ({ ...r, taskTitle: t.title })))
+    .sort((a, b) => parseRelativeTime(a.time) - parseRelativeTime(b.time))
     .slice(0, 20); // Show top 20 sorted activities for scrolling
 
   const priorityColors = {
@@ -292,7 +276,7 @@ export default function TabDashboard({ tasks = [], activityLogs = [] }) {
               <div key={index} className="flex items-center justify-between py-3.5">
                 <div className="flex items-center gap-3.5">
                   <img
-                    src={log.avatar || getUserAvatar(log.name)}
+                    src={getUserAvatar(log.name)}
                     alt="Avatar"
                     className="w-8 h-8 rounded-full object-cover border border-slate-100"
                   />
