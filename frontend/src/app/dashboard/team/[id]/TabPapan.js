@@ -3,7 +3,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createTask, updateTask } from "../../../../backend/tasks";
 
-export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAddingTask, setTaskToDelete, team }) {
+export default function TabPapan({
+  tasks,
+  setTasks,
+  setSelectedTask,
+  setTaskToDelete,
+  team,
+  members = [],
+}){
   const [showAddForm, setShowAddForm] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -49,11 +56,15 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAdding
       }))
     : [];
 
-  useEffect(() => {
-    if (showAddForm && newOrang.length === 0 && teamMembers.length > 0) {
-      setNewOrang([teamMembers[0].initial]);
-    }
-  }, [showAddForm, teamMembers]);
+    const availableMembers = (members || []).map((p) => ({
+  initial: p.full_name?.charAt(0).toUpperCase() || "?",
+  name: p.full_name || "Tanpa Nama",
+  avatar:
+    p.avatar_url ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      p.full_name || "?"
+    )}&background=random`,
+  }));
 
   const menuRef = useRef(null);
 
@@ -96,22 +107,22 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAdding
 
     const mappedPriority = newPriority === "Tertinggi" ? "urgent" : newPriority === "Tinggi" ? "high" : newPriority === "Sedang" ? "medium" : "low";
     
-    // We don't have the team id easily accessible unless we pass it.
-    // For now we assume a task created here will just lack group_id unless passed,
-    // wait, TabPapan receives team as a prop?
-    // Let's check props: { tasks, setTasks, setSelectedTask, setTaskToDelete }
-    // Since we don't have team prop, we can't properly assign group_id!
-    // But since `tasks` are passed, we could get group_id from the first task, but what if empty?
-    // Actually, I should just pass `teamId` from page.js or use localStorage...
+    // Convert newDate (e.g., "1 Jul 2026") to YYYY-MM-DD
+    const dbDate = new Date().toISOString().split('T')[0];
+
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
     const match = currentUrl.match(/\/team\/([^/]+)/);
     const teamId = match ? match[1] : "1";
 
+    let meta = {};
+    if (newPriority === "Tertinggi") meta.priority = "urgent";
+
     let assignedToId = null;
     if (newOrang.length > 0) {
-      const member = teamMembers.find(m => m.initial === newOrang[0]);
-      if (member && member.id) {
-        assignedToId = member.id;
+      const memberIds = newOrang.map(initial => teamMembers.find(m => m.initial === initial)?.id).filter(Boolean);
+      if (memberIds.length > 0) {
+        assignedToId = memberIds[0];
+        if (memberIds.length > 1) meta.assignees = memberIds;
       }
     }
 
@@ -121,16 +132,21 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAdding
       status: dbStatus,
       type: newType,
       priority: mappedPriority,
+      due_date: dbDate,
       group_id: teamId,
       assigned_to: assignedToId
     };
+
+    if (Object.keys(meta).length > 0) {
+      newTaskData.description = `${newTaskData.description || ""} <!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
+    }
 
     try {
       const created = await createTask(newTaskData);
       
       const newTask = {
         id: created.id,
-        title: newTitle,
+        title: created.title,
         desc: newDesc || "Tidak ada deskripsi",
         date: newDate,
         type: newType,
@@ -175,26 +191,18 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAdding
     else if (dbStatus === "inprogress") dbStatus = "in_progress";
     else if (dbStatus === "inreview") dbStatus = "in_review";
 
-    const updatedTasksList = tasks.map(t => t.id === draggedTaskId ? { ...t, status, done: status === "done" || status === "completed" } : t);
-    setTasks(updatedTasksList);
+    // Optimistic Update
+    const oldTasks = [...tasks];
+    const isDone = status === "done";
+    setTasks(tasks.map(t => t.id === draggedTaskId ? { ...t, status, done: isDone } : t));
 
-    if (typeof window !== "undefined") {
-      const match = window.location.href.match(/\/team\/([^/]+)/);
-      const currentTeamId = match ? match[1] : null;
-      if (currentTeamId) {
-        try {
-          localStorage.setItem(`sipantau_team_tasks_${currentTeamId}`, JSON.stringify(updatedTasksList));
-        } catch(err) {}
-      }
-
-      window.dispatchEvent(new CustomEvent("sipantau-toast", {
-        detail: { message: "Status tugas berhasil dipindahkan.", type: "info" }
-      }));
+    try {
+      await updateTask(draggedTaskId, { status: dbStatus });
+    } catch (e) {
+      // Revert if error
+      setTasks(oldTasks);
+      alert("Gagal memperbarui status: " + e.message);
     }
-
-    updateTask(draggedTaskId, { status: dbStatus }).catch(err => {
-      console.warn("Supabase updateTask status warning:", err);
-    });
     
     setDraggedTaskId(null);
   };
@@ -286,20 +294,41 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAdding
                   </div>
 
                   <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100">
-                    <div className="flex -space-x-1.5">
-                      {task.orang && task.orang.map((o, idx) => {
-                        const mem = teamMembers.find(d => d.initial === o);
-                        return mem && mem.avatar ? (
-                          <div key={idx} className="w-6 h-6 rounded-full border border-white bg-slate-200 shadow-sm overflow-hidden z-10">
-                            <img src={mem.avatar} className="w-full h-full object-cover" alt={mem.name} />
-                          </div>
-                        ) : (
-                          <div key={idx} className="w-6 h-6 rounded-full bg-violet-500 border border-white flex items-center justify-center text-white text-[9px] font-bold shadow-sm z-10">
-                            {o}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <div className="flex -space-x-1.5 overflow-visible">
+                {task.orang && task.orang.length > 0 ? (
+                  task.orang.map((initial, idx) => {
+                    const memberObj = availableMembers.find(
+                      (mem) => mem.initial === initial
+                    );
+
+                    return memberObj ? (
+                      <div
+                        key={idx}
+                        className="w-5.5 h-5.5 rounded-full ring-2 ring-white overflow-hidden bg-gradient-to-br from-violet-400 to-indigo-500 shadow-sm flex items-center justify-center text-white shrink-0"
+                        title={memberObj.name}
+                      >
+                        <img
+                          className="h-full w-full object-cover"
+                          src={memberObj.avatar}
+                          alt={memberObj.name}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        key={idx}
+                        className="w-5.5 h-5.5 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-400 shrink-0"
+                        title={initial}
+                      >
+                        {initial}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="w-5.5 h-5.5 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400 shrink-0">
+                    ?
+                  </div>
+                )}
+              </div>
                     <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -310,27 +339,174 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAdding
                 </div>
               ))}
             </div>
-            <button
-              onClick={(e) => {
-                if (setIsAddingTask) {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setIsAddingTask({
-                    status: col.id,
-                    rect: {
-                      top: rect.top,
-                      bottom: rect.bottom,
-                      left: rect.left,
-                      right: rect.right,
-                      width: rect.width,
-                      height: rect.height,
-                    }
-                  });
-                }
-              }}
-              className="w-full border border-dashed border-slate-200 hover:border-slate-300 hover:bg-white text-slate-400 hover:text-slate-600 font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer shadow-sm mt-3"
-            >
-              <span>+</span> Tambah
-            </button>
+
+            {/* Add Task Inline */}
+            {showAddForm === col.id ? (
+              <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 space-y-4">
+                <div className="flex items-center justify-between mb-2 border-b border-slate-50 pb-3">
+                  <div className="w-full pr-3">
+                    <input
+                      type="text"
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="Masukkan Judul Tugas..."
+                      className="text-[13px] font-extrabold text-slate-800 bg-white border border-slate-200 focus:border-violet-500 rounded-lg outline-none w-full px-3 py-2 placeholder-slate-400 transition-all shadow-sm"
+                    />
+                  </div>
+                  <button onClick={() => setShowAddForm(null)} className="text-slate-400 hover:text-slate-600 font-bold shrink-0">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="flex flex-col divide-y divide-slate-100 pt-1">
+
+                  {/* Tipe / Label */}
+                  <div className="flex items-center justify-between py-2.5 relative">
+                    <div className="flex items-center gap-4">
+                      <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      <button onClick={() => {setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false);}} className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-500 bg-indigo-100/80 px-3 py-1 rounded-full outline-none">
+                        <span className="w-2 h-2 bg-indigo-400 rounded-sm"></span> {newType}
+                      </button>
+                    </div>
+                    <button onClick={() => {setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false);}} className="w-4 h-4 rounded-full border border-dashed border-slate-400 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-500 transition-colors">
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    </button>
+                    {showTypeDrop && (
+                      <div className="absolute left-10 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-2 z-30 w-32 flex flex-col gap-1">
+                        {["Tugas", "Fitur", "Bug", "Aset"].map(t => (
+                          <button key={t} onClick={() => { setNewType(t); setShowTypeDrop(false); }} className="text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 px-2 py-1.5 rounded-lg">{t}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Prioritas */}
+                  <div className="flex items-center justify-between py-2.5 relative">
+                    <div className="flex items-center gap-4">
+                      <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
+                      <button onClick={() => setShowPriorityDrop(!showPriorityDrop)} className="flex items-center gap-1.5 text-[11px] font-bold text-rose-500 bg-rose-100/80 px-3 py-1 rounded-full outline-none">
+                        <span className="w-2 h-2 bg-rose-500 rounded-full"></span> {newPriority}
+                      </button>
+                    </div>
+                    <button onClick={() => setShowPriorityDrop(!showPriorityDrop)} className="w-4 h-4 rounded-full border border-dashed border-slate-400 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-500 transition-colors">
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    </button>
+                    {showPriorityDrop && (
+                      <div className="absolute left-10 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-2 z-30 w-32 flex flex-col gap-1">
+                        {["Tertinggi", "Tinggi", "Sedang", "Rendah"].map(p => (
+                          <button key={p} onClick={() => { setNewPriority(p); setShowPriorityDrop(false); }} className="text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 px-2 py-1.5 rounded-lg">{p}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Orang/Assignee */}
+                  <div className="flex items-center justify-between py-2.5 relative">
+                    <div className="flex items-center gap-4">
+                      <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      <button onClick={() => setShowAssignDrop(!showAssignDrop)} className="flex -space-x-1.5 outline-none hover:opacity-80 transition-opacity">
+                        {newOrang.length > 0 ? newOrang.map((mInit, i) => {
+                          const mem = teamMembers.find(d => d.initial === mInit);
+                          return mem ? (
+                            <div key={i} className="w-5 h-5 rounded-full border border-white shadow-sm overflow-hidden z-10">
+                              <img src={mem.avatar} className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div key={i} className="w-5 h-5 rounded-full bg-slate-200 border border-white flex items-center justify-center text-slate-600 text-[8px] font-bold shadow-sm z-10">{mInit}</div>
+                          )
+                        }) : (
+                          <div className="w-5 h-5 rounded-full bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400">?</div>
+                        )}
+                      </button>
+                    </div>
+                    <button onClick={() => setShowAssignDrop(!showAssignDrop)} className="w-4 h-4 rounded-full border border-dashed border-slate-400 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-500 transition-colors">
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    </button>
+                    {showAssignDrop && (
+                      <div className="absolute left-10 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-2 z-30 w-48 flex flex-col gap-1 max-h-40 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                        {teamMembers.map((member) => (
+                          <button key={member.name}
+                            onClick={() => {
+                              const has = newOrang.includes(member.initial);
+                              setNewOrang(has ? newOrang.filter(o => o !== member.initial) : [...newOrang, member.initial]);
+                            }}
+                            className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-slate-50 flex items-center justify-between text-[10px] font-bold text-slate-600"
+                          >
+                            <div className="flex items-center gap-2">
+                              <img src={member.avatar} alt={member.name} className="w-5 h-5 rounded-full object-cover" />
+                              <span>{member.name}</span>
+                            </div>
+                            {newOrang.includes(member.initial) && <span className="text-violet-600">&#x2713;</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Calendar / Date */}
+                  <div className="flex items-center justify-between py-2.5 relative">
+                    <div className="flex items-center gap-4">
+                      <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {newDate && (
+                        <button onClick={() => setShowCalendar(!showCalendar)} className="text-[11px] font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full outline-none">
+                          {newDate}
+                        </button>
+                      )}
+                    </div>
+                    <button onClick={() => setShowCalendar(!showCalendar)} className="w-4 h-4 rounded-full border border-dashed border-slate-400 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-500 transition-colors">
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    </button>
+
+                    {showCalendar && (
+                      <div className="absolute right-0 top-full mt-1 bg-white border border-slate-100 shadow-2xl rounded-2xl p-3 z-30 w-52">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-800 border-b pb-1.5 mb-1.5">
+                          <span>{monthNames[calMonth]} {calYear}</span>
+                          <div className="flex gap-1">
+                            <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); }} className="px-1.5 hover:bg-slate-100 rounded">&lt;</button>
+                            <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); }} className="px-1.5 hover:bg-slate-100 rounded">&gt;</button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-center text-[9px] font-bold">
+                          {["S", "S", "R", "K", "J", "S", "M"].map((d, i) => <span key={i} className="text-slate-400">{d}</span>)}
+                          {Array.from({ length: getFirstDay(calYear, calMonth) }).map((_, i) => <span key={i} />)}
+                          {[...Array(getDaysInMonth(calYear, calMonth))].map((_, i) => {
+                            const d = i + 1;
+                            const dateStr = `${d} ${shortMonthNames[calMonth]} ${calYear}`;
+                            return (
+                              <button key={d} onClick={() => { setNewDate(dateStr); setShowCalendar(false); }}
+                                className={`p-1 rounded hover:bg-violet-50 hover:text-violet-600 ${newDate === dateStr ? "bg-violet-600 text-white" : "text-slate-600"}`}
+                              >{d}</button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleAddTask(col.id)}
+                  className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-[13px] py-2.5 rounded-xl shadow-md active:scale-95 transition-all mt-1"
+                >Tambah</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setShowAddForm(col.id); setNewTitle(""); setShowCalendar(false); }}
+                className="w-full border border-dashed border-slate-200 hover:border-slate-300 hover:bg-white text-slate-400 hover:text-slate-600 font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <span>+</span> Tambah
+              </button>
+            )}
           </div>
         );
       })}

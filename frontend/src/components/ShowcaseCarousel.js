@@ -390,13 +390,15 @@ function Slide2TaskDetail() {
 
 /* ==========================================================================
    SLIDE 3 — SETTINGS & PROFIL
+   Awalnya HANYA Card Pengaturan & Card Tim Teknologi.
+   Popup Card Rincian Prioritas BARU MUNCUL setelah Kursor Klik 'Lihat Detail >'.
    ========================================================================== */
 function Slide3SettingsProfile() {
   return (
     <div className="relative w-full flex items-center justify-center" style={{ minHeight: "340px" }}>
       <div className="relative w-[92%] max-w-[420px] h-[280px] flex items-start justify-center">
 
-        {/* LAPISAN 1: Card Pengaturan Profil */}
+        {/* ── LAPISAN 1 (Awal - Belakang Kiri): Card Pengaturan Profil ── */}
         <div
           className="absolute bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-10 flex flex-col"
           style={{
@@ -439,7 +441,7 @@ function Slide3SettingsProfile() {
           </div>
         </div>
 
-        {/* LAPISAN 2: Card Tim Teknologi Informasi UNDIP */}
+        {/* ── LAPISAN 2 (Awal - Menempel & Menumpuk di Tengah): Card Tim Teknologi Informasi UNDIP ── */}
         <div
           className="absolute bg-white rounded-2xl p-3.5 shadow-2xl border border-slate-100 z-20"
           style={{
@@ -487,7 +489,7 @@ function Slide3SettingsProfile() {
           </div>
         </div>
 
-        {/* LAPISAN POP-UP: Card Rincian Prioritas & Log Aktivitas */}
+        {/* ── LAPISAN POP-UP (MUNCUL HANYA SETELAH KLIK KURSOR DI CARD TIM): Card Rincian Prioritas & Log Aktivitas ── */}
         <div
           className="absolute bg-white/95 backdrop-blur-md rounded-2xl p-3.5 shadow-2xl border border-indigo-100 z-30 flex flex-col justify-between"
           style={{
@@ -525,7 +527,7 @@ function Slide3SettingsProfile() {
           </div>
         </div>
 
-        {/* Cursor Animation */}
+        {/* Smooth Cursor Animation: Jalan ke 'Lihat Detail >' pada Card Tim di Tengah → Klik → Pop-up MUNCUL */}
         <div
           className="absolute z-40 pointer-events-none"
           style={{
@@ -540,6 +542,7 @@ function Slide3SettingsProfile() {
         </div>
 
       </div>
+
     </div>
   );
 }
