@@ -35,7 +35,7 @@ export async function getGroupDetails(groupId) {
       group_members(
         profiles(id, full_name, avatar_url, role)
       ),
-      tasks(*, subtasks(*), task_comments(*, user:profiles(full_name, avatar_url)))
+      tasks(*, subtasks(*), task_comments(*, user:profiles(full_name, avatar_url)), task_history(*))
     `)
     .eq("id", groupId)
     .single();

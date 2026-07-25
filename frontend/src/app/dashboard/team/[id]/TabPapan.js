@@ -143,9 +143,6 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAdding
       };
       const updatedList = [...tasks, newTask];
       setTasks(updatedList);
-      if (typeof window !== "undefined" && teamId) {
-        localStorage.setItem(`sipantau_team_tasks_${teamId}`, JSON.stringify(updatedList));
-      }
       setNewTitle("");
       setNewDesc("");
       setNewOrang(["A"]);
@@ -179,14 +176,6 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAdding
     setTasks(updatedTasksList);
 
     if (typeof window !== "undefined") {
-      const match = window.location.href.match(/\/team\/([^/]+)/);
-      const currentTeamId = match ? match[1] : null;
-      if (currentTeamId) {
-        try {
-          localStorage.setItem(`sipantau_team_tasks_${currentTeamId}`, JSON.stringify(updatedTasksList));
-        } catch(err) {}
-      }
-
       window.dispatchEvent(new CustomEvent("sipantau-toast", {
         detail: { message: "Status tugas berhasil dipindahkan.", type: "info" }
       }));
