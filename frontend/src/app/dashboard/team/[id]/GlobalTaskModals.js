@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { createTask, updateTask } from "../../../../backend/tasks";
+import { createTask, updateTask, createTaskComment } from "../../../../backend/tasks";
+import { getActiveUser } from "../../../../backend/auth";
 
 const parseTaskDate = (dateStr) => {
   if (!dateStr) return null;
@@ -17,18 +18,18 @@ const parseTaskDate = (dateStr) => {
   return { day, month, year };
 };
 
-const getUserAvatar = (name) => {
+const getUserAvatar = (name, team) => {
+  if (team && team.membersList) {
+    const member = team.membersList.find(m => m.full_name?.toLowerCase() === name?.toLowerCase());
+    if (member && member.avatar_url) return member.avatar_url;
+  }
   const currentName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
   const currentEmail = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
   if (currentName && name && currentName.trim().toLowerCase() === name.trim().toLowerCase()) {
     const stored = typeof window !== "undefined" && currentEmail ? localStorage.getItem(`sipantau_avatar_${currentEmail.toLowerCase()}`) : null;
     if (stored) return stored;
   }
-  if (name === "Myesha Azka" || name === "Myesha Azka Hafizha") return "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=50&h=50&q=80";
-  if (name === "Nurul Kumala") return "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=50&h=50&q=80";
-  if (name === "Aisha Alida Putri") return "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=50&h=50&q=80";
-  if (name === "Andi Basudara") return "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=50&h=50&q=80";
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=f1f5f9&color=64748b&bold=true`;
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "User")}&background=f1f5f9&color=64748b&bold=true`;
 };
 
 const monthNamesGlobal = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -49,6 +50,7 @@ export default function GlobalTaskModals({
   setIsAddingTask,
   setTaskToDelete,
   team,
+  
 }) {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
@@ -88,7 +90,7 @@ export default function GlobalTaskModals({
         id: member.id,
         name: member.full_name,
         initial: member.full_name ? member.full_name.charAt(0).toUpperCase() : "?",
-        avatar: member.avatar_url || getUserAvatar(member.full_name),
+        avatar: member.avatar_url || getUserAvatar(member.full_name, team),
         color: "bg-slate-400"
       }))
     : (currentUserFullName ? [{
@@ -308,15 +310,23 @@ export default function GlobalTaskModals({
       description: updated.desc,
       status: dbStatus,
       type: updated.type,
-      priority: updated.priority === "Tertinggi" ? "urgent" : updated.priority === "Tinggi" ? "high" : updated.priority === "Sedang" ? "medium" : "low"
+      priority: updated.priority === "Tertinggi" ? "high" : updated.priority === "Tinggi" ? "high" : updated.priority === "Sedang" ? "medium" : "low"
     };
 
+    let meta = {};
+    if (updated.priority === "Tertinggi") meta.priority = "urgent";
+
     if (updates.orang && updates.orang.length > 0) {
-      const selectedMember = filteredMembers.find(m => m.initial === updates.orang[0]);
-      if (selectedMember && selectedMember.id) {
-        dbUpdates.assigned_to = selectedMember.id;
-        updated.assigned_to = selectedMember.id;
+      // Find the user IDs based on the initials
+      const memberIds = updates.orang.map(initial => filteredMembers.find(m => m.initial === initial)?.id).filter(Boolean);
+      if (memberIds.length > 0) {
+        dbUpdates.assigned_to = memberIds[0];
+        if (memberIds.length > 1) meta.assignees = memberIds;
       }
+    }
+    
+    if (Object.keys(meta).length > 0) {
+      dbUpdates.description = `${dbUpdates.description || ""} <!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
     }
 
     updateTask(selectedTask.id, dbUpdates).catch(e => {
@@ -337,36 +347,80 @@ export default function GlobalTaskModals({
     addToast(toastMsg, "info");
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim() || !selectedTask) return;
-    const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
-    const comment = { name: activeUserName, text: newComment };
-    const updated = {
-      ...selectedTask,
-      komentar: [...selectedTask.komentar, comment],
-    };
-    setSelectedTask(updated);
-    updateAndSaveTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
-    setNewComment("");
-    addToast("Komentar berhasil ditambahkan.", "info");
+    try {
+      const authUser = await getActiveUser();
+      if (!authUser) throw new Error("Not authenticated");
+      
+      const created = await createTaskComment(selectedTask.id, authUser.id, newComment);
+      
+      const comment = { 
+        name: created.user?.full_name || "Sistem", 
+        text: created.content,
+        time: "baru saja",
+        avatar: created.user?.avatar_url || null 
+      };
+      
+      const updated = {
+        ...selectedTask,
+        komentar: [...(selectedTask.komentar || []), comment],
+      };
+      setSelectedTask(updated);
+      setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+      setNewComment("");
+      
+      setTimeout(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("sipantau-profile-updated"));
+        }
+      }, 100);
+    } catch (e) {
+      alert("Gagal menambahkan komentar: " + e.message);
+    }
   };
 
-  const handleAddSubtask = () => {
+  const handleAddSubtask = async () => {
     if (!newSubtaskName.trim() || !selectedTask) return;
-    const currentSubtasks = selectedTask.subtugas || [];
-    const updatedSubtasks = [...currentSubtasks, { title: newSubtaskName, done: false }];
-    handleUpdateTaskField("subtugas", updatedSubtasks);
-    setIsAddingSubtask(false);
-    setNewSubtaskName("");
+    try {
+      const { createSubtask } = await import("../../../../backend/tasks");
+      const created = await createSubtask(selectedTask.id, newSubtaskName);
+      
+      const newSubtask = { id: created.id, title: created.title, done: created.is_completed };
+      const currentSubtasks = selectedTask.subtugas || [];
+      const updatedSubtasks = [...currentSubtasks, newSubtask];
+      
+      const updated = { ...selectedTask, subtugas: updatedSubtasks };
+      setSelectedTask(updated);
+      setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+      
+      setIsAddingSubtask(false);
+      setNewSubtaskName("");
+    } catch (e) {
+      alert("Gagal menambahkan subtugas: " + e.message);
+    }
   };
 
-  const handleToggleSubtask = (index) => {
+  const handleToggleSubtask = async (index) => {
     if (!selectedTask) return;
-    const currentSubtasks = selectedTask.subtugas || [];
-    const updatedSubtasks = currentSubtasks.map((st, i) => 
-      i === index ? { ...st, done: !st.done } : st
-    );
-    handleUpdateTaskField("subtugas", updatedSubtasks);
+    try {
+      const currentSubtasks = selectedTask.subtugas || [];
+      const target = currentSubtasks[index];
+      if (!target || !target.id) return;
+      
+      const { updateSubtaskStatus } = await import("../../../../backend/tasks");
+      await updateSubtaskStatus(target.id, !target.done);
+
+      const updatedSubtasks = currentSubtasks.map((st, i) =>
+        i === index ? { ...st, done: !st.done } : st
+      );
+      
+      const updated = { ...selectedTask, subtugas: updatedSubtasks };
+      setSelectedTask(updated);
+      setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+    } catch (e) {
+      alert("Gagal memperbarui subtugas: " + e.message);
+    }
   };
 
   const handleDeleteTask = (id) => {
@@ -1067,7 +1121,7 @@ export default function GlobalTaskModals({
                       {selectedTask.riwayat && selectedTask.riwayat.map((hist, i) => (
                         <div key={`hist-${i}`} className="flex items-start gap-3">
                           <img
-                            src={getUserAvatar(hist.name)}
+                            src={getUserAvatar(hist.name, team)}
                             alt="avatar"
                             className="w-7 h-7 rounded-full object-cover border border-slate-100 shrink-0"
                           />
@@ -1092,7 +1146,7 @@ export default function GlobalTaskModals({
                       {selectedTask.komentar && selectedTask.komentar.map((comment, i) => (
                         <div key={`com-${i}`} className="flex items-start gap-3">
                           <img
-                            src={getUserAvatar(comment.name)}
+                            src={getUserAvatar(comment.name, team)}
                             alt="avatar"
                             className="w-8 h-8 rounded-full object-cover border border-slate-100 shrink-0"
                           />
@@ -1109,7 +1163,7 @@ export default function GlobalTaskModals({
 
                     <div className="flex items-start gap-3 pt-2 shrink-0">
                       <img
-                        src={getUserAvatar(typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara")}
+                        src={getUserAvatar(typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara", team)}
                         alt="avatar"
                         className="w-8 h-8 rounded-full object-cover border border-slate-100 shrink-0 mt-0.5"
                       />
@@ -1148,10 +1202,30 @@ export default function GlobalTaskModals({
             className="fixed inset-0 z-[999998]"
             onClick={() => { setIsAddingTask(null); setActiveDropdown(null); }}
           ></div>
-          
-          <div 
-            className="fixed z-[999999] bg-white rounded-3xl w-full max-w-[288px] max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-100/90 flex flex-col custom-scrollbar p-4 space-y-3 text-left animate-[scaleIn_0.15s_ease-out_forwards]"
-            style={calculateModalPosition(isAddingTask)}
+
+          <div
+            className={`fixed z-50 ${typeof isAddingTask !== "object" ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : ""}`}
+style={
+  typeof isAddingTask === "object"
+    ? {
+        ...(isAddingTask.top !== undefined && {
+          top:
+            isAddingTask.top + 500 > window.innerHeight
+              ? window.innerHeight - 520
+              : isAddingTask.top,
+        }),
+        ...(isAddingTask.bottom !== undefined && {
+          bottom: isAddingTask.bottom,
+        }),
+        ...(isAddingTask.right !== undefined && {
+          right: isAddingTask.right,
+        }),
+        ...(isAddingTask.left !== undefined && {
+          left: isAddingTask.left,
+        }),
+      }
+    : {}
+}
           >
             {/* Header */}
             <div className="px-1 py-1 flex items-start justify-between border-b border-slate-100 pb-2">
@@ -1317,7 +1391,7 @@ export default function GlobalTaskModals({
                   if (localUiStatus === "done" || localUiStatus === "completed") { dbStatus = "done"; localUiStatus = "done"; }
                   else if (localUiStatus === "inprogress") { dbStatus = "in_progress"; localUiStatus = "inprogress"; }
 
-                  const mappedPriority = addPriority === "Tertinggi" ? "urgent" : addPriority === "Tinggi" ? "high" : addPriority === "Sedang" ? "medium" : "low";
+                  const mappedPriority = addPriority === "Tertinggi" ? "high" : addPriority === "Tinggi" ? "high" : addPriority === "Sedang" ? "medium" : "low";
 
                   const parsedDate = parseTaskDate(addDate);
                   let dbDate = null;
@@ -1326,10 +1400,14 @@ export default function GlobalTaskModals({
                   }
                   
                   let assignedToId = null;
+                  let meta = {};
+                  if (addPriority === "Tertinggi") meta.priority = "urgent";
+                  
                   if (addOrang.length > 0) {
-                     const member = filteredMembers.find(m => m.initial === addOrang[0]);
-                     if (member && member.id) {
-                       assignedToId = member.id;
+                     const memberIds = addOrang.map(initial => filteredMembers.find(m => m.initial === initial)?.id).filter(Boolean);
+                     if (memberIds.length > 0) {
+                       assignedToId = memberIds[0];
+                       if (memberIds.length > 1) meta.assignees = memberIds;
                      }
                   }
 
@@ -1343,13 +1421,31 @@ export default function GlobalTaskModals({
                     group_id: team?.id || "1",
                     assigned_to: assignedToId
                   };
+                  
+                  if (Object.keys(meta).length > 0) {
+                     newTaskData.description = `${newTaskData.description || ""} <!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
+                  }
 
                   let createdTaskId = "task-" + Date.now();
                   try {
                     const createdTask = await createTask(newTaskData);
-                    if (createdTask && createdTask.id) {
-                      createdTaskId = createdTask.id;
-                    }
+
+                    const newTask = {
+                      id: createdTask.id,
+                      title: createdTask.title,
+                      desc: addDesc || "Tidak ada deskripsi",
+                      date: parsedDate ? `${parsedDate.day} ${monthNames[parsedDate.month]} ${parsedDate.year}` : "",
+                      type: addType,
+                      priority: addPriority,
+                      status: addStatus,
+                      done: addStatus === "done",
+                      orang: addOrang.length > 0 ? addOrang : ["A"],
+                      riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
+                      komentar: [],
+                    };
+                    setTasks([...tasks, newTask]);
+                    setIsAddingTask(null);
+                    setActiveDropdown(null);
                   } catch (e) {
                     console.warn("Supabase createTask fallback to local persistence:", e);
                   }
@@ -1389,8 +1485,9 @@ export default function GlobalTaskModals({
               </button>
             </div>
           </div>
-        </>
-      )}
+        </div>
+      </>
+    )}
       {renderFloatingDropdown()}
 
       {/* Toast Notification Container (Success, Info, Warning, Error) */}

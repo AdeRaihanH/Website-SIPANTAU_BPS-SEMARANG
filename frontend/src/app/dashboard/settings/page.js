@@ -27,14 +27,15 @@ export default function SettingsPage() {
         const profile = await getProfile(activeUser.id);
         if (profile) {
           setCurrentUser(profile);
-          setName(profile.full_name || "");
-          setEmail(profile.email || "");
-          setPhone(profile.phone || "");
-          setAddress(profile.address || "");
-          setInstitution(profile.institution || "");
-          setMajor(profile.major || "");
-          setRole(profile.role || "pemagang");
-          setAvatar(profile.avatar_url || "");
+          const meta = activeUser.user_metadata || {};
+          setName(profile.full_name || meta.full_name || "");
+          setEmail(profile.email || activeUser.email || "");
+          setPhone(profile.phone || meta.phone || "");
+          setAddress(profile.address || meta.address || "");
+          setInstitution(profile.institution || meta.institution || "");
+          setMajor(profile.major || meta.major || "");
+          setRole(profile.role || meta.role || "pemagang");
+          setAvatar(profile.avatar_url || meta.avatar_url || "");
         }
       }
     } catch (e) {
@@ -141,14 +142,15 @@ export default function SettingsPage() {
         <div className="absolute right-0 top-0 w-48 h-48 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16" />
       </div>
 
-      {/* Avatar & User Header Profile Info (Overlapping Banner) */}
+      {/* Profile Avatar Header */}
       <div className="flex flex-col items-start px-8 -mt-20 relative z-10">
         <div 
           className={`relative group ${isEditing ? "cursor-pointer" : "cursor-default"}`} 
-          onClick={isEditing ? handleAvatarClick : undefined}
+          onClick={handleAvatarClick}
         >
           <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl bg-slate-100">
             <img
+              key={avatar}
               src={avatar || defaultAvatar}
               alt="Avatar Profile"
               className="w-full h-full object-cover"
@@ -322,7 +324,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Jurusan */}
-            {role !== "mentor" && (
+{role !== "mentor" && role !== "admin" && (
               <div className="flex items-start gap-3.5">
                 <div className="w-9 h-9 rounded-xl bg-violet-50 text-violet-500 flex items-center justify-center shrink-0 mt-0.5">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

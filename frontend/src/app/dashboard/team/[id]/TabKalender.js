@@ -24,7 +24,13 @@ function parseTaskDate(dateStr) {
   return { day, month, year };
 }
 
-export default function TabKalender({ tasks, setTasks, setSelectedTask, team, setIsAddingTask }) {
+export default function TabKalender({
+  tasks,
+  setTasks,
+  setSelectedTask,
+  team,
+  members = [],
+}){
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
@@ -52,6 +58,16 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask, team, se
         bg: "bg-violet-500"
       }))
     : [];
+
+    const availableMembers = (members || []).map((p) => ({
+  initial: p.full_name?.charAt(0).toUpperCase() || "?",
+  name: p.full_name || "Tanpa Nama",
+  avatar:
+    p.avatar_url ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      p.full_name || "?"
+    )}&background=random`,
+  }));
 
   const popoverRef = useRef(null);
 
@@ -97,7 +113,7 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask, team, se
     const match = currentUrl.match(/\/team\/([^/]+)/);
     const teamId = match ? match[1] : "1";
     
-    const mappedPriority = newPriority === "Tertinggi" ? "urgent" : newPriority === "Tinggi" ? "high" : newPriority === "Sedang" ? "medium" : "low";
+    const mappedPriority = newPriority === "Tertinggi" ? "high" : newPriority === "Tinggi" ? "high" : newPriority === "Sedang" ? "medium" : "low";
     
     const dateStr = `${day} ${monthNames[calMonth]} ${calYear}`;
     const parsedDate = parseTaskDate(dateStr);
@@ -106,32 +122,41 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask, team, se
       dbDate = `${parsedDate.year}-${String(parsedDate.month + 1).padStart(2, '0')}-${String(parsedDate.day).padStart(2, '0')}`;
     }
 
+    let meta = {};
+    if (newPriority === "Tertinggi") meta.priority = "urgent";
+
     let assignedToId = null;
     if (newOrang.length > 0) {
-      const member = teamMembers.find(m => m.initial === newOrang[0]);
-      if (member && member.id) {
-        assignedToId = member.id;
+      const memberIds = newOrang.map(initial => teamMembers.find(m => m.initial === initial)?.id).filter(Boolean);
+      if (memberIds.length > 0) {
+        assignedToId = memberIds[0];
+        if (memberIds.length > 1) meta.assignees = memberIds;
       }
     }
 
+    const dbStatus = "todo";
     const newTaskData = {
       title: newTitle,
       description: newDesc || "Tidak ada deskripsi",
-      status: "todo",
+      status: dbStatus,
       type: newType,
       priority: mappedPriority,
-      group_id: teamId,
       due_date: dbDate,
+      group_id: teamId,
       assigned_to: assignedToId
     };
+
+    if (Object.keys(meta).length > 0) {
+      newTaskData.description = `${newTaskData.description || ""} <!-- SIPANTAU_META:${JSON.stringify(meta)} -->`;
+    }
 
     try {
       const created = await createTask(newTaskData);
       const newTask = {
         id: created.id,
-        title: newTitle,
+        title: created.title,
         desc: newDesc || "Tidak ada deskripsi",
-        date: dateStr,
+        date: parsedDate ? `${parsedDate.day} ${monthNames[parsedDate.month]} ${parsedDate.year}` : "",
         type: newType,
         priority: newPriority,
         status: "todo",
@@ -272,6 +297,239 @@ export default function TabKalender({ tasks, setTasks, setSelectedTask, team, se
                       </>
                     )}
                   </div>
+
+                  {/* Inline Add Task Popover Card */}
+                  {addingTaskDay === day && (
+                    <div
+                      ref={popoverRef}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`absolute bg-white border border-slate-100 shadow-2xl rounded-3xl p-4 w-64 space-y-3 z-[60] text-left cursor-default ${rowIndex >= 3
+                          ? `bottom-full mb-2 ${colIndex < 2 ? "left-0" : colIndex > 4 ? "right-0" : "left-1/2 -translate-x-1/2"}`
+                          : rowIndex === 2
+                            ? `top-1/2 -translate-y-1/2 ${colIndex < 3 ? "left-full ml-3" : "right-full mr-3"}`
+                            : `top-full mt-2 ${colIndex < 2 ? "left-0" : colIndex > 4 ? "right-0" : "left-1/2 -translate-x-1/2"}`
+                        }`}
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <input
+                          type="text"
+                          value={newTitle}
+                          onChange={(e) => setNewTitle(e.target.value)}
+                          placeholder="Judul Tugas..."
+                          className="w-full text-xs font-extrabold text-slate-800 outline-none placeholder-slate-400 bg-transparent pr-2"
+                          autoFocus
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAddingTaskDay(null);
+                          }}
+                          className="text-slate-400 hover:text-slate-600 font-bold text-xs p-1 shrink-0"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <textarea
+                        value={newDesc}
+                        onChange={(e) => setNewDesc(e.target.value)}
+                        placeholder="Deskripsi tugas..."
+                        className="w-full text-[11px] font-semibold text-slate-600 border border-slate-100 bg-slate-50/50 rounded-xl p-2.5 outline-none focus:border-violet-500 h-16 resize-none placeholder-slate-300"
+                      />
+
+                      <div className="space-y-1 pt-2">
+                        {/* Type Row */}
+                        <div className="flex items-center justify-between py-1.5 relative">
+                          <div className="flex items-center gap-4">
+                            <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Jenis</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => { setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false); }} className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 bg-indigo-100/80 px-3 py-1 rounded-full outline-none">
+                              <span className="w-2 h-2 bg-indigo-400 rounded-sm"></span> {newType}
+                            </button>
+                            <button onClick={() => { setShowTypeDrop(!showTypeDrop); setShowPriorityDrop(false); setShowAssignDrop(false); }} className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500">
+                              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            </button>
+                          </div>
+                          {showTypeDrop && (
+                            <div className="absolute right-0 top-full mt-2 bg-white border border-slate-100 shadow-xl rounded-2xl p-4 z-30 w-64 flex flex-col gap-3">
+                              <div className="text-center text-[11px] font-extrabold text-slate-700">Jenis Tugas</div>
+                              <input
+                                type="text"
+                                placeholder="Cari jenis tugas..."
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 outline-none focus:border-violet-400 placeholder-slate-400"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+
+                              <div className="flex flex-col gap-2">
+                                <div className="text-[10px] font-extrabold text-slate-800 mb-1">Jenis</div>
+
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                  <input type="checkbox" checked={newType === "Design"} onChange={() => { setNewType("Design"); setShowTypeDrop(false); }} className="w-4 h-4 rounded text-violet-500 border-slate-200 focus:ring-violet-500 cursor-pointer" />
+                                  <div className="flex-1 text-center text-[11px] font-bold text-violet-500 bg-violet-100 group-hover:bg-violet-200 py-1.5 rounded-full transition-colors">Design</div>
+                                </label>
+
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                  <input type="checkbox" checked={newType === "Bug"} onChange={() => { setNewType("Bug"); setShowTypeDrop(false); }} className="w-4 h-4 rounded text-cyan-500 border-slate-200 focus:ring-cyan-500 cursor-pointer" />
+                                  <div className="flex-1 text-center text-[11px] font-bold text-cyan-600 bg-cyan-100 group-hover:bg-cyan-200 py-1.5 rounded-full transition-colors">Bug</div>
+                                </label>
+
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                  <input type="checkbox" checked={newType === "Aset"} onChange={() => { setNewType("Aset"); setShowTypeDrop(false); }} className="w-4 h-4 rounded text-orange-400 border-slate-200 focus:ring-orange-400 cursor-pointer" />
+                                  <div className="flex-1 text-center text-[11px] font-bold text-orange-500 bg-orange-100 group-hover:bg-orange-200 py-1.5 rounded-full transition-colors">Aset</div>
+                                </label>
+
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                  <input type="checkbox" checked={newType === "Fitur"} onChange={() => { setNewType("Fitur"); setShowTypeDrop(false); }} className="w-4 h-4 rounded text-rose-500 border-slate-200 focus:ring-rose-500 cursor-pointer" />
+                                  <div className="flex-1 text-center text-[11px] font-bold text-rose-500 bg-rose-100 group-hover:bg-rose-200 py-1.5 rounded-full transition-colors">Fitur</div>
+                                </label>
+
+                                {!["Design", "Bug", "Aset", "Fitur"].includes(newType) && newType && (
+                                  <label className="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" checked={true} readOnly className="w-4 h-4 rounded text-slate-500 border-slate-200 focus:ring-slate-500 cursor-pointer" />
+                                    <div className="flex-1 text-center text-[11px] font-bold text-slate-600 bg-slate-100 py-1.5 rounded-full">{newType}</div>
+                                  </label>
+                                )}
+                              </div>
+
+                              <input
+                                type="text"
+                                placeholder="Buat jenis tugas baru"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && e.target.value.trim()) {
+                                    setNewType(e.target.value.trim());
+                                    setShowTypeDrop(false);
+                                  }
+                                }}
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 outline-none focus:border-violet-400 placeholder-slate-400 mt-1"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Priority Row */}
+                        <div className="flex items-center justify-between py-1.5 relative">
+                          <div className="flex items-center gap-4">
+                            <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Prioritas</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => { setShowPriorityDrop(!showPriorityDrop); setShowTypeDrop(false); setShowAssignDrop(false); }} className="flex items-center gap-1.5 text-[10px] font-bold text-rose-500 bg-rose-100/80 px-3 py-1 rounded-full outline-none">
+                              <span className="w-2 h-2 bg-rose-500 rounded-full"></span> {newPriority}
+                            </button>
+                            <button onClick={() => { setShowPriorityDrop(!showPriorityDrop); setShowTypeDrop(false); setShowAssignDrop(false); }} className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500">
+                              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            </button>
+                          </div>
+                          {showPriorityDrop && (
+                            <div className="absolute right-0 top-full mt-2 bg-white border border-slate-100 shadow-xl rounded-2xl p-4 z-30 w-52 flex flex-col gap-2.5">
+                              <button onClick={() => { setNewPriority("Terendah"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-violet-500 bg-violet-100 hover:bg-violet-200 py-1.5 rounded-full transition-colors cursor-pointer">Terendah</button>
+
+                              <button onClick={() => { setNewPriority("Rendah"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-cyan-600 bg-cyan-100 hover:bg-cyan-200 py-1.5 rounded-full transition-colors cursor-pointer">Rendah</button>
+
+                              <button onClick={() => { setNewPriority("Sedang"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-orange-500 bg-orange-100 hover:bg-orange-200 py-1.5 rounded-full transition-colors cursor-pointer">Sedang</button>
+
+                              <button onClick={() => { setNewPriority("Tinggi"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-emerald-600 bg-emerald-100 hover:bg-emerald-200 py-1.5 rounded-full transition-colors cursor-pointer">Tinggi</button>
+
+                              <button onClick={() => { setNewPriority("Tertinggi"); setShowPriorityDrop(false); }} className="w-full text-center text-[11px] font-bold text-rose-500 bg-rose-100 hover:bg-rose-200 py-1.5 rounded-full transition-colors cursor-pointer">Tertinggi</button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Assignee Row */}
+                        <div className="flex items-center justify-between py-1.5 relative">
+                          <div className="flex items-center gap-4">
+                            <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                            </svg>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Penerima</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => { setShowAssignDrop(!showAssignDrop); setShowTypeDrop(false); setShowPriorityDrop(false); }} className="flex -space-x-1.5 outline-none">
+                              {newOrang.length > 0 ? newOrang.map((mInit, i) => {
+                                const mem = availableMembers.find((d) => d.initial === mInit);
+                                return mem ? (
+                                  <div key={i} className="w-5 h-5 rounded-full border border-white bg-slate-200 shadow-sm overflow-hidden z-10" title={mem.name}>
+                                    <img src={mem.avatar} className="w-full h-full object-cover" alt="avatar" />
+                                  </div>
+                                ) : (
+                                  <div key={i} className="w-5 h-5 rounded-full border border-white bg-slate-200 text-slate-600 text-[8px] font-bold flex items-center justify-center shadow-sm z-10">{mInit}</div>
+                                );
+                              }) : (
+                                <span className="text-[10px] font-bold text-slate-400 px-2">Pilih</span>
+                              )}
+                            </button>
+                            <button onClick={() => { setShowAssignDrop(!showAssignDrop); setShowTypeDrop(false); setShowPriorityDrop(false); }} className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500">
+                              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            </button>
+                          </div>
+                          {showAssignDrop && (
+                            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-100 shadow-xl rounded-xl p-3 z-30 w-48 flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">Pilih Anggota</div>
+                              {availableMembers.map((m) => {
+                                const isSelected = newOrang.includes(m.initial);
+                                return (
+                                  <button
+                                    key={m.initial}
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setNewOrang(newOrang.filter(o => o !== m.initial));
+                                      } else {
+                                        setNewOrang([...newOrang, m.initial]);
+                                      }
+                                    }}
+                                    className={`flex items-center justify-between px-2 py-1.5 rounded-lg transition-colors ${isSelected ? "bg-violet-50" : "hover:bg-slate-50"}`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <img src={m.avatar} className="w-5 h-5 rounded-full object-cover" alt={m.name} />
+                                      <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <svg className="w-3.5 h-3.5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Date Row */}
+                        <div className="flex items-center justify-between py-1.5 pt-2">
+                          <div className="flex items-center gap-4">
+                            <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Tanggal</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-600">
+                              {day} {shortMonthNames[calMonth]} {calYear}
+                            </span>
+                            <button className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 opacity-50 cursor-not-allowed">
+                              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleInlineAddTask(day);
+                        }}
+                        className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-[11px] py-2.5 rounded-xl shadow-md shadow-violet-100 active:scale-95 transition-all"
+                      >
+                        Tambah
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
