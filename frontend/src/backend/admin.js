@@ -18,7 +18,7 @@ export async function getAllUsers() {
  * Update a user's verification status
  * @param {string} adminId - The ID of the admin performing the action
  * @param {string} targetUserId - The ID of the user to update
- * @param {string} newStatus - "approved" or "rejected"
+ * @param {string} newStatus - "active" to approve, or "rejected" to reject
  * @param {string} notes - Optional notes for verification log
  */
 export async function updateUserStatus(adminId, targetUserId, newStatus, notes = "") {

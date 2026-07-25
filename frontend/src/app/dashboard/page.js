@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getActiveUser, getProfile } from "../../backend/auth";
 import { getAllUsers } from "../../backend/admin";
 import { getAdminStats, getPersonalStats, getPersonalLogs } from "../../backend/dashboard";
+import { supabase } from "../../backend/client";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -19,6 +20,8 @@ export default function Dashboard() {
   const [adminStats, setAdminStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
   const [personalStats, setPersonalStats] = useState({ completed: 0, scheduled: 0, updated: 0, overdue: 0 });
   const [activityLogs, setActivityLogs] = useState([]);
+  const [adminActivityLogs, setAdminActivityLogs] = useState([]);
+  const adminReloadRef = useRef(null);
 
   const loadProfile = async () => {
     try {
@@ -43,6 +46,14 @@ export default function Dashboard() {
           
           const stats = await getAdminStats();
           setAdminStats(stats);
+          
+          // Fetch activity logs for admin (shows all users' activities)
+          try {
+            const logs = await getPersonalLogs(user.id, "admin");
+            setAdminActivityLogs(logs || []);
+          } catch (e) {
+            console.warn("Gagal memuat log aktivitas admin:", e);
+          }
         } else {
           const stats = await getPersonalStats(user.id, role);
           setPersonalStats(stats);
@@ -60,7 +71,62 @@ export default function Dashboard() {
     loadProfile();
   }, []);
 
-  // ========== REALTIME STATS UPDATE ==========
+  // ========== ADMIN REALTIME REFRESH ==========
+  useEffect(() => {
+    if (!userId || userRole !== "admin") return;
+
+    const refreshAdminData = async () => {
+      try {
+        const [users, stats, logs] = await Promise.all([
+          getAllUsers(),
+          getAdminStats(),
+          getPersonalLogs(userId, "admin")
+        ]);
+        setAdminUsers(users);
+        setAdminStats(stats);
+        setAdminActivityLogs(logs || []);
+      } catch (e) {
+        console.warn("Admin refresh error:", e);
+      }
+    };
+
+    // Real-time subscription: profiles table (new registrations, status changes)
+    const profilesChannel = supabase
+      .channel('admin-profiles')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          if (adminReloadRef.current) clearTimeout(adminReloadRef.current);
+          adminReloadRef.current = setTimeout(refreshAdminData, 500);
+        }
+      )
+      .subscribe();
+
+    // Real-time subscription: activity_logs table (new admin actions)
+    const activityChannel = supabase
+      .channel('admin-activity')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'activity_logs' },
+        () => {
+          if (adminReloadRef.current) clearTimeout(adminReloadRef.current);
+          adminReloadRef.current = setTimeout(refreshAdminData, 500);
+        }
+      )
+      .subscribe();
+
+    // Periodic polling fallback every 30s
+    const pollInterval = setInterval(refreshAdminData, 30000);
+
+    // Cleanup
+    return () => {
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(activityChannel);
+      clearInterval(pollInterval);
+      if (adminReloadRef.current) clearTimeout(adminReloadRef.current);
+    };
+  }, [userId, userRole]);
+
+  // ========== NON-ADMIN STATS UPDATE ==========
   useEffect(() => {
     if (!userId || !userRole || userRole === "admin") return;
 
@@ -201,24 +267,28 @@ export default function Dashboard() {
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
-                ), color: "violet", label: `${adminStats.total} Akun`, desc: "Jumlah pendaftar SIPANTAU." },
+                ), color: "violet", label: `${adminStats.total} Akun`, desc: "Jumlah pendaftar SIPANTAU.", tab: "semua" },
                 { icon: (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                ), color: "amber", label: `${adminStats.pending} Menunggu`, desc: "Akun perlu diverifikasi." },
+                ), color: "amber", label: `${adminStats.pending} Menunggu`, desc: "Akun perlu diverifikasi.", tab: "belum-diverifikasi" },
                 { icon: (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                ), color: "emerald", label: `${adminStats.approved} Disetujui`, desc: "Akun yang telah disetujui." },
+                ), color: "emerald", label: `${adminStats.approved} Disetujui`, desc: "Akun yang telah disetujui.", tab: "sudah-diverifikasi" },
                 { icon: (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                ), color: "rose", label: `${adminStats.rejected} Ditolak`, desc: "Akun yang telah ditolak." },
+                ), color: "rose", label: `${adminStats.rejected} Ditolak`, desc: "Akun yang telah ditolak.", tab: "ditolak" },
               ].map((stat, idx) => (
-                <div key={idx} className="p-5 border border-slate-100 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 flex items-center gap-4">
+                <button
+                  key={idx}
+                  onClick={() => router.push(`/dashboard/accounts?tab=${stat.tab}`)}
+                  className="p-5 border border-slate-100 bg-white rounded-2xl shadow-sm hover:shadow-md hover:border-violet-200 transition-all duration-200 flex items-center gap-4 text-left cursor-pointer"
+                >
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-${stat.color}-100 text-${stat.color}-500 bg-${stat.color}-50`}>
                     {stat.icon}
                   </div>
@@ -226,7 +296,7 @@ export default function Dashboard() {
                     <h3 className="text-sm font-extrabold text-slate-800 leading-tight">{stat.label}</h3>
                     <p className="text-[10px] font-semibold text-slate-400 mt-0.5">{stat.desc}</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -234,64 +304,111 @@ export default function Dashboard() {
             <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-50 pb-4">
                 <h3 className="text-sm font-extrabold text-slate-800">Log Akun</h3>
-                <p className="text-[11px] text-slate-400 font-medium mt-1">Informasi terbaru mengenai pendaftaran dan verifikasi akun SIPANTAU.</p>
+                <p className="text-[11px] text-slate-400 font-medium mt-1">Informasi terbaru mengenai akun dan aktivitas admin SIPANTAU.</p>
               </div>
 
-              <div className="divide-y divide-slate-50/80 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                {[...adminUsers].reverse().slice(0, 10).map((u, index) => {
-                  let text = "";
-                  let roleText = "";
-                  let statusText = "";
-                  let color = "";
+              <div className="divide-y divide-slate-50/80 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                {(() => {
+                  // Merge user registrations with admin activity logs, sorted by date
+                  const userLogs = [...adminUsers].reverse().map(u => ({
+                    type: "user",
+                    id: u.id,
+                    full_name: u.full_name,
+                    avatar_url: u.avatar_url,
+                    status: u.status,
+                    role: u.role,
+                    created_at: u.created_at,
+                  }));
+                  const actionLogs = adminActivityLogs
+                    .filter(log => !log.task_id) // Hanya log terkait akun (bukan tugas)
+                    .map(log => ({
+                      type: "activity",
+                      id: log.id,
+                      full_name: log.profiles?.full_name || "Admin",
+                      avatar_url: log.profiles?.avatar_url,
+                      description: log.description,
+                      created_at: log.created_at,
+                    }));
+                  const merged = [...userLogs, ...actionLogs]
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                    .slice(0, 15);
                   
-                  if (u.status === "pending") {
-                    text = "mendaftar akun baru sebagai";
-                    roleText = u.role === "mentor" ? "Mentor." : "Pemagang.";
-                    statusText = "Menunggu";
-                    color = "amber";
-                  } else if (u.status === "approved") {
-                    text = "telah disetujui pendaftarannya.";
-                    statusText = "Disetujui";
-                    color = "emerald";
-                  } else if (u.status === "rejected") {
-                    text = "telah ditolak pendaftarannya.";
-                    statusText = "Ditolak";
-                    color = "rose";
-                  }
-
-                  const uAvatar = u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name || "User")}`;
-
-                  return (
-                    <div key={index} className="flex items-center justify-between py-3.5">
-                      <div className="flex items-center gap-4">
-                        <img
-                          src={uAvatar}
-                          alt="Avatar"
-                          className="w-9 h-9 rounded-full object-cover border border-slate-100 shrink-0"
-                        />
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[11px] text-slate-500 font-medium">
-                            <strong className="text-slate-700 font-bold">{u.full_name}</strong> {text}{" "}
-                            {roleText && <span className="text-violet-600 font-bold hover:underline cursor-pointer">{roleText}</span>}
-                          </span>
-                          <div className={`w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-${color}-100 text-${color}-600`}>
-                            {statusText}
-                          </div>
-                        </div>
+                  if (merged.length === 0) {
+                    return (
+                      <div className="py-8 flex flex-col items-center justify-center text-center w-full">
+                        <img src="/empty-activity.svg" alt="Belum ada Log Akun" className="w-40 h-28 object-contain mb-3" />
+                        <p className="text-xs font-bold text-slate-800">Belum ada Log Akun</p>
                       </div>
-                      <span className="text-[10px] font-bold text-slate-400 shrink-0 self-start mt-1">
-                        {new Date(u.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
-                      </span>
-                    </div>
-                  );
-                })}
-                
-                {adminUsers.length === 0 && (
-                  <div className="py-8 flex flex-col items-center justify-center text-center w-full">
-                    <img src="/empty-activity.svg" alt="Belum ada Log Akun" className="w-40 h-28 object-contain mb-3" />
-                    <p className="text-xs font-bold text-slate-800">Belum ada Log Akun</p>
-                  </div>
-                )}
+                    );
+                  }
+                  
+                  return merged.map((item, index) => {
+                    if (item.type === "user") {
+                      let text = "";
+                      let roleText = "";
+                      let statusText = "";
+                      let color = "";
+                      
+                      if (item.status === "pending") {
+                        text = "mendaftar akun baru sebagai";
+                        roleText = item.role === "mentor" ? "Mentor." : "Pemagang.";
+                        statusText = "Menunggu";
+                        color = "amber";
+                      } else if (item.status === "active") {
+                        text = "telah disetujui pendaftarannya.";
+                        statusText = "Disetujui";
+                        color = "emerald";
+                      } else if (item.status === "rejected") {
+                        text = "telah ditolak pendaftarannya.";
+                        statusText = "Ditolak";
+                        color = "rose";
+                      }
+
+                      const uAvatar = item.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.full_name || "User")}`;
+
+                      return (
+                        <div key={`user-${item.id}`} className="flex items-center justify-between py-3">
+                          <div className="flex items-center gap-4">
+                            <img src={uAvatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover border border-slate-100 shrink-0" />
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                <strong className="text-slate-700 font-bold">{item.full_name}</strong> {text}{" "}
+                                {roleText && <span className="text-violet-600 font-bold">{roleText}</span>}
+                              </span>
+                              <div className={`w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-${color}-100 text-${color}-600`}>
+                                {statusText}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400 shrink-0 self-start mt-1">
+                            {new Date(item.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                          </span>
+                        </div>
+                      );
+                    } else {
+                      // Admin activity log
+                      const aAvatar = item.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.full_name || "Admin")}`;
+                      return (
+                        <div key={`act-${item.id}`} className="flex items-center justify-between py-3">
+                          <div className="flex items-center gap-4">
+                            <img src={aAvatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover border border-slate-100 shrink-0" />
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                <strong className="text-slate-700 font-bold">{item.full_name}</strong> {item.description}
+                              </span>
+                              <div className="w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-600">
+                                Aktivitas Admin
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400 shrink-0 self-start mt-1">
+                            {new Date(item.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                          </span>
+                        </div>
+                      );
+                    }
+                  });
+                })()}
               </div>
             </div>
           </>
