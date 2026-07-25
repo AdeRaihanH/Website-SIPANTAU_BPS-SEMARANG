@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { getActiveUser, getProfile } from "../../../backend/auth";
 import { getUserGroups, createGroup, deleteGroup, updateGroup } from "../../../backend/groups";
 import { getAllUsers } from "../../../backend/admin";
-import ToastContainer from "../../../components/Toast";
-
 
 const memberColors = ["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-rose-400", "bg-sky-400", "bg-indigo-400"];
 
@@ -39,20 +37,6 @@ export default function TeamPage() {
   const [viewDeleted, setViewDeleted] = useState(false);
   const [deleteConfirmTeam, setDeleteConfirmTeam] = useState(null);
   const [hardDeleteConfirmTeam, setHardDeleteConfirmTeam] = useState(null);
-  const [toasts, setToasts] = useState([]);
-
-  const showToast = (title, message, type = "success") => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, title, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
-  };
-
-  const removeToast = (id) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  };
-
 
   const loadData = async () => {
     try {
@@ -110,6 +94,13 @@ export default function TeamPage() {
         setTeams(teams.filter(t => t.id !== deleteConfirmTeam.id));
         setDeletedTeams([...deletedTeams, { ...deleteConfirmTeam, is_deleted: true }]);
         setDeleteConfirmTeam(null);
+        setViewDeleted(true); // Automatically switch to "Kelompok Terhapus" tab!
+
+        const toastId = Date.now();
+        setToasts(prev => [...prev, { id: toastId, message: "Kelompok berhasil dihapus (soft delete).", type: "success" }]);
+        setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== toastId));
+        }, 4000);
       } catch (e) {
         alert("Gagal menghapus: " + e.message);
       }
@@ -122,6 +113,12 @@ export default function TeamPage() {
         await deleteGroup(hardDeleteConfirmTeam.id, true);
         setDeletedTeams(deletedTeams.filter(t => t.id !== hardDeleteConfirmTeam.id));
         setHardDeleteConfirmTeam(null);
+
+        const toastId = Date.now();
+        setToasts(prev => [...prev, { id: toastId, message: "Kelompok berhasil dihapus secara permanen.", type: "success" }]);
+        setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== toastId));
+        }, 4000);
       } catch (e) {
         alert("Gagal menghapus permanen: " + e.message);
       }
@@ -134,7 +131,13 @@ export default function TeamPage() {
       setDeletedTeams(deletedTeams.filter(t => t.id !== team.id));
       setTeams([...teams, { ...team, is_deleted: false }]);
       setOpenDropdown(null);
-      showToast("Success", "Kelompok magang berhasil dipulihkan.", "success");
+      setViewDeleted(false); // Automatically switch back to "Kelompok Aktif" tab!
+
+      const toastId = Date.now();
+      setToasts(prev => [...prev, { id: toastId, message: "Kelompok berhasil dipulihkan.", type: "success" }]);
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== toastId));
+      }, 4000);
     } catch (e) {
       alert("Gagal memulihkan kelompok: " + e.message);
     }
@@ -162,12 +165,10 @@ export default function TeamPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const [toasts, setToasts] = useState([]);
+
   const handleAddTeam = async () => {
-    if (!newName.trim()) {
-      showToast("Warning", "Nama kelompok tidak boleh kosong!", "warning");
-      return;
-    }
-    if (!currentUser) return;
+    if (!newName.trim() || !currentUser) return;
     try {
       const selectedMentorId = isMentor ? currentUser.id : (newMentor || allMentors[0]?.id);
       const memberIds = selectedMembers.map(m => m.id);
@@ -186,12 +187,16 @@ export default function TeamPage() {
 
       setShowAddModal(false);
       setNewName(""); setNewDesc(""); setSelectedMembers([]); setMemberSearch("");
-      showToast("Success", "Kelompok magang baru berhasil ditambahkan.", "success");
+
+      const toastId = Date.now();
+      setToasts(prev => [...prev, { id: toastId, message: "Kelompok berhasil ditambahkan.", type: "success" }]);
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== toastId));
+      }, 4000);
     } catch (e) {
       alert("Gagal menambah kelompok: " + e.message);
     }
   };
-
 
   const isMentorOrAdmin = isMentor || isAdmin;
   const sourceTeams = viewDeleted ? deletedTeams : teams;
@@ -386,7 +391,13 @@ export default function TeamPage() {
           return (
             <div
               key={team.id}
-              onClick={() => router.push(`/dashboard/team/${team.id}`)}
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  localStorage.setItem(`sipantau_team_active_tab_${team.id}`, "dashboard");
+                  localStorage.setItem("sipantau_team_active_tab", "dashboard");
+                }
+                router.push(`/dashboard/team/${team.id}`);
+              }}
               className="border border-slate-100 rounded-none p-6 bg-white hover:shadow-lg hover:shadow-slate-100 transition-all duration-200 flex flex-col gap-4 relative overflow-hidden group cursor-pointer"
             >
               {/* Left accent border */}
@@ -570,9 +581,10 @@ export default function TeamPage() {
 
         {/* Empty state */}
         {displayTeams.length === 0 && (
-          <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center text-slate-400">
-            <p className="text-sm font-bold">Tidak ada kelompok ditemukan</p>
-            <p className="text-xs mt-1">Coba ubah kata kunci atau filter pencarian.</p>
+          <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center w-full">
+            <img src="/empty-team.svg" alt="Belum ada Kelompok" className="w-56 h-36 object-contain mb-4" />
+            <p className="text-sm font-extrabold text-slate-800">Belum ada Kelompok</p>
+            <p className="text-xs text-slate-400 font-semibold mt-1.5">Kelompok belum dibentuk oleh mentor.</p>
           </div>
         )}
       </div>
@@ -611,8 +623,30 @@ export default function TeamPage() {
           </div>
         </div>
       )}
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+
+      {/* Toast Notification Container (Success & Warning) */}
+      <div className="fixed top-6 right-6 z-[99999999] flex flex-col gap-3 pointer-events-none">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className="pointer-events-auto flex items-start gap-3 bg-[#f0fdf4] border-l-4 border-emerald-500 text-emerald-950 rounded-2xl shadow-xl p-4 min-w-[300px] max-w-sm transform transition-all animate-[slideIn_0.3s_ease-out_forwards]"
+          >
+            <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 shadow-sm">
+              ✓
+            </div>
+            <div className="flex-1 pr-1">
+              <h4 className="text-xs font-bold text-slate-800">Success</h4>
+              <p className="text-[11px] font-semibold text-slate-600 mt-0.5">{toast.message}</p>
+            </div>
+            <button
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className="p-0.5 cursor-pointer font-bold text-xs text-emerald-500 hover:text-emerald-700"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
-

@@ -22,7 +22,8 @@ function isOverdue(task) {
   const parsed = parseTaskDate(task.date);
   if (!parsed) return false;
   const taskDate = new Date(parsed.year, parsed.month, parsed.day);
-  const today = new Date(2026, 6, 11); // Hardcoded today as 11 Juli 2026 for consistency
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   return taskDate < today;
 }
 
@@ -78,14 +79,7 @@ export default function TabDashboard({ tasks = [] }) {
   // 4. Activity Logs (Extract and sort by recency)
   const logs = tasks
     .flatMap(t => (t.riwayat || []).map(r => ({ ...r, taskTitle: t.title })))
-    .sort((a, b) => {
-      const timeDiff = parseRelativeTime(a.time) - parseRelativeTime(b.time);
-      if (timeDiff !== 0) return timeDiff;
-      if (a.timestamp && b.timestamp) return b.timestamp - a.timestamp;
-      if (a.timestamp) return -1;
-      if (b.timestamp) return 1;
-      return 0;
-    })
+    .sort((a, b) => parseRelativeTime(a.time) - parseRelativeTime(b.time))
     .slice(0, 20); // Show top 20 sorted activities for scrolling
 
   const priorityColors = {
@@ -112,14 +106,50 @@ export default function TabDashboard({ tasks = [] }) {
       {/* Stats Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { icon: "✓", color: "emerald", value: `${selesai} Selesai`, desc: "Tugas yang sudah terselesaikan." },
-          { icon: "📄", color: "blue", value: `${dijadwalkan} Dijadwalkan`, desc: "Tugas yang segera dimulai." },
-          { icon: "🔄", color: "amber", value: `${diperbarui} Diperbarui`, desc: "Perubahan dalam penugasan." },
-          { icon: "⚠️", color: "rose", value: `${terlambat} Terlambat`, desc: "Penugasan melewati batas waktu." },
+          {
+            icon: (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            ),
+            color: "emerald",
+            value: `${selesai} Selesai`,
+            desc: "Tugas yang sudah terselesaikan."
+          },
+          {
+            icon: (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            ),
+            color: "blue",
+            value: `${dijadwalkan} Dijadwalkan`,
+            desc: "Tugas yang segera dimulai."
+          },
+          {
+            icon: (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17" />
+              </svg>
+            ),
+            color: "amber",
+            value: `${diperbarui} Diperbarui`,
+            desc: "Perubahan dalam penugasan."
+          },
+          {
+            icon: (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            ),
+            color: "rose",
+            value: `${terlambat} Terlambat`,
+            desc: "Penugasan melewati batas waktu."
+          },
         ].map((stat) => (
           <div key={stat.value} className="p-4 border border-slate-100 bg-white rounded-2xl shadow-sm flex flex-col justify-between min-h-[85px]">
             <div className="flex items-center gap-2">
-              <div className={`w-5 h-5 rounded-full border border-${stat.color}-500 flex items-center justify-center text-${stat.color}-500 font-extrabold text-[10px]`}>
+              <div className={`w-5 h-5 rounded-full border border-${stat.color}-500 flex items-center justify-center text-${stat.color}-500 font-extrabold text-[10px] shrink-0`}>
                 {stat.icon}
               </div>
               <span className="text-xs font-extrabold text-slate-800">{stat.value}</span>
