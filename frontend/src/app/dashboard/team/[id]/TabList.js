@@ -3,27 +3,20 @@
 import React, { useState, useRef, useEffect } from "react";
 import { updateTask } from "../../../../backend/tasks";
 
-export default function TabList({
-  tasks,
-  setTasks,
-  setSelectedTask,
-  setIsAddingTask,
-  members = [],
-}) {
+export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingTask, team }) {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
 
   const getUserAvatar = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "?")}&background=f1f5f9&color=64748b&bold=true`;
 
-  const availableMembers = (members || []).map((p) => ({
-  initial: p.full_name?.charAt(0).toUpperCase() || "?",
-  name: p.full_name || "Tanpa Nama",
-  avatar:
-    p.avatar_url ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      p.full_name || "?"
-    )}&background=random`,
-}));
+  const teamMembers = team && team.membersList
+    ? team.membersList.map(member => ({
+        id: member.id,
+        name: member.full_name,
+        initial: member.full_name ? member.full_name.charAt(0).toUpperCase() : "?",
+        avatar: member.avatar_url || getUserAvatar(member.full_name),
+      }))
+    : [];
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -42,17 +35,28 @@ export default function TabList({
     
     const newDone = !task.done;
     const newStatus = newDone ? "done" : "todo";
+    const dbStatus = newDone ? "done" : "todo";
     
-    // Optimistic Update
-    setTasks(tasks.map((t) => t.id === id ? { ...t, done: newDone, status: newStatus } : t));
-    
-    try {
-      await updateTask(id, { status: newStatus });
-    } catch (err) {
-      // Revert if error
-      setTasks(tasks);
-      alert("Gagal memperbarui status: " + err.message);
+    const updatedTasksList = tasks.map((t) => t.id === id ? { ...t, done: newDone, status: newStatus } : t);
+    setTasks(updatedTasksList);
+
+    if (typeof window !== "undefined") {
+      const match = window.location.href.match(/\/team\/([^/]+)/);
+      const teamId = match ? match[1] : null;
+      if (teamId) {
+        try {
+          localStorage.setItem(`sipantau_team_tasks_${teamId}`, JSON.stringify(updatedTasksList));
+        } catch(err) {}
+      }
+
+      window.dispatchEvent(new CustomEvent("sipantau-toast", {
+        detail: { message: newDone ? "Tugas ditandai selesai." : "Tugas dikembalikan ke Belum Selesai.", type: "info" }
+      }));
     }
+
+    updateTask(id, { status: dbStatus }).catch(err => {
+      console.warn("Supabase updateTask checkbox error:", err);
+    });
   };
 
   const getPriorityStyle = (priority) => {
@@ -127,7 +131,6 @@ export default function TabList({
                         type="checkbox"
                         checked={task.done}
                         onChange={(e) => toggleTaskCheckbox(task.id, e)}
-                        onClick={(e) => e.stopPropagation()}
                         className="w-4 h-4 rounded border-slate-200 text-violet-600 focus:ring-violet-500 cursor-pointer"
                       />
                     </td>
@@ -139,43 +142,18 @@ export default function TabList({
                     <td className="py-3">
                       <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold">{task.type}</span>
                     </td>
-                    <td className="py-3.5">
-                  <div className="flex -space-x-1.5 overflow-visible">
-                    {task.orang && task.orang.length > 0 ? (
-                      task.orang.map((initial, idx) => {
-                        const memberObj = availableMembers.find(
-                          (mem) => mem.initial === initial
-                        );
-
-                        return memberObj ? (
-                          <div
-                            key={idx}
-                            className="w-5.5 h-5.5 rounded-full ring-2 ring-white overflow-hidden bg-gradient-to-br from-violet-400 to-indigo-500 shadow-sm flex items-center justify-center text-white shrink-0"
-                            title={memberObj.name}
-                          >
-                            <img
-                              className="h-full w-full object-cover"
-                              src={memberObj.avatar}
-                              alt={memberObj.name}
-                            />
-                          </div>
-                        ) : (
-                          <div
-                            key={idx}
-                            className="w-5.5 h-5.5 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-400 shrink-0"
-                            title={initial}
-                          >
-                            {initial}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="w-5.5 h-5.5 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-400 shrink-0">
-                        ?
+                    <td className="py-3">
+                      <div className="flex -space-x-1">
+                        {task.orang && task.orang.map((m, i) => {
+                          const mem = teamMembers.find(d => d.initial === m);
+                          return mem && mem.avatar ? (
+                            <img key={i} src={mem.avatar} alt={mem.name} className="w-5.5 h-5.5 rounded-full border border-white object-cover shadow-sm" />
+                          ) : (
+                            <div key={i} className={`w-5.5 h-5.5 rounded-full border border-white ${["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-sky-400"][i % 4]} flex items-center justify-center text-white text-[9px] font-bold shadow-sm`}>{m}</div>
+                          );
+                        })}
                       </div>
-                    )}
-                  </div>
-                </td>
+                    </td>
                     <td className="py-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getPriorityStyle(task.priority)}`}>{task.priority}</span>
                     </td>
