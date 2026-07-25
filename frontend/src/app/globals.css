@@ -41,11 +41,19 @@
   }
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
 
 /* Hide default browser reveal password button */
 input::-ms-reveal,
