@@ -44,7 +44,7 @@ export default function Dashboard() {
           const stats = await getAdminStats();
           setAdminStats(stats);
         } else {
-          const stats = await getPersonalStats(user.id);
+          const stats = await getPersonalStats(user.id, role);
           setPersonalStats(stats);
           
           const logs = await getPersonalLogs(user.id);
