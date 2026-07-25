@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import { getAllUsers, updateUserStatus, updateUserProfile, deleteUsers } from "../../../backend/admin";
 import { getActiveUser, signUpUser } from "../../../backend/auth";
 
-export default function AccountsPage() {
+export default function AccountsPage({ searchParams }) {
+  const resolvedSearchParams = use(searchParams);
   const [activeAdminId, setActiveAdminId] = useState(null);
   const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState("Semua");
@@ -69,6 +70,15 @@ export default function AccountsPage() {
       setUsers(updatedUsers);
       setEditingRow(null);
       showToast("Success", "List akun berhasil disimpan.");
+      
+      // Log admin activity
+      try {
+        const { logActivity } = await import('../../../backend/dashboard');
+        const editedName = editFormData.full_name || editFormData.name || "User";
+        await logActivity(activeAdminId, `melakukan detail profil pada ${editedName}`);
+      } catch (e) {
+        console.warn("Gagal mencatat aktivitas:", e);
+      }
     } catch (e) {
       alert("Gagal memperbarui profil: " + e.message);
     }
@@ -89,6 +99,23 @@ export default function AccountsPage() {
   useEffect(() => {
     loadUsers();
   }, []);
+
+  // Read tab from URL search params (from dashboard stats cards)
+  useEffect(() => {
+    const tabParam = resolvedSearchParams?.tab;
+    if (tabParam) {
+      const tabMap = {
+        "semua": "Semua",
+        "belum-diverifikasi": "Belum Diverifikasi",
+        "sudah-diverifikasi": "Sudah Diverifikasi",
+        "ditolak": "Ditolak",
+      };
+      const mappedTab = tabMap[tabParam.toLowerCase()];
+      if (mappedTab) {
+        setActiveTab(mappedTab);
+      }
+    }
+  }, [resolvedSearchParams?.tab]);
 
   const handleAddAccount = async () => {
     if (!newAccount.name || !newAccount.email) {
@@ -112,6 +139,14 @@ export default function AccountsPage() {
       setShowAddModal(false);
       setNewAccount({ name: "", email: "", phone: "", address: "", role: "pemagang", institution: "", major: "", password: "" });
       showToast("Sukses", "Akun baru telah berhasil ditambahkan.");
+      
+      // Log admin activity
+      try {
+        const { logActivity } = await import('../../../backend/dashboard');
+        await logActivity(activeAdminId, `menambahkan akun baru sebagai ${newAccount.role}`);
+      } catch (e) {
+        console.warn("Gagal mencatat aktivitas:", e);
+      }
     } catch (e) {
       alert("Gagal menambahkan akun: " + e.message);
     }
@@ -121,6 +156,19 @@ export default function AccountsPage() {
     try {
       if (activeAdminId) {
         await updateUserStatus(activeAdminId, userId, newStatus);
+        
+        // Log admin activity
+        try {
+          const { logActivity } = await import('../../../backend/dashboard');
+          const targetUser = users.find(u => u.id === userId);
+          const targetName = targetUser?.full_name || targetUser?.name || "User";
+          const actionText = newStatus === "active"
+            ? `telah menyetujui pendaftaran ${targetName}`
+            : `telah menolak pendaftaran ${targetName}`;
+          await logActivity(activeAdminId, actionText);
+        } catch (e) {
+          console.warn("Gagal mencatat aktivitas:", e);
+        }
       }
       const updatedUsers = users.map(user => {
         if (user.id === userId) {
@@ -130,7 +178,7 @@ export default function AccountsPage() {
       });
       setUsers(updatedUsers);
       setExpandedRow(null);
-      const statusText = newStatus === "active" || newStatus === "approved" ? "disetujui" : "ditolak";
+      const statusText = newStatus === "active" ? "disetujui" : "ditolak";
       showToast("Sukses", `Pendaftaran akun telah ${statusText}.`);
     } catch (e) {
       alert("Gagal memperbarui status: " + e.message);
@@ -140,7 +188,7 @@ export default function AccountsPage() {
   const filteredUsers = users.filter(user => {
     // Filter by tab
     if (activeTab === "Belum Diverifikasi" && user.status !== "pending") return false;
-    if (activeTab === "Sudah Diverifikasi" && user.status !== "active" && user.status !== "approved") return false;
+    if (activeTab === "Sudah Diverifikasi" && user.status !== "active") return false;
     if (activeTab === "Ditolak" && user.status !== "rejected") return false;
 
     // Filter by search query
@@ -169,7 +217,6 @@ export default function AccountsPage() {
       case "pending":
         return <span className="px-3 py-1 bg-amber-100 text-amber-500 rounded-full text-[10px] font-bold">Menunggu</span>;
       case "active":
-      case "approved":
         return <span className="px-3 py-1 bg-emerald-100 text-emerald-500 rounded-full text-[10px] font-bold">Disetujui</span>;
       case "rejected":
         return <span className="px-3 py-1 bg-rose-100 text-rose-500 rounded-full text-[10px] font-bold">Ditolak</span>;

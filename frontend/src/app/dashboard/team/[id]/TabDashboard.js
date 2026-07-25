@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { formatRelativeTime } from "../../../../lib/formatTime";
 
 function parseTaskDate(dateStr) {
   if (!dateStr) return null;
@@ -26,17 +27,6 @@ function isOverdue(task) {
   today.setHours(0, 0, 0, 0);
   return taskDate < today;
 }
-
-// Convert relative time string into comparable index (lower means more recent)
-const parseRelativeTime = (timeStr) => {
-  if (!timeStr) return 9999;
-  const s = timeStr.toLowerCase().trim();
-  if (s === "baru saja" || s === "sekarang") return 0;
-  if (s === "kemarin") return 1;
-  const match = s.match(/^(\d+)\s+hari\s+lalu/);
-  if (match) return parseInt(match[1]);
-  return 999;
-};
 
 // Retrieve proper avatar for a user dynamically
 const getUserAvatar = (name) => {
@@ -289,7 +279,7 @@ export default function TabDashboard({ tasks = [] }) {
                     <span className="text-violet-600 font-bold hover:underline cursor-pointer">{log.taskTitle}</span>
                   </span>
                 </div>
-                <span className="text-[10px] font-bold text-slate-400">{log.time}</span>
+                <span className="text-[10px] font-bold text-slate-400">{formatRelativeTime(log.created_at) || log.time}</span>
               </div>
             ))
           )}

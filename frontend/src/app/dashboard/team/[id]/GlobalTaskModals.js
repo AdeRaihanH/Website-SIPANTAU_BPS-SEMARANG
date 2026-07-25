@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createTask, updateTask, createTaskComment, createSubtask, updateSubtaskStatus, addHistory } from "../../../../backend/tasks";
 import { getActiveUser } from "../../../../backend/auth";
+import { formatRelativeTime } from "../../../../lib/formatTime";
 
 const parseTaskDate = (dateStr) => {
   if (!dateStr) return null;
@@ -1122,7 +1123,7 @@ export default function GlobalTaskModals({
                             <p className="text-[11px] text-slate-500 font-medium leading-tight">
                               <strong className="text-slate-700">{hist.name}</strong> {hist.text}
                             </p>
-                            <span className="text-[9px] text-slate-400 font-medium">{hist.time}</span>
+                            <span className="text-[9px] text-slate-400 font-medium">{formatRelativeTime(hist.created_at) || hist.time}</span>
                           </div>
                         </div>
                       ))}
@@ -1146,6 +1147,7 @@ export default function GlobalTaskModals({
                           <div className="pt-0.5">
                             <p className="text-xs text-slate-700 font-bold leading-tight">{comment.name}</p>
                             <p className="text-[11px] text-slate-500 font-semibold mt-0.5 leading-relaxed">{comment.text}</p>
+                            <span className="text-[9px] text-slate-400 font-medium">{formatRelativeTime(comment.created_at) || "baru saja"}</span>
                           </div>
                         </div>
                       ))}

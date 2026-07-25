@@ -7,22 +7,23 @@ export async function getAdminStats() {
   // Use RPC or separate queries depending on RLS and preference
   // For simplicity, we can fetch count using head requests
   
-  const getCount = async (status) => {
+  const getCount = async (status = null, excludeDeleted = false) => {
     let query = supabase.from("profiles").select("*", { count: "exact", head: true });
     if (status) query = query.eq("status", status);
+    if (excludeDeleted) query = query.neq("full_name", "DELETED_USER");
     const { count, error } = await query;
     if (error) return 0;
     return count || 0;
   };
 
-  const [total, pending, approved, rejected] = await Promise.all([
-    getCount(),
-    getCount("pending"),
-    getCount("approved"),
-    getCount("rejected")
+  const [total, pending, activeCount, rejected] = await Promise.all([
+    getCount(null, true),
+    getCount("pending", true),
+    getCount("active"),
+    getCount("rejected", true)
   ]);
 
-  return { total, pending, approved, rejected };
+  return { total, pending, approved: activeCount, rejected };
 }
 
 /**
