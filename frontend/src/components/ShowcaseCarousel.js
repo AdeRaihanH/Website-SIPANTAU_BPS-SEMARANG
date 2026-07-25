@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 
 /* ==========================================================================
-   CSS Keyframe Animations
+   CSS Keyframe Animations for Showcase Carousel
    ========================================================================== */
 const CAROUSEL_STYLES = `
   /* ── SLIDE 1: Dashboard Badges Slide-Out ────────────────────────────────── */
@@ -110,16 +110,14 @@ export default function ShowcaseCarousel() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CAROUSEL_STYLES }} />
-      <div
-        className="relative w-full max-w-[550px] flex-1 min-h-[650px] h-[650px] rounded-[2.5rem] bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 p-8 flex flex-col justify-between shadow-2xl overflow-hidden"
-      >
+      <div className="relative w-full max-w-[550px] flex-1 min-h-[650px] md:h-[650px] rounded-[2.5rem] bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 p-8 flex flex-col justify-between overflow-hidden shadow-2xl shadow-indigo-200">
 
         {/* Decorative background glows */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-300/20 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-300/20 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
 
         {/* Dynamic Display Area */}
-        <div className="relative flex-1 flex items-center justify-center w-full" style={{ minHeight: "360px" }}>
+        <div className="relative flex-1 flex items-center justify-center w-full min-h-[360px]">
           {activeSlide === 0 && <Slide1Dashboard />}
           {activeSlide === 1 && <Slide2TaskDetail />}
           {activeSlide === 2 && <Slide3SettingsProfile />}
@@ -128,13 +126,13 @@ export default function ShowcaseCarousel() {
         {/* Bottom Text & Pagination */}
         <div className="relative z-10 text-center text-white mt-4" key={textKey}>
           <h3
-            className="text-xl sm:text-2xl font-extrabold tracking-tight mb-2"
+            className="text-xl sm:text-2xl font-extrabold tracking-tight mb-2 min-h-[32px]"
             style={{ animation: "textSlideUp 0.4s ease-out both" }}
           >
             {slides[activeSlide].title}
           </h3>
           <p
-            className="text-xs sm:text-sm text-indigo-100/90 max-w-sm mx-auto leading-relaxed"
+            className="text-xs sm:text-sm text-indigo-100/90 max-w-sm mx-auto leading-relaxed min-h-[48px]"
             style={{ animation: "textSlideUp 0.4s ease-out 0.1s both" }}
           >
             {slides[activeSlide].subtitle}
@@ -392,16 +390,13 @@ function Slide2TaskDetail() {
 
 /* ==========================================================================
    SLIDE 3 — SETTINGS & PROFIL
-   Awalnya HANYA Card Pengaturan & Card Tim Teknologi.
-   Popup Card Rincian Prioritas BARU MUNCUL setelah Kursor Klik 'Lihat Detail >'.
    ========================================================================== */
 function Slide3SettingsProfile() {
   return (
     <div className="relative w-full flex items-center justify-center" style={{ minHeight: "340px" }}>
-      
       <div className="relative w-[92%] max-w-[420px] h-[280px] flex items-start justify-center">
 
-        {/* ── LAPISAN 1 (Awal - Belakang Kiri): Card Pengaturan Profil ── */}
+        {/* LAPISAN 1: Card Pengaturan Profil */}
         <div
           className="absolute bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-10 flex flex-col"
           style={{
@@ -444,7 +439,7 @@ function Slide3SettingsProfile() {
           </div>
         </div>
 
-        {/* ── LAPISAN 2 (Awal - Menempel & Menumpuk di Tengah): Card Tim Teknologi Informasi UNDIP ── */}
+        {/* LAPISAN 2: Card Tim Teknologi Informasi UNDIP */}
         <div
           className="absolute bg-white rounded-2xl p-3.5 shadow-2xl border border-slate-100 z-20"
           style={{
@@ -492,7 +487,7 @@ function Slide3SettingsProfile() {
           </div>
         </div>
 
-        {/* ── LAPISAN POP-UP (MUNCUL HANYA SETELAH KLIK KURSOR DI CARD TIM): Card Rincian Prioritas & Log Aktivitas ── */}
+        {/* LAPISAN POP-UP: Card Rincian Prioritas & Log Aktivitas */}
         <div
           className="absolute bg-white/95 backdrop-blur-md rounded-2xl p-3.5 shadow-2xl border border-indigo-100 z-30 flex flex-col justify-between"
           style={{
@@ -505,7 +500,7 @@ function Slide3SettingsProfile() {
           <div className="mb-2.5">
             <div className="text-[8px] font-extrabold text-slate-800 mb-0.5">Rincian Prioritas</div>
             <div className="text-[4.5px] text-slate-400 mb-1.5">Rincian banyak item pekerjaan berdasarkan prioritasnya.</div>
-            
+
             <div className="flex items-end justify-between h-9 px-1 pt-1 border-b border-slate-100">
               <div className="w-2 bg-rose-400 h-[60%] rounded-t" />
               <div className="w-2 bg-rose-200 h-[30%] rounded-t" />
@@ -530,7 +525,7 @@ function Slide3SettingsProfile() {
           </div>
         </div>
 
-        {/* Smooth Cursor Animation: Jalan ke 'Lihat Detail >' pada Card Tim di Tengah → Klik → Pop-up MUNCUL */}
+        {/* Cursor Animation */}
         <div
           className="absolute z-40 pointer-events-none"
           style={{
@@ -545,7 +540,6 @@ function Slide3SettingsProfile() {
         </div>
 
       </div>
-
     </div>
   );
 }

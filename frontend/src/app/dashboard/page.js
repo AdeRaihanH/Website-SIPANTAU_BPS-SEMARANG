@@ -13,7 +13,6 @@ export default function Dashboard() {
   const [userAvatar, setUserAvatar] = useState("");
   const [userRole, setUserRole] = useState("intern");
   const [adminUsers, setAdminUsers] = useState([]);
-  const [personalLogs, setPersonalLogs] = useState([]);
   const logRef = useRef(null);
 
   const [userId, setUserId] = useState(null);
@@ -57,7 +56,6 @@ export default function Dashboard() {
     }
   };
 
-  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
   useEffect(() => {
     loadProfile();
   }, []);
@@ -223,23 +221,20 @@ export default function Dashboard() {
                   let roleText = "";
                   let statusText = "";
                   let color = "";
-
-                  const currentStatus = u.status || "approved";
-
-                  if (currentStatus === "pending") {
+                  
+                  if (u.status === "pending") {
                     text = "mendaftar akun baru sebagai";
                     roleText = u.role === "mentor" ? "Mentor." : "Pemagang.";
                     statusText = "Menunggu";
                     color = "amber";
-                  } else if (currentStatus === "rejected") {
-                    text = "telah ditolak pendaftarannya.";
-                    statusText = "Ditolak";
-                    color = "rose";
-                  } else {
-                    // Default for approved or any unknown status
+                  } else if (u.status === "approved") {
                     text = "telah disetujui pendaftarannya.";
                     statusText = "Disetujui";
                     color = "emerald";
+                  } else if (u.status === "rejected") {
+                    text = "telah ditolak pendaftarannya.";
+                    statusText = "Ditolak";
+                    color = "rose";
                   }
 
                   const uAvatar = u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name || "User")}`;
@@ -268,9 +263,12 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
-
+                
                 {adminUsers.length === 0 && (
-                  <div className="py-6 text-center text-sm font-semibold text-slate-400">Belum ada data pendaftar.</div>
+                  <div className="py-8 flex flex-col items-center justify-center text-center w-full">
+                    <img src="/empty-activity.svg" alt="Belum ada Log Akun" className="w-40 h-28 object-contain mb-3" />
+                    <p className="text-xs font-bold text-slate-800">Belum ada Log Akun</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -297,14 +295,50 @@ export default function Dashboard() {
             {/* Stats Cards - Intern/Mentor */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { icon: "✓", color: "emerald", label: `${personalStats.completed} Selesai`, desc: "Tugas yang sudah terselesaikan." },
-                { icon: "📄", color: "blue", label: `${personalStats.scheduled} Dijadwalkan`, desc: "Tugas yang segera dimulai." },
-                { icon: "🔄", color: "amber", label: `${personalStats.updated} Diperbarui`, desc: "Perubahan dalam penugasan." },
-                { icon: "⚠️", color: "rose", label: `${personalStats.overdue} Terlambat`, desc: "Penugasan melewati batas waktu." },
+                {
+                  icon: (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ),
+                  color: "emerald",
+                  label: `${personalStats.completed} Selesai`,
+                  desc: "Tugas yang sudah terselesaikan."
+                },
+                {
+                  icon: (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  ),
+                  color: "blue",
+                  label: `${personalStats.scheduled} Dijadwalkan`,
+                  desc: "Tugas yang segera dimulai."
+                },
+                {
+                  icon: (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17" />
+                    </svg>
+                  ),
+                  color: "amber",
+                  label: `${personalStats.updated} Diperbarui`,
+                  desc: "Perubahan dalam penugasan."
+                },
+                {
+                  icon: (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  ),
+                  color: "rose",
+                  label: `${personalStats.overdue} Terlambat`,
+                  desc: "Penugasan melewati batas waktu."
+                },
               ].map((stat, idx) => (
                 <div key={idx} className="p-5 border border-slate-100 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col justify-between min-h-[90px]">
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-6 h-6 rounded-full border border-${stat.color}-500 flex items-center justify-center text-${stat.color}-500 font-extrabold text-xs`}>
+                    <div className={`w-6 h-6 rounded-full border border-${stat.color}-500 flex items-center justify-center text-${stat.color}-500 font-extrabold text-xs shrink-0`}>
                       {stat.icon}
                     </div>
                     <span className="text-sm font-extrabold text-slate-800">{stat.label}</span>
@@ -351,7 +385,10 @@ export default function Dashboard() {
                     </span>
                   </div>
                 )) : (
-                  <div className="py-6 text-center text-sm font-semibold text-slate-400">Belum ada aktivitas.</div>
+                  <div className="py-8 flex flex-col items-center justify-center text-center w-full">
+                    <img src="/empty-activity.svg" alt="Belum ada Aktivitas" className="w-40 h-28 object-contain mb-3" />
+                    <p className="text-xs font-bold text-slate-800">Belum ada Aktivitas</p>
+                  </div>
                 )}
               </div>
             </div>

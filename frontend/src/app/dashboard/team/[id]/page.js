@@ -17,18 +17,6 @@ import { deleteTask } from "../../../../backend/tasks";
 
 const memberColors = ["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-rose-400", "bg-sky-400", "bg-indigo-400"];
 
-
-
-const userAvatars = {
-  "A": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=50&h=50&q=80",
-  "M": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=50&h=50&q=80",
-  "N": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=50&h=50&q=80",
-  "B": "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=50&h=50&q=80",
-  "R": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=50&h=50&q=80",
-  "H": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=50&h=50&q=80",
-  "C": "https://ui-avatars.com/api/?name=C&background=f1f5f9&color=64748b&bold=true",
-};
-
 export default function TeamDetailPage({ params }) {
   const unwrappedParams = React.use ? React.use(params) : params;
   const teamId = unwrappedParams?.id;
@@ -40,31 +28,13 @@ export default function TeamDetailPage({ params }) {
   
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("dashboard");
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && teamId) {
-      const savedTab = localStorage.getItem(`sipantau_team_tab_${teamId}`);
-      if (savedTab) {
-        setActiveTab(savedTab);
-      }
-    }
-  }, [teamId]);
-
-  const handleTabChange = (newTab) => {
-    setActiveTab(newTab);
-    if (typeof window !== "undefined" && teamId) {
-      localStorage.setItem(`sipantau_team_tab_${teamId}`, newTab);
-    }
-  };
-
   const [isMentor, setIsMentor] = useState(false);
-
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [showAddMemberDrop, setShowAddMemberDrop] = useState(false);
   const [showTeamActionsDrop, setShowTeamActionsDrop] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
-
+  
   const addMemberRef = React.useRef(null);
   const teamActionsRef = React.useRef(null);
 
@@ -104,13 +74,40 @@ export default function TeamDetailPage({ params }) {
         priority: t.priority === "high" ? "Tinggi" : t.priority === "medium" ? "Sedang" : t.priority === "urgent" ? "Tertinggi" : "Rendah",
         status: t.status === "completed" ? "done" : t.status === "in_progress" ? "inprogress" : "todo",
         done: t.status === "completed",
-        orang: t.assigned_to ? [mappedTeam.membersList.find(m => m.id === t.assigned_to)?.full_name?.charAt(0).toUpperCase() || "A"] : [],
+        orang: t.assigned_to ? (mappedTeam.membersList.find(m => m.id === t.assigned_to)?.full_name ? [mappedTeam.membersList.find(m => m.id === t.assigned_to).full_name.charAt(0).toUpperCase()] : []) : [],
         assigned_to: t.assigned_to,
         riwayat: [],
         komentar: [],
         subtugas: []
       }));
-      setTasks(mappedTasks);
+
+      // Get blacklist of deleted task IDs for this team
+      let deletedTaskIds = [];
+      if (typeof window !== "undefined" && teamId) {
+        try {
+          deletedTaskIds = JSON.parse(localStorage.getItem(`sipantau_deleted_task_ids_${teamId}`) || "[]");
+        } catch(e) {}
+      }
+
+      // Merge with localStorage persisted tasks for this team
+      let localTasks = [];
+      if (typeof window !== "undefined" && teamId) {
+        try {
+          const stored = localStorage.getItem(`sipantau_team_tasks_${teamId}`);
+          if (stored) localTasks = JSON.parse(stored);
+        } catch(e) {}
+      }
+
+      const combinedMap = new Map();
+      mappedTasks.forEach(t => {
+        if (!deletedTaskIds.includes(t.id)) combinedMap.set(t.id, t);
+      });
+      localTasks.forEach(t => {
+        if (!deletedTaskIds.includes(t.id)) combinedMap.set(t.id, t);
+      });
+
+      const mergedTasks = Array.from(combinedMap.values());
+      setTasks(mergedTasks);
 
     } catch (e) {
       console.error("Gagal memuat detail kelompok:", e);
@@ -119,11 +116,18 @@ export default function TeamDetailPage({ params }) {
 
   useEffect(() => {
     loadData();
+
+    if (typeof window !== "undefined" && teamId) {
+      const savedTab = localStorage.getItem(`sipantau_team_active_tab_${teamId}`) || localStorage.getItem("sipantau_team_active_tab");
+      if (savedTab && ["dashboard", "list", "papan", "kalender"].includes(savedTab)) {
+        setActiveTab(savedTab);
+      }
+    }
     
     function handleClickOutside(event) {
-      if (teamMembersRef.current && !teamMembersRef.current.contains(event.target) &&
-        addMemberRef.current && !addMemberRef.current.contains(event.target) &&
-        teamActionsRef.current && !teamActionsRef.current.contains(event.target)) {
+      if (teamMembersRef.current && !teamMembersRef.current.contains(event.target) && 
+          addMemberRef.current && !addMemberRef.current.contains(event.target) &&
+          teamActionsRef.current && !teamActionsRef.current.contains(event.target)) {
         setShowTeamMembersDrop(false);
         setShowAddMemberDrop(false);
         setShowTeamActionsDrop(false);
@@ -151,10 +155,42 @@ export default function TeamDetailPage({ params }) {
   ];
 
   const tabs = [
-    { id: "dashboard", label: "Dashboard", icon: "📊" },
-    { id: "list", label: "List", icon: "📋" },
-    { id: "papan", label: "Papan", icon: "📌" },
-    { id: "kalender", label: "Kalender", icon: "📅" },
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      )
+    },
+    {
+      id: "list",
+      label: "List",
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      )
+    },
+    {
+      id: "papan",
+      label: "Papan",
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+      )
+    },
+    {
+      id: "kalender",
+      label: "Kalender",
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      )
+    },
   ];
 
   if (!team) return <div className="p-4 text-center">Loading...</div>;
@@ -178,7 +214,7 @@ export default function TeamDetailPage({ params }) {
         </div>
 
         <div className="relative flex items-center gap-1" ref={teamMembersRef}>
-          <div
+          <div 
             className="flex -space-x-2 cursor-pointer hover:opacity-90 transition-opacity mr-2"
             onClick={() => {
               if (isMentorOrAdmin) {
@@ -202,10 +238,10 @@ export default function TeamDetailPage({ params }) {
               );
             })}
           </div>
-
+          
           {isMentorOrAdmin && (
             <div className="relative" ref={addMemberRef}>
-              <div
+              <div 
                 onClick={() => {
                   setShowAddMemberDrop(!showAddMemberDrop);
                   setShowTeamMembersDrop(false);
@@ -215,7 +251,7 @@ export default function TeamDetailPage({ params }) {
               >
                 +
               </div>
-
+              
               {/* Manage Members Dropdown */}
               {showAddMemberDrop && (
                 <div className="absolute top-full right-0 mt-2 bg-white border border-slate-100 shadow-xl rounded-xl p-3 z-[100] w-64 text-left">
@@ -234,57 +270,39 @@ export default function TeamDetailPage({ params }) {
                       const isMember = team.membersList.some(mem => mem.id === m.id);
                       let avatar = userAvatars[m.id];
 
-                        const currentName = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
-                        const currentEmail = typeof window !== "undefined" ? localStorage.getItem("sipantau_email") : null;
-                        if (currentName && m.id === currentName.charAt(0).toUpperCase()) {
-                          const stored = typeof window !== "undefined" && currentEmail ? localStorage.getItem(`sipantau_avatar_${currentEmail.toLowerCase()}`) : null;
-                          if (stored) avatar = stored;
-                          else avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentName)}&background=f1f5f9&color=64748b&bold=true`;
-                        }
-
-                        return (
-                          <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
-                            <div className="flex items-center gap-3">
-                              {avatar ? (
-                                <img src={avatar} alt={m.id} className="w-6 h-6 rounded-full object-cover shadow-sm shrink-0" />
-                              ) : (
-                                <div className={`w-6 h-6 rounded-full ${memberColors[idx % memberColors.length]} flex items-center justify-center text-white text-[9px] font-bold shadow-sm shrink-0`}>
-                                  {m.id}
-                                </div>
-                              )}
-                              <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
-                            </div>
-                            {isMember ? (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    await removeGroupMember(team.id, m.id);
-                                    await loadData();
-                                  } catch (e) {
-                                    alert("Gagal menghapus anggota: " + e.message);
-                                  }
-                                }}
-                                className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                              </button>
+                      return (
+                        <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            {avatar ? (
+                              <img src={avatar} alt={m.id} className="w-6 h-6 rounded-full object-cover shadow-sm shrink-0" />
                             ) : (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    await addGroupMember(team.id, m.id);
-                                    await loadData();
-                                  } catch (e) {
-                                    alert("Gagal menambah anggota: " + e.message);
-                                  }
-                                }}
-                                className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                              </button>
+                              <div className={`w-6 h-6 rounded-full ${memberColors[idx % memberColors.length]} flex items-center justify-center text-white text-[9px] font-bold shadow-sm shrink-0`}>
+                                {m.id}
+                              </div>
                             )}
+                            <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
                           </div>
-
+                          {isMember ? (
+                            <button 
+                              onClick={async () => {
+                                // Add remove member logic if we have an API for it
+                                alert("Menghapus member dari UI ini belum diimplementasi di API");
+                              }}
+                              className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={async () => {
+                                alert("Menambah member dari UI ini belum diimplementasi di API");
+                              }}
+                              className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -307,11 +325,11 @@ export default function TeamDetailPage({ params }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
                 </svg>
               </button>
-
+              
               {/* Team Actions Dropdown */}
               {showTeamActionsDrop && (
                 <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-slate-100 shadow-xl rounded-xl p-1.5 z-[60]">
-                  <button
+                  <button 
                     onClick={() => setShowTeamActionsDrop(false)}
                     className="flex items-center justify-between px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-violet-600 transition-colors text-left w-full rounded-lg cursor-pointer"
                   >
@@ -338,7 +356,7 @@ export default function TeamDetailPage({ params }) {
               )}
             </div>
           )}
-
+          
           {(!isMentorOrAdmin && showTeamMembersDrop) && (
             <div className="absolute top-full right-0 mt-2 bg-white border border-slate-100 shadow-xl rounded-xl p-3 z-[100] w-64 text-left">
               <div className="text-center text-xs font-bold text-slate-700 mb-3 pb-2 border-b border-slate-100">Anggota Kelompok</div>
@@ -375,10 +393,16 @@ export default function TeamDetailPage({ params }) {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => handleTabChange(tab.id)}
+            onClick={() => {
+              setActiveTab(tab.id);
+              if (typeof window !== "undefined") {
+                localStorage.setItem(`sipantau_team_active_tab_${teamId}`, tab.id);
+                localStorage.setItem("sipantau_team_active_tab", tab.id);
+              }
+            }}
             className={`flex-1 pb-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-all ${activeTab === tab.id
-              ? "border-violet-600 text-violet-700"
-              : "border-transparent text-slate-400 hover:text-slate-600"
+                ? "border-violet-600 text-violet-700"
+                : "border-transparent text-slate-400 hover:text-slate-600"
               }`}
           >
             <span className="text-base">{tab.icon}</span>
@@ -386,7 +410,6 @@ export default function TeamDetailPage({ params }) {
           </button>
         ))}
       </div>
-
 
       {/* Content */}
       <div className="flex-1 min-h-0 bg-slate-50/50 rounded-xl p-4 overflow-auto">
@@ -397,6 +420,7 @@ export default function TeamDetailPage({ params }) {
             setTasks={setTasks}
             setSelectedTask={setSelectedTask}
             setIsAddingTask={setIsAddingTask}
+            team={team}
           />
         )}
         {activeTab === "papan" && (
@@ -404,6 +428,7 @@ export default function TeamDetailPage({ params }) {
             tasks={tasks}
             setTasks={setTasks}
             setSelectedTask={setSelectedTask}
+            setIsAddingTask={setIsAddingTask}
             setTaskToDelete={setTaskToDelete}
             team={team}
           />
@@ -413,6 +438,7 @@ export default function TeamDetailPage({ params }) {
             tasks={tasks}
             setTasks={setTasks}
             setSelectedTask={setSelectedTask}
+            setIsAddingTask={setIsAddingTask}
             team={team}
           />
         )}
@@ -452,12 +478,30 @@ export default function TeamDetailPage({ params }) {
               <button
                 onClick={async () => {
                   try {
-                    await deleteTask(taskToDelete.id);
-                    setTasks(tasks.filter(t => t.id !== taskToDelete.id));
+                    deleteTask(taskToDelete.id).catch(e => console.warn("Supabase deleteTask error:", e));
+                    const newTasksList = tasks.filter(t => t.id !== taskToDelete.id);
+                    setTasks(newTasksList);
+                    if (typeof window !== "undefined" && teamId) {
+                      localStorage.setItem(`sipantau_team_tasks_${teamId}`, JSON.stringify(newTasksList));
+
+                      try {
+                        const deletedIds = JSON.parse(localStorage.getItem(`sipantau_deleted_task_ids_${teamId}`) || "[]");
+                        if (!deletedIds.includes(taskToDelete.id)) {
+                          deletedIds.push(taskToDelete.id);
+                          localStorage.setItem(`sipantau_deleted_task_ids_${teamId}`, JSON.stringify(deletedIds));
+                        }
+                      } catch(e) {}
+                    }
                     setTaskToDelete(null);
                     setSelectedTask(null);
+
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("sipantau-toast", {
+                        detail: { message: "Tugas berhasil dihapus.", type: "success" }
+                      }));
+                    }
                   } catch (e) {
-                    alert("Gagal menghapus tugas: " + e.message);
+                    console.error("Gagal menghapus tugas:", e);
                   }
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-xs font-bold text-white shadow-md shadow-rose-100 active:scale-95 transition-all"

@@ -1,8 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import { createTask, updateTask } from "../../../../backend/tasks";
-import ToastContainer from "../../../../components/Toast";
-
 
 const parseTaskDate = (dateStr) => {
   if (!dateStr) return null;
@@ -42,26 +40,6 @@ const shiftDate = (dateStr, days) => {
   return `${d.getDate()} ${monthNamesGlobal[d.getMonth()]} ${d.getFullYear()}`;
 };
 
-const userAvatars = {
-  "A": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=50&h=50&q=80",
-  "M": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=50&h=50&q=80",
-  "N": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=50&h=50&q=80",
-  "B": "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=50&h=50&q=80",
-  "R": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=50&h=50&q=80",
-  "H": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=50&h=50&q=80",
-  "C": "https://ui-avatars.com/api/?name=C&background=f1f5f9&color=64748b&bold=true",
-};
-
-const availableMembers = [
-  { name: "Aisha Alida Putri", initial: "A", avatar: userAvatars["A"], color: "bg-violet-400" },
-  { name: "Myesha Azka Hafizha", initial: "M", avatar: userAvatars["M"], color: "bg-emerald-400" },
-  { name: "Nurul Kumala", initial: "N", avatar: userAvatars["N"], color: "bg-amber-400" },
-  { name: "Budi Santoso", initial: "B", avatar: userAvatars["B"], color: "bg-sky-400" },
-  { name: "Citra Kirana", initial: "C", avatar: userAvatars["C"], color: "bg-pink-400" },
-  { name: "Dewi Lestari", initial: "D", avatar: "https://ui-avatars.com/api/?name=Dewi+Lestari&background=f1f5f9&color=64748b&bold=true", color: "bg-rose-400" },
-  { name: "Eko Prasetyo", initial: "E", avatar: "https://ui-avatars.com/api/?name=Eko+Prasetyo&background=f1f5f9&color=64748b&bold=true", color: "bg-orange-400" },
-];
-
 export default function GlobalTaskModals({
   tasks,
   setTasks,
@@ -80,25 +58,32 @@ export default function GlobalTaskModals({
   const [taskTypes, setTaskTypes] = useState(["Design", "Bug", "Aset", "Fitur", "Tugas"]);
   const [newTypeName, setNewTypeName] = useState("");
   const [currentUserFullName, setCurrentUserFullName] = useState("");
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+  const triggerWarning = (message) => addToast(message, "warning");
 
   useEffect(() => {
     const name = typeof window !== "undefined" ? localStorage.getItem("sipantau_name") : null;
     if (name) setCurrentUserFullName(name);
+
+    const handleToastEvent = (e) => {
+      if (e.detail && e.detail.message) {
+        addToast(e.detail.message, e.detail.type || "success");
+      }
+    };
+    window.addEventListener("sipantau-toast", handleToastEvent);
+    return () => window.removeEventListener("sipantau-toast", handleToastEvent);
   }, []);
 
-  const dynamicMembers = [...availableMembers];
-  if (currentUserFullName && !dynamicMembers.find(m => m.name.toLowerCase() === currentUserFullName.toLowerCase())) {
-    const initial = currentUserFullName.charAt(0).toUpperCase();
-    dynamicMembers.unshift({
-      name: currentUserFullName,
-      initial: initial,
-      avatar: getUserAvatar(currentUserFullName),
-      color: "bg-slate-400"
-    });
-  }
-
-  // Filter dynamicMembers based on team.membersList if team is provided
-  const filteredMembers = team && team.membersList
+  // Filter members strictly based on team.membersList
+  const filteredMembers = team && team.membersList && team.membersList.length > 0
     ? team.membersList.map(member => ({
         id: member.id,
         name: member.full_name,
@@ -106,7 +91,13 @@ export default function GlobalTaskModals({
         avatar: member.avatar_url || getUserAvatar(member.full_name),
         color: "bg-slate-400"
       }))
-    : dynamicMembers;
+    : (currentUserFullName ? [{
+        id: "current",
+        name: currentUserFullName,
+        initial: currentUserFullName.charAt(0).toUpperCase(),
+        avatar: getUserAvatar(currentUserFullName),
+        color: "bg-slate-400"
+      }] : []);
 
   // Edit Task Local State
   const [editTitle, setEditTitle] = useState("");
@@ -127,9 +118,25 @@ export default function GlobalTaskModals({
   const [addDesc, setAddDesc] = useState("");
   const [addType, setAddType] = useState("Tugas");
   const [addPriority, setAddPriority] = useState("Sedang");
-  const [addOrang, setAddOrang] = useState(["A"]);
-  const [addDate, setAddDate] = useState("18 Juli 2026");
+  const [addOrang, setAddOrang] = useState([]);
+  const [addDate, setAddDate] = useState("");
   const [addStatus, setAddStatus] = useState("todo");
+
+  useEffect(() => {
+    if (isAddingTask) {
+      if (addOrang.length === 0 && filteredMembers.length > 0) {
+        setAddOrang([filteredMembers[0].initial]);
+      }
+      if (typeof isAddingTask === "object" && isAddingTask.date) {
+        setAddDate(isAddingTask.date);
+      }
+      if (typeof isAddingTask === "object" && isAddingTask.status) {
+        setAddStatus(isAddingTask.status);
+      } else if (typeof isAddingTask === "string") {
+        setAddStatus(isAddingTask);
+      }
+    }
+  }, [isAddingTask, filteredMembers]);
 
   // Refs for Dropdowns
   const editDateBtnRef = useRef(null);
@@ -141,21 +148,9 @@ export default function GlobalTaskModals({
   const addTypeBtnRef = useRef(null);
   const addPriorityBtnRef = useRef(null);
   const addAssigneeBtnRef = useRef(null);
+  const addStatusBtnRef = useRef(null);
+
   const [dropdownCoords, setDropdownCoords] = useState(null);
-  const [toasts, setToasts] = useState([]);
-
-  const showToast = (title, message, type = "success") => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, title, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
-  };
-
-  const removeToast = (id) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  };
-
 
   // Close active dropdown on scroll (so floating menus don't detach), but allow scrolling inside the dropdown itself
   useEffect(() => {
@@ -193,12 +188,15 @@ export default function GlobalTaskModals({
           if (left + 260 > window.innerWidth) {
             left = window.innerWidth - 280;
           }
-          // If close to bottom edge, pop upwards
-          if (top + 300 > window.innerHeight) {
-            top = undefined;
-            bottom = window.innerHeight - rect.top + 8;
-          }
         }
+
+        // Check vertical space for all dropdowns (pop upwards if near bottom of screen)
+        const estDropdownHeight = name.includes("kalender") ? 300 : 200;
+        if (top + estDropdownHeight > window.innerHeight - 12) {
+          top = undefined;
+          bottom = window.innerHeight - rect.top + 6;
+        }
+
         setDropdownCoords({
           top,
           bottom,
@@ -209,8 +207,8 @@ export default function GlobalTaskModals({
     }
   };
 
-  // Dynamic Calendar State
-  const [calendarDate, setCalendarDate] = useState(new Date(2026, 6, 1)); // Default July 2026
+  // Dynamic Calendar State (Defaults to current real-time Month & Year)
+  const [calendarDate, setCalendarDate] = useState(new Date());
 
   useEffect(() => {
     if (isAddingTask) {
@@ -221,7 +219,7 @@ export default function GlobalTaskModals({
       setAddType("Tugas");
       setAddPriority("Sedang");
       setAddOrang(["A"]);
-      setAddDate("18 Juli 2026");
+      setAddDate("");
     }
   }, [isAddingTask]);
 
@@ -253,11 +251,22 @@ export default function GlobalTaskModals({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const updateAndSaveTasks = (newTasksList) => {
+    setTasks(newTasksList);
+    if (typeof window !== "undefined" && team?.id) {
+      try {
+        localStorage.setItem(`sipantau_team_tasks_${team.id}`, JSON.stringify(newTasksList));
+      } catch (e) {
+        console.error("Failed to save tasks to localStorage:", e);
+      }
+    }
+  };
+
   const handleUpdateTaskField = (field, value) => {
     if (!selectedTask) return;
     const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
     let actionText = "telah memperbarui tugas";
-
+    
     let updates = {};
     if (typeof field === "object") {
       updates = field;
@@ -276,7 +285,7 @@ export default function GlobalTaskModals({
       }
     }
 
-    const newHistory = { name: activeUserName, text: actionText, time: "baru saja", timestamp: Date.now() };
+    const newHistory = { name: activeUserName, text: actionText, time: "baru saja" };
 
     // Avoid duplicate 'baru saja' logs for the same field if done rapidly
     let updatedRiwayat = selectedTask.riwayat || [];
@@ -290,7 +299,7 @@ export default function GlobalTaskModals({
     
     // Convert status to DB format
     let dbStatus = updated.status;
-    if (dbStatus === "done") dbStatus = "completed";
+    if (dbStatus === "done" || dbStatus === "completed") dbStatus = "done";
     else if (dbStatus === "inprogress") dbStatus = "in_progress";
     
     // Map to DB
@@ -310,17 +319,22 @@ export default function GlobalTaskModals({
       }
     }
 
-    updateTask(selectedTask.id, dbUpdates).catch(e => console.error("Failed to update task", e));
+    updateTask(selectedTask.id, dbUpdates).catch(e => {
+      console.error("Failed to update task in DB", e);
+    });
 
     setSelectedTask(updated);
-    setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
-    showToast("Info", "Perubahan detail tugas berhasil disimpan.", "info");
-    setTimeout(() => {
+    updateAndSaveTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
 
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("sipantau-profile-updated"));
-      }
-    }, 100);
+    // Trigger Info Toast for successful field edit
+    let toastMsg = "Detail tugas berhasil diperbarui.";
+    if (field === "orang") toastMsg = "Penerima tugas berhasil diperbarui.";
+    else if (field === "status" || (typeof field === "object" && field.status)) toastMsg = "Status tugas berhasil diperbarui.";
+    else if (field === "priority") toastMsg = "Prioritas tugas berhasil diperbarui.";
+    else if (field === "type") toastMsg = "Jenis tugas berhasil diperbarui.";
+    else if (field === "date") toastMsg = "Tenggat waktu berhasil diperbarui.";
+
+    addToast(toastMsg, "info");
   };
 
   const handleAddComment = () => {
@@ -332,14 +346,9 @@ export default function GlobalTaskModals({
       komentar: [...selectedTask.komentar, comment],
     };
     setSelectedTask(updated);
-    setSelectedTask(updated);
-    setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+    updateAndSaveTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
     setNewComment("");
-    setTimeout(() => {
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("sipantau-profile-updated"));
-      }
-    }, 100);
+    addToast("Komentar berhasil ditambahkan.", "info");
   };
 
   const handleAddSubtask = () => {
@@ -354,7 +363,7 @@ export default function GlobalTaskModals({
   const handleToggleSubtask = (index) => {
     if (!selectedTask) return;
     const currentSubtasks = selectedTask.subtugas || [];
-    const updatedSubtasks = currentSubtasks.map((st, i) =>
+    const updatedSubtasks = currentSubtasks.map((st, i) => 
       i === index ? { ...st, done: !st.done } : st
     );
     handleUpdateTaskField("subtugas", updatedSubtasks);
@@ -428,20 +437,27 @@ export default function GlobalTaskModals({
     setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1));
   };
 
-  const renderCalendarDropdown = (onSelectDate) => {
+  const renderCalendarDropdown = (onSelectDate, parentStyle) => {
     const year = calendarDate.getFullYear();
     const month = calendarDate.getMonth();
     const daysInMonth = getDaysInMonth(year, month);
     const firstDay = getFirstDayOfMonth(year, month);
 
-    const style = dropdownCoords
-      ? { position: "fixed", top: `${dropdownCoords.top}px`, left: `${dropdownCoords.left}px` }
-      : { position: "absolute", top: "100%", left: 0, marginTop: "6px" };
+    const style = parentStyle || (dropdownCoords
+      ? { 
+          position: "fixed", 
+          left: `${dropdownCoords.left}px`,
+          zIndex: 9999999,
+          ...(dropdownCoords.top !== undefined ? { top: `${dropdownCoords.top}px` } : {}),
+          ...(dropdownCoords.bottom !== undefined ? { bottom: `${dropdownCoords.bottom}px` } : {})
+        }
+      : { position: "absolute", top: "100%", left: 0, marginTop: "6px" });
 
     return (
       <div
+        id="sipantau-floating-dropdown"
         style={style}
-        className="bg-white border border-slate-100 shadow-2xl rounded-2xl p-3.5 z-[100] w-56 text-left"
+        className="bg-white border border-slate-100 shadow-2xl rounded-2xl p-3.5 w-56 text-left"
       >
         <div className="flex items-center justify-between text-[11px] font-bold text-slate-800 border-b pb-2 mb-2">
           <button onClick={handlePrevMonth} className="px-2 py-0.5 hover:bg-slate-100 rounded text-slate-500 text-sm">&lt;</button>
@@ -482,7 +498,7 @@ export default function GlobalTaskModals({
     const style = {
       position: "fixed",
       left: `${dropdownCoords.left}px`,
-      zIndex: 9999
+      zIndex: 9999999
     };
     if (dropdownCoords.top !== undefined) style.top = `${dropdownCoords.top}px`;
     if (dropdownCoords.bottom !== undefined) style.bottom = `${dropdownCoords.bottom}px`;
@@ -576,7 +592,7 @@ export default function GlobalTaskModals({
               className="w-full text-xs border border-slate-200 rounded-xl px-3 py-1.5 outline-none focus:border-violet-500 placeholder-slate-350 transition-colors mb-2"
             />
             <div className="space-y-1 max-h-40 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {dynamicMembers.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase())).map((member) => (
+              {filteredMembers.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase())).map((member) => (
                 <button
                   key={member.name}
                   onClick={() => {
@@ -617,9 +633,9 @@ export default function GlobalTaskModals({
                 }}
                 className={`w-full text-center px-4 py-2 text-xs font-bold text-slate-600 rounded-xl transition-colors cursor-pointer ${st.bg} ${selectedTask.status === st.id ? (
                   st.id === 'todo' ? 'bg-[#bbf7d0] text-teal-900' :
-                    st.id === 'inprogress' ? 'bg-[#fecdd3] text-rose-900' :
-                      st.id === 'review' ? 'bg-[#bae6fd] text-sky-900' :
-                        'bg-[#fef3c7] text-amber-900'
+                  st.id === 'inprogress' ? 'bg-[#fecdd3] text-rose-900' :
+                  st.id === 'review' ? 'bg-[#bae6fd] text-sky-900' :
+                  'bg-[#fef3c7] text-amber-900'
                 ) : ''}`}
               >
                 {st.label}
@@ -757,19 +773,77 @@ export default function GlobalTaskModals({
           </div>
         );
       case "kalender":
-        return renderCalendarDropdown((date) => handleUpdateTaskField("date", date));
+        return renderCalendarDropdown((date) => handleUpdateTaskField("date", date), style);
       case "add-kalender":
-        return renderCalendarDropdown((date) => setAddDate(date));
+        return renderCalendarDropdown((date) => setAddDate(date), style);
       default:
         return null;
     }
+  };
+
+  const calculateModalPosition = (isAddingTaskObj) => {
+    if (!isAddingTaskObj || typeof window === "undefined") {
+      return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+    }
+
+    const rect = isAddingTaskObj.rect || (typeof isAddingTaskObj.left === "number" ? isAddingTaskObj : null);
+
+    if (!rect || typeof rect.left !== "number") {
+      return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+    }
+
+    const modalWidth = 288;
+    const modalHeight = 340;
+    const padding = 16;
+    const rowIndex = isAddingTaskObj.rowIndex;
+    const colIndex = isAddingTaskObj.colIndex;
+
+    let top;
+    let left;
+
+    // Smart 4-Way Direction Logic:
+    if (rowIndex === 1 || rowIndex === 2) {
+      // BARIS 2 & 3: Timbul ke Samping (Kanan atau Kiri)
+      top = rect.top + ((rect.height || 60) / 2) - (modalHeight / 2);
+      if (colIndex !== undefined && colIndex >= 3) {
+        // Timbul ke Kiri sel
+        left = rect.left - modalWidth - 8;
+      } else {
+        // Timbul ke Kanan sel
+        left = (rect.right || (rect.left + 100)) + 8;
+      }
+    } else if (rowIndex !== undefined && rowIndex >= 3) {
+      // BARIS BAWAH (Minggu 4 & 5): Timbul ke ATAS
+      top = (rect.top || 100) - modalHeight - 6;
+      left = rect.left + ((rect.width || 0) / 2) - (modalWidth / 2);
+    } else if (rowIndex === 0) {
+      // BARIS 1 (Minggu Paling Atas): Timbul ke BAWAH
+      top = (rect.bottom || rect.top + 50) + 6;
+      left = rect.left + ((rect.width || 0) / 2) - (modalWidth / 2);
+    } else {
+      // General Fallback
+      top = rect.bottom ? rect.bottom + 6 : (rect.top ? rect.top + 24 : 100);
+      if (top + modalHeight > window.innerHeight - padding) {
+        top = (rect.top || 100) - modalHeight - 6;
+      }
+      left = rect.left + ((rect.width || 0) / 2) - (modalWidth / 2);
+    }
+
+    // Strict Viewport Clamping
+    top = Math.max(padding, Math.min(top, window.innerHeight - modalHeight - padding));
+    left = Math.max(padding, Math.min(left, window.innerWidth - modalWidth - padding));
+
+    return {
+      top: `${top}px`,
+      left: `${left}px`,
+    };
   };
 
   return (
     <>
       {/* ================= EDIT MODAL ================= */}
       {selectedTask && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[999999] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-4xl h-[600px] max-h-[90vh] overflow-y-auto flex flex-col shadow-2xl relative border border-slate-100">
 
             {/* Modal Header */}
@@ -880,30 +954,30 @@ export default function GlobalTaskModals({
 
                 {/* Subtugas */}
                 <div className="space-y-3 pt-2">
-                  <button
+                  <button 
                     onClick={() => setIsSubtasksOpen(!isSubtasksOpen)}
                     className="text-[13px] font-extrabold text-slate-800 flex items-center gap-3 cursor-pointer w-max outline-none"
                   >
                     Subtugas
                     <span className="text-[10px] text-slate-600 transition-transform duration-200" style={{ transform: isSubtasksOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
                   </button>
-
+                  
                   {isSubtasksOpen && (
                     <div className="space-y-3">
                       {(selectedTask.subtugas || []).map((st, i) => (
                         <div key={i} className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
+                          <input 
+                            type="checkbox" 
                             checked={st.done}
                             onChange={() => handleToggleSubtask(i)}
-                            className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer shrink-0"
+                            className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer shrink-0" 
                           />
                           <span className={`text-xs font-semibold ${st.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{st.title}</span>
                         </div>
                       ))}
-
+                      
                       {!isAddingSubtask ? (
-                        <button
+                        <button 
                           onClick={() => setIsAddingSubtask(true)}
                           className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] px-3.5 py-2 rounded-lg transition-colors cursor-pointer w-max mt-2"
                         >
@@ -911,9 +985,9 @@ export default function GlobalTaskModals({
                         </button>
                       ) : (
                         <div className="space-y-2.5 mt-2 w-full max-w-[280px]">
-                          <input
-                            type="text"
-                            placeholder="Tambah subtugas"
+                          <input 
+                            type="text" 
+                            placeholder="Tambah subtugas" 
                             value={newSubtaskName}
                             onChange={(e) => setNewSubtaskName(e.target.value)}
                             onKeyDown={(e) => {
@@ -925,13 +999,13 @@ export default function GlobalTaskModals({
                             autoFocus
                           />
                           <div className="flex items-center gap-2">
-                            <button
+                            <button 
                               onClick={handleAddSubtask}
                               className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-[11px] px-4 py-2 rounded-lg transition-colors cursor-pointer shadow-sm shadow-violet-200"
                             >
                               Tambah
                             </button>
-                            <button
+                            <button 
                               onClick={() => {
                                 setIsAddingSubtask(false);
                                 setNewSubtaskName("");
@@ -956,10 +1030,11 @@ export default function GlobalTaskModals({
                     <button
                       ref={editStatusBtnRef}
                       onClick={() => toggleDropdown("status", editStatusBtnRef)}
-                      className={`flex items-center justify-between w-32 border rounded-xl px-3 py-2 text-xs font-bold capitalize cursor-pointer transition-colors ${selectedTask.status === "todo" ? "bg-[#bbf7d0] text-teal-900 border-[#86efac] hover:bg-[#86efac]" :
+                      className={`flex items-center justify-between w-32 border rounded-xl px-3 py-2 text-xs font-bold capitalize cursor-pointer transition-colors ${
+                        selectedTask.status === "todo" ? "bg-[#bbf7d0] text-teal-900 border-[#86efac] hover:bg-[#86efac]" :
                         selectedTask.status === "inprogress" ? "bg-[#fecdd3] text-rose-900 border-[#fda4af] hover:bg-[#fda4af]" :
-                          selectedTask.status === "review" ? "bg-[#bae6fd] text-sky-900 border-[#7dd3fc] hover:bg-[#7dd3fc]" :
-                            "bg-[#fef3c7] text-amber-900 border-[#fde68a] hover:bg-[#fde68a]"
+                        selectedTask.status === "review" ? "bg-[#bae6fd] text-sky-900 border-[#7dd3fc] hover:bg-[#7dd3fc]" :
+                        "bg-[#fef3c7] text-amber-900 border-[#fde68a] hover:bg-[#fde68a]"
                         }`}
                     >
                       <span>{selectedTask.status === "todo" ? "To do" : selectedTask.status === "inprogress" ? "In Progress" : selectedTask.status === "review" ? "In Review" : "Done"}</span>
@@ -1009,12 +1084,7 @@ export default function GlobalTaskModals({
                   <div className="space-y-3 pt-4 flex-1 min-h-[140px] flex flex-col border-t border-slate-50 mt-2">
                     <h3 className="text-[13px] font-extrabold text-slate-800 block shrink-0">Komentar</h3>
                     <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
-                      {selectedTask.komentar && [...selectedTask.komentar].sort((a, b) => {
-                        if (a.timestamp && b.timestamp) return b.timestamp - a.timestamp;
-                        if (a.timestamp) return -1;
-                        if (b.timestamp) return 1;
-                        return 0;
-                      }).map((comment, i) => (
+                      {selectedTask.komentar && selectedTask.komentar.map((comment, i) => (
                         <div key={`com-${i}`} className="flex items-start gap-3">
                           <img
                             src={getUserAvatar(comment.name)}
@@ -1046,7 +1116,7 @@ export default function GlobalTaskModals({
                           placeholder="Tambahkan komentar..."
                           className="w-full text-[11px] font-semibold text-slate-600 border border-slate-200 rounded-xl py-2.5 pl-3 pr-10 outline-none focus:border-violet-500 transition-colors resize-none h-10 leading-tight"
                         />
-                        <button
+                        <button 
                           onClick={handleAddComment}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-600 transition-colors cursor-pointer"
                         >
@@ -1069,175 +1139,180 @@ export default function GlobalTaskModals({
       {/* ================= ADD MODAL ================= */}
       {isAddingTask && (
         <>
-          {/* Overlay to close modal when clicking outside */}
-          <div
-            className={`fixed inset-0 z-40 ${typeof isAddingTask === "string" ? "bg-slate-900/40 backdrop-blur-sm" : ""}`}
+          <div 
+            className="fixed inset-0 z-[999998]"
             onClick={() => { setIsAddingTask(null); setActiveDropdown(null); }}
           ></div>
-
-          <div
-            className={`fixed z-50 ${typeof isAddingTask !== "object" ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : ""}`}
-            style={
-              typeof isAddingTask === "object"
-                ? {
-                    ...(isAddingTask.top !== undefined && { top: isAddingTask.top }),
-                    ...(isAddingTask.bottom !== undefined && { bottom: isAddingTask.bottom }),
-                    ...(isAddingTask.right !== undefined && { right: isAddingTask.right }),
-                    ...(isAddingTask.left !== undefined && { left: isAddingTask.left }),
-                  }
-                : {}
-            }
+          
+          <div 
+            className="fixed z-[999999] bg-white rounded-3xl w-full max-w-[288px] max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-100/90 flex flex-col custom-scrollbar p-4 space-y-3 text-left animate-[scaleIn_0.15s_ease-out_forwards]"
+            style={calculateModalPosition(isAddingTask)}
           >
-            <div className="bg-white rounded-2xl w-full max-w-[300px] max-h-[380px] overflow-y-auto shadow-2xl relative border border-slate-100 flex flex-col custom-scrollbar">
-
-              {/* Header */}
-              <div className="px-3 py-2.5 flex items-start justify-between border-b border-slate-50">
-                <div className="w-full pr-3">
-                  <input
-                    type="text"
-                    value={addTitle}
-                    onChange={(e) => setAddTitle(e.target.value)}
-                    placeholder="Masukkan Judul Tugas..."
-                    className="text-[13px] font-extrabold text-slate-800 bg-transparent border-none outline-none w-full p-0 placeholder-slate-400 focus:ring-0"
-                  />
-                </div>
-                <button
-                  onClick={() => { setIsAddingTask(null); setActiveDropdown(null); }}
-                  className="text-slate-400 hover:text-slate-600 transition-colors font-bold cursor-pointer text-[11px] mt-1 shrink-0"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="px-3 pb-3 pt-2 space-y-2">
-
-                <textarea
-                  value={addDesc}
-                  onChange={(e) => setAddDesc(e.target.value)}
-                  placeholder="Tambahkan deskripsi tugas di sini..."
-                  className="w-full h-14 border border-slate-100 rounded-xl p-2.5 text-[11px] font-medium text-slate-700 outline-none focus:border-violet-500 resize-none transition-colors shadow-sm bg-slate-50/50"
+            {/* Header */}
+            <div className="px-1 py-1 flex items-start justify-between border-b border-slate-100 pb-2">
+              <div className="w-full pr-2">
+                <input
+                  type="text"
+                  value={addTitle}
+                  onChange={(e) => setAddTitle(e.target.value)}
+                  placeholder="Masukkan Judul Tugas..."
+                  className="text-[13px] font-extrabold text-slate-800 bg-transparent border-none outline-none w-full p-0 placeholder-slate-400 focus:ring-0"
                 />
+              </div>
+              <button
+                onClick={() => { setIsAddingTask(null); setActiveDropdown(null); }}
+                className="text-slate-400 hover:text-slate-600 transition-colors font-bold cursor-pointer text-xs shrink-0 mt-0.5"
+              >
+                ✕
+              </button>
+            </div>
 
-                <div className="space-y-0.5">
-                  {/* Jenis Tugas */}
-                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      <button
-                        ref={addTypeBtnRef}
-                        onClick={() => toggleDropdown("add-jenis", addTypeBtnRef)}
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${getTypeStyle(addType)}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${getTypeDotColor(addType)}`} />
-                        {addType}
-                      </button>
-                    </div>
+            {/* Body */}
+            <div className="space-y-2.5 pt-0.5">
+              
+              <textarea
+                value={addDesc}
+                onChange={(e) => setAddDesc(e.target.value)}
+                placeholder="Tambahkan deskripsi tugas di sini..."
+                className="w-full h-16 border border-slate-100 rounded-xl p-2.5 text-[11px] font-medium text-slate-700 outline-none focus:border-violet-500 resize-none transition-colors shadow-sm bg-slate-50/50"
+              />
+
+              <div className="space-y-1 pt-1">
+                {/* Jenis Row */}
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">JENIS</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      ref={addTypeBtnRef}
+                      onClick={() => toggleDropdown("add-jenis", addTypeBtnRef)}
+                      className={`flex items-center gap-1.5 text-[10px] font-bold px-3 py-1 rounded-full outline-none cursor-pointer ${getTypeStyle(addType)}`}
+                    >
+                      <span className={`w-2 h-2 rounded-sm ${getTypeDotColor(addType)}`}></span> {addType}
+                    </button>
                     <button
                       onClick={() => toggleDropdown("add-jenis", addTypeBtnRef)}
-                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-[10px] cursor-pointer"
+                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500 cursor-pointer"
                     >
-                      +
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                     </button>
                   </div>
+                </div>
 
-                  {/* Prioritas */}
-                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <button
-                        ref={addPriorityBtnRef}
-                        onClick={() => toggleDropdown("add-prioritas", addPriorityBtnRef)}
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${getPriorityStyle(addPriority)}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${getPriorityDotColor(addPriority)}`} />
-                        {addPriority}
-                      </button>
-                    </div>
+                {/* Prioritas Row */}
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">PRIORITAS</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      ref={addPriorityBtnRef}
+                      onClick={() => toggleDropdown("add-prioritas", addPriorityBtnRef)}
+                      className={`flex items-center gap-1.5 text-[10px] font-bold px-3 py-1 rounded-full outline-none cursor-pointer ${getPriorityStyle(addPriority)}`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${getPriorityDotColor(addPriority)}`}></span> {addPriority}
+                    </button>
                     <button
                       onClick={() => toggleDropdown("add-prioritas", addPriorityBtnRef)}
-                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-[10px] cursor-pointer"
+                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500 cursor-pointer"
                     >
-                      +
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                     </button>
                   </div>
+                </div>
 
-                  {/* Penerima Tugas */}
-                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                      </svg>
-                      <div className="flex items-center -space-x-1">
-                        {addOrang.map((m, i) => {
-                          const memberObj = filteredMembers.find(mem => mem.initial === m);
-                          return memberObj ? (
-                            <img key={i} src={memberObj.avatar} alt={memberObj.name} className="w-5 h-5 rounded-full object-cover border border-white shadow-sm" />
-                          ) : (
-                            <div key={i} className="w-5 h-5 rounded-full bg-slate-200 border border-white flex items-center justify-center text-slate-600 text-[8px] font-bold shadow-sm">
-                              {m}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                {/* Penerima Row */}
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">PENERIMA</span>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <button
                       ref={addAssigneeBtnRef}
                       onClick={() => toggleDropdown("add-penerima", addAssigneeBtnRef)}
-                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-[10px] cursor-pointer"
+                      className="flex -space-x-1.5 outline-none cursor-pointer"
                     >
-                      +
+                      {addOrang.length > 0 ? addOrang.map((mInit, i) => {
+                        const mem = filteredMembers.find(d => d.initial === mInit);
+                        return mem ? (
+                          <div key={i} className="w-5 h-5 rounded-full border border-white bg-slate-200 shadow-sm overflow-hidden z-10" title={mem.name}>
+                            <img src={mem.avatar} className="w-full h-full object-cover" alt="avatar" />
+                          </div>
+                        ) : (
+                          <div key={i} className="w-5 h-5 rounded-full border border-white bg-slate-200 text-slate-600 text-[8px] font-bold flex items-center justify-center shadow-sm z-10">{mInit}</div>
+                        );
+                      }) : (
+                        <span className="text-[10px] font-bold text-slate-400 px-1">Pilih</span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => toggleDropdown("add-penerima", addAssigneeBtnRef)}
+                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500 cursor-pointer"
+                    >
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                     </button>
                   </div>
+                </div>
 
-                  {/* Kalender */}
-                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <button
-                        ref={addDateBtnRef}
-                        onClick={() => toggleDropdown("add-kalender", addDateBtnRef)}
-                        className="text-[11px] font-semibold text-slate-600"
-                      >
-                        {addDate === "18 Juli 2026" ? "Pilih Tanggal" : addDate}
-                      </button>
-                    </div>
+                {/* Tanggal Row */}
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">TANGGAL</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      ref={addDateBtnRef}
+                      onClick={() => toggleDropdown("add-kalender", addDateBtnRef)}
+                      className="text-[10px] font-bold text-slate-600 hover:text-violet-600 transition-colors cursor-pointer"
+                    >
+                      {addDate ? addDate : "Pilih Tanggal"}
+                    </button>
                     <button
                       onClick={() => toggleDropdown("add-kalender", addDateBtnRef)}
-                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 text-slate-300 hover:text-slate-500 flex items-center justify-center text-[10px] cursor-pointer"
+                      className="w-4 h-4 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-500 cursor-pointer"
                     >
-                      +
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                     </button>
                   </div>
-
-                  {/* Status Tugas (Hidden visually but kept logically, or just defaulted since isAddingTask provides it) */}
                 </div>
               </div>
 
-                {/* Action Button */}
-
-                <button
-                  onClick={async () => {
-
+              {/* Action Button */}
+              <button
+                onClick={async () => {
                   if (!addTitle.trim()) {
-                    showToast("Warning", "Judul tugas tidak boleh kosong!", "warning");
+                    triggerWarning("Judul tugas tidak boleh kosong!");
+                    return;
+                  }
+                  if (!addDesc.trim()) {
+                    triggerWarning("Deskripsi tugas tidak boleh kosong!");
+                    return;
+                  }
+                  if (!addDate || !addDate.trim()) {
+                    triggerWarning("Tenggat waktu harus dipilih!");
                     return;
                   }
                   const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
                   
-                  let dbStatus = addStatus;
-                  if (dbStatus === "done") dbStatus = "completed";
+                  let dbStatus = typeof isAddingTask === "object" && isAddingTask.status ? isAddingTask.status : (addStatus || "todo");
+                  if (dbStatus === "done" || dbStatus === "completed") dbStatus = "done";
                   else if (dbStatus === "inprogress") dbStatus = "in_progress";
 
                   const mappedPriority = addPriority === "Tertinggi" ? "urgent" : addPriority === "Tinggi" ? "high" : addPriority === "Sedang" ? "medium" : "low";
 
-                  // Parse date
                   const parsedDate = parseTaskDate(addDate);
                   let dbDate = null;
                   if (parsedDate) {
@@ -1263,31 +1338,46 @@ export default function GlobalTaskModals({
                     assigned_to: assignedToId
                   };
 
+                  let createdTaskId = "task-" + Date.now();
                   try {
                     const createdTask = await createTask(newTaskData);
-                    
-                    const newTask = {
-                      id: createdTask.id,
-                      title: addTitle,
-                      desc: addDesc || "Tidak ada deskripsi",
-                      date: addDate,
-                      type: addType,
-                      priority: addPriority,
-                      status: addStatus,
-                      done: addStatus === "done",
-                      orang: addOrang.length > 0 ? addOrang : ["A"],
-                      riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
-                      komentar: [],
-                    };
-                    setTasks([...tasks, newTask]);
-                    setIsAddingTask(null);
-                    setActiveDropdown(null);
-                    showToast("Success", "Tugas baru telah berhasil ditambahkan.", "success");
+                    if (createdTask && createdTask.id) {
+                      createdTaskId = createdTask.id;
+                    }
                   } catch (e) {
-                    alert("Gagal membuat tugas: " + e.message);
+                    console.warn("Supabase createTask fallback to local persistence:", e);
                   }
+
+                  const newTask = {
+                    id: createdTaskId,
+                    title: addTitle,
+                    desc: addDesc || "Tidak ada deskripsi",
+                    date: addDate,
+                    type: addType,
+                    priority: addPriority,
+                    status: dbStatus,
+                    done: dbStatus === "completed" || dbStatus === "done",
+                    orang: addOrang.length > 0 ? addOrang : [],
+                    riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
+                    komentar: [],
+                    subtugas: []
+                  };
+
+                  updateAndSaveTasks([...tasks, newTask]);
+
+                  const toastId = Date.now();
+                  setToasts(prev => [...prev, { id: toastId, message: "Tugas berhasil ditambahkan.", type: "success" }]);
+                  setTimeout(() => {
+                    setToasts(prev => prev.filter(t => t.id !== toastId));
+                  }, 4000);
+
+                  setIsAddingTask(null);
+                  setActiveDropdown(null);
+                  setAddTitle("");
+                  setAddDesc("");
+                  setAddDate("");
                 }}
-                className="w-full mt-2 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-sm font-bold text-white shadow-md shadow-violet-200 active:scale-95 transition-all cursor-pointer"
+                className="w-full mt-1.5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-xs font-bold text-white shadow-md shadow-violet-200 active:scale-95 transition-all cursor-pointer"
               >
                 Tambah
               </button>
@@ -1296,8 +1386,81 @@ export default function GlobalTaskModals({
         </>
       )}
       {renderFloatingDropdown()}
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+
+      {/* Toast Notification Container (Success, Info, Warning, Error) */}
+      <div className="fixed top-6 right-6 z-[99999999] flex flex-col gap-3 pointer-events-none">
+        {toasts.map(toast => {
+          const isSuccess = toast.type === "success" || toast.type === "sukses";
+          const isInfo = toast.type === "info";
+          const isError = toast.type === "error";
+          const isWarning = !isSuccess && !isInfo && !isError;
+
+          return (
+            <div
+              key={toast.id}
+              className={`pointer-events-auto flex items-start gap-3 rounded-2xl shadow-xl p-4 min-w-[300px] max-w-sm transform transition-all animate-[slideIn_0.3s_ease-out_forwards] ${
+                isSuccess ? "bg-[#f0fdf4] border-l-4 border-emerald-500 text-emerald-950" :
+                isInfo ? "bg-[#eff6ff] border-l-4 border-sky-500 text-sky-950" :
+                isError ? "bg-[#fef2f2] border-l-4 border-rose-500 text-rose-950" :
+                "bg-[#fffbeb] border-l-4 border-amber-500 text-amber-950"
+              }`}
+            >
+              {/* Icon */}
+              {isSuccess && (
+                <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 shadow-sm">
+                  ✓
+                </div>
+              )}
+              {isInfo && (
+                <div className="w-5 h-5 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 shadow-sm italic font-serif">
+                  i
+                </div>
+              )}
+              {isError && (
+                <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 shadow-sm">
+                  !
+                </div>
+              )}
+              {isWarning && (
+                <div className="text-amber-500 shrink-0 mt-0.5 animate-pulse">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="flex-1 pr-1">
+                <h4 className="text-xs font-bold text-slate-800">
+                  {isSuccess ? "Success" : isInfo ? "Info" : isError ? "Error" : "Warning"}
+                </h4>
+                <p className="text-[11px] font-semibold text-slate-600 mt-0.5">{toast.message}</p>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                className={`p-0.5 cursor-pointer font-bold text-xs ${
+                  isSuccess ? "text-emerald-500 hover:text-emerald-700" :
+                  isInfo ? "text-sky-500 hover:text-sky-700" :
+                  isError ? "text-rose-500 hover:text-rose-700" :
+                  "text-amber-400 hover:text-amber-600"
+                }`}
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}} />
     </>
   );
 }
-
