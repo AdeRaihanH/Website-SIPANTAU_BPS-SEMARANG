@@ -28,12 +28,27 @@ export async function getAdminStats() {
 /**
  * Get personal stats for intern/mentor dashboard
  */
-export async function getPersonalStats(userId) {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("status, due_date")
-    .eq("assigned_to", userId);
+export async function getPersonalStats(userId, role = "pemagang") {
+  let taskQuery = supabase.from("tasks").select("status, due_date, group_id");
 
+  if (role === "mentor") {
+    // Mentor: get all tasks from groups they mentor
+    const { data: mentorGroups } = await supabase
+      .from("groups")
+      .select("id")
+      .eq("mentor_id", userId);
+
+    const groupIds = mentorGroups ? mentorGroups.map(g => g.id) : [];
+    if (groupIds.length === 0) {
+      return { completed: 0, scheduled: 0, updated: 0, overdue: 0 };
+    }
+    taskQuery = taskQuery.in("group_id", groupIds);
+  } else {
+    // Intern: only tasks assigned to them
+    taskQuery = taskQuery.eq("assigned_to", userId);
+  }
+
+  const { data, error } = await taskQuery;
   if (error) throw error;
 
   let completed = 0;
