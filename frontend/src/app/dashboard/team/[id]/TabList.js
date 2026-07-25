@@ -41,14 +41,6 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
     setTasks(updatedTasksList);
 
     if (typeof window !== "undefined") {
-      const match = window.location.href.match(/\/team\/([^/]+)/);
-      const teamId = match ? match[1] : null;
-      if (teamId) {
-        try {
-          localStorage.setItem(`sipantau_team_tasks_${teamId}`, JSON.stringify(updatedTasksList));
-        } catch(err) {}
-      }
-
       window.dispatchEvent(new CustomEvent("sipantau-toast", {
         detail: { message: newDone ? "Tugas ditandai selesai." : "Tugas dikembalikan ke Belum Selesai.", type: "info" }
       }));
