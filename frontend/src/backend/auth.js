@@ -52,24 +52,36 @@ export async function signOutUser() {
  * Get the currently logged in user's session
  */
 export async function getActiveUser() {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return data.user;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) return null;
+    return data.user;
+  } catch (e) {
+    console.warn("getActiveUser error:", e.message);
+    return null;
+  }
 }
 
 /**
  * Get profile data for a specific user ID
  */
 export async function getProfile(userId) {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
+  if (!userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (error || !data) return null;
+    return data;
+  } catch (e) {
+    console.warn("getProfile error:", e.message);
+    return null;
+  }
 }
+
 
 /**
  * Update the current user's profile
