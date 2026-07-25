@@ -27,18 +27,59 @@ export async function signUpUser({ email, password, name, phone, address, instit
  * Log in a user
  */
 export async function signInUser(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  if (error) throw error;
-  
-  // Fetch profile to verify status
-  const profile = await getProfile(data.user.id);
-  
-  return { user: data.user, profile };
+    if (!error && data?.user) {
+      const profile = await getProfile(data.user.id);
+      return {
+        user: data.user,
+        profile: profile || {
+          id: data.user.id,
+          role: "pemagang",
+          full_name: data.user.email,
+          email: data.user.email,
+          status: "approved",
+        },
+      };
+    }
+  } catch (e) {
+    console.warn("Supabase Auth signIn failed, checking local users fallback:", e.message);
+  }
+
+  // Fallback to local demo users list if Supabase Cloud Auth user is not registered yet
+  if (typeof window !== "undefined") {
+    const localUsersStr = localStorage.getItem("sipantau_users");
+    if (localUsersStr) {
+      try {
+        const localUsers = JSON.parse(localUsersStr);
+        const match = localUsers.find(
+          (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+        );
+        if (match) {
+          return {
+            user: { id: match.email, email: match.email },
+            profile: {
+              id: match.email,
+              full_name: match.name || match.full_name || "Pengguna",
+              email: match.email,
+              role: match.role || "pemagang",
+              status: match.status || "approved",
+            },
+          };
+        }
+      } catch (err) {
+        console.error("Local user fallback parse error:", err);
+      }
+    }
+  }
+
+  throw new Error("Email atau password tidak valid.");
 }
+
 
 /**
  * Log out the current user
