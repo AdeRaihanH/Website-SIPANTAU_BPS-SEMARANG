@@ -11,21 +11,52 @@ export async function getGroupTasks(groupId) {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
+  
+  // Parse metadata from description
+  if (data) {
+    data.forEach(task => {
+      let match;
+      while ((match = task.description?.match(/<!-- SIPANTAU_META:(.*?) -->/))) {
+        try {
+          const meta = JSON.parse(match[1]);
+          if (meta.priority) task.priority = meta.priority;
+          if (meta.assignees) task.assignees = meta.assignees;
+        } catch(e) {}
+        task.description = task.description.replace(match[0], '').trim();
+      }
+    });
+  }
+  
   return data;
 }
 
 /**
  * Get all tasks assigned to a specific user
  */
-export async function getUserTasks(userId) {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("*, group:groups(name)")
-    .eq("assigned_to", userId)
-    .order("due_date", { ascending: true });
+export async function getUserTasks(userId, role = "pemagang") {
+  if (role === "mentor") {
+    // get groups they mentor
+    const { data: groups } = await supabase.from("groups").select("id").eq("mentor_id", userId);
+    const groupIds = groups ? groups.map(g => g.id) : [];
+    if (groupIds.length === 0) return [];
+    
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*, group:groups(name)")
+      .in("group_id", groupIds)
+      .order("due_date", { ascending: true });
+    if (error) throw error;
+    return data;
+  } else {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*, group:groups(name)")
+      .eq("assigned_to", userId)
+      .order("due_date", { ascending: true });
 
-  if (error) throw error;
-  return data;
+    if (error) throw error;
+    return data;
+  }
 }
 
 /**
@@ -61,7 +92,7 @@ export async function updateTaskStatus(taskId, newStatus, userId) {
   // Log activity
   if (userId) {
     const { logActivity } = await import('./dashboard.js');
-    await logActivity(userId, `telah mengubah status tugas menjadi ${newStatus}`, taskId);
+    await logActivity(userId, `telah mengubah status tugas menjadi ${newStatus}`, taskId, updatedTask.group_id);
   }
 
   return updatedTask;
@@ -79,6 +110,24 @@ export async function createTaskComment(taskId, userId, content) {
       content
     })
     .select("*, user:profiles(full_name, avatar_url)")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Create a new subtask
+ */
+export async function createSubtask(taskId, title) {
+  const { data, error } = await supabase
+    .from("subtasks")
+    .insert({
+      task_id: taskId,
+      title,
+      is_completed: false
+    })
+    .select()
     .single();
 
   if (error) throw error;
@@ -118,7 +167,7 @@ export async function createTask(taskData) {
   // Log activity if user is authenticated
   if (user && user.id) {
     const { logActivity } = await import('./dashboard.js');
-    await logActivity(user.id, `telah membuat penugasan baru`, data.id);
+    await logActivity(user.id, `telah membuat penugasan baru`, data.id, taskData.group_id || data.group_id);
   }
 
   return data;
@@ -153,7 +202,7 @@ export async function updateTask(taskId, taskData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (user && user.id) {
     const { logActivity } = await import('./dashboard.js');
-    await logActivity(user.id, `telah memperbarui tugas`, taskId);
+    await logActivity(user.id, `telah memperbarui tugas`, taskId, data.group_id);
   }
 
   return data;

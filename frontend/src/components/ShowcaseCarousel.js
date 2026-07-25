@@ -2,220 +2,271 @@
 
 import React, { useState, useEffect } from "react";
 
+/* ==========================================================================
+   CSS Keyframe Animations for Showcase Carousel
+   ========================================================================== */
+const CAROUSEL_STYLES = `
+  /* ── SLIDE 1: Dashboard Badges Slide-Out ────────────────────────────────── */
+  @keyframes badge2SelesaiOut {
+    0%   { transform: translate(110px, 90px) rotate(0deg); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translate(0, 0) rotate(-6deg); opacity: 1; }
+  }
+  @keyframes badgeBerandaOut {
+    0%   { transform: translate(-260px, 80px) rotate(0deg); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translate(0, 0) rotate(4deg); opacity: 1; }
+  }
+  @keyframes badge1DiperbaruiOut {
+    0%   { transform: translate(-100px, -80px) rotate(0deg); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translate(0, 0) rotate(6deg); opacity: 1; }
+  }
+
+  /* ── SLIDE 2: Task Detail 3-Card Spread ─────────────────────────────────── */
+  @keyframes slide2LeftCardSpread {
+    0%, 10%   { transform: translate(90px, -45px) scale(0.9); opacity: 0; }
+    30%, 75%  { transform: translate(0, 0) scale(1); opacity: 1; }
+    90%, 100% { transform: translate(90px, -45px) scale(0.9); opacity: 0; }
+  }
+  @keyframes slide2RightCardSpread {
+    0%, 10%   { transform: translate(-100px, 50px) scale(0.9); opacity: 0; }
+    30%, 75%  { transform: translate(0, 0) scale(1); opacity: 1; }
+    90%, 100% { transform: translate(-100px, 50px) scale(0.9); opacity: 0; }
+  }
+  @keyframes slide2MainCardReveal {
+    0%, 5%    { opacity: 0; transform: scale(0.92); }
+    22%, 80%  { opacity: 1; transform: scale(1); }
+    95%, 100% { opacity: 0; transform: scale(0.92); }
+  }
+
+  /* ── SLIDE 3: Base Cards Reveal (Pengaturan & Tim UNDIP) ──────────────── */
+  @keyframes slide3BaseReveal {
+    0%, 5%    { opacity: 0; transform: scale(0.94); }
+    20%, 85%  { opacity: 1; transform: scale(1); }
+    95%, 100% { opacity: 0; transform: scale(0.94); }
+  }
+
+  /* Cursor Sequence: Bergerak presisi ke tombol 'Lihat Detail >' di card Tim lalu klik */
+  @keyframes cursorClickLihatDetail {
+    0%   { transform: translate(70px, 120px); opacity: 0; }
+    12%  { transform: translate(70px, 120px); opacity: 1; }
+    35%  { transform: translate(52px, 64px); opacity: 1; } /* Tepat di tombol 'Lihat Detail >' */
+    42%  { transform: translate(52px, 64px) scale(0.75); opacity: 1; } /* CLICK ACTION */
+    48%  { transform: translate(52px, 64px) scale(1); opacity: 1; }
+    78%  { transform: translate(52px, 64px); opacity: 1; }
+    90%  { transform: translate(70px, 120px); opacity: 0; }
+    100% { transform: translate(70px, 120px); opacity: 0; }
+  }
+
+  /* Pop-up Card "Rincian Prioritas & Log Aktivitas" MUNCUL HANYA SETELAH KLIK (~42%) */
+  @keyframes popupRincianPrioritasReveal {
+    0%, 41%   { opacity: 0; transform: scale(0.85) translate(-15px, -15px); pointer-events: none; }
+    48%, 82%  { opacity: 1; transform: scale(1) translate(0, 0); pointer-events: auto; }
+    92%, 100% { opacity: 0; transform: scale(0.85) translate(-15px, -15px); pointer-events: none; }
+  }
+
+  @keyframes textSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+`;
+
 const slides = [
   {
     title: "Pantau Lebih Mudah. Kelola Lebih Baik.",
     subtitle:
       "SIPANTAU memudahkan proses pemantauan kegiatan, pelaporan, dan evaluasi mahasiswa magang di BPS Kota Semarang.",
-    type: "dashboard",
   },
   {
-    title: "Pantau Lebih Mudah. Kelola Lebih Baik.",
+    title: "Kelola Tugas dengan Detail & Presisi.",
     subtitle:
-      "SIPANTAU memudahkan proses pemantauan kegiatan, pelaporan, dan evaluasi mahasiswa magang di BPS Kota Semarang.",
-    type: "analytics",
+      "Lihat semua informasi tugas dalam satu tampilan — jenis, prioritas, penerima, tenggat, dan riwayat aktivitas tim.",
   },
   {
-    title: "Pantau Lebih Mudah. Kelola Lebih Baik.",
+    title: "Profil & Tim dalam Satu Genggaman.",
     subtitle:
-      "SIPANTAU memudahkan proses pemantauan kegiatan, pelaporan, dan evaluasi mahasiswa magang di BPS Kota Semarang.",
-    type: "kanban",
+      "Atur profil magang, pantau tim, dan lihat analitik performa langsung dari dashboard SIPANTAU.",
   },
 ];
 
 export default function ShowcaseCarousel() {
   const [activeSlide, setActiveSlide] = useState(0);
+  const [textKey, setTextKey] = useState(0);
 
-  // Auto-rotation of slides
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveSlide((prev) => (prev + 1) % slides.length);
-    }, 6000); // Rotate every 6 seconds
+      setTextKey((k) => k + 1);
+    }, 6500);
     return () => clearInterval(interval);
   }, []);
 
+  const handleDotClick = (index) => {
+    setActiveSlide(index);
+    setTextKey((k) => k + 1);
+  };
+
   return (
-    <div className="relative w-full max-w-[550px] flex-1 min-h-[550px] rounded-[2.5rem] bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 p-8 flex flex-col justify-between overflow-hidden shadow-2xl shadow-indigo-200">
-      {/* Decorative Background Elements */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-300/20 rounded-full blur-3xl -ml-16 -mb-16" />
+    <>
+      <style dangerouslySetInnerHTML={{ __html: CAROUSEL_STYLES }} />
+      <div className="relative w-full max-w-[550px] flex-1 min-h-[650px] md:h-[650px] rounded-[2.5rem] bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 p-8 flex flex-col justify-between overflow-hidden shadow-2xl shadow-indigo-200">
 
-      {/* Slide Illustration Preview */}
-      <div className="relative flex-1 flex items-center justify-center min-h-[300px] w-full">
-        {activeSlide === 0 && <DashboardMockup />}
-        {activeSlide === 1 && <AnalyticsMockup />}
-        {activeSlide === 2 && <KanbanMockup />}
-      </div>
+        {/* Decorative background glows */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-300/20 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
 
-      {/* Slide Text Content & Indicators */}
-      <div className="relative z-10 text-center text-white mt-4">
-        <h3 className="text-xl sm:text-2xl font-bold tracking-tight mb-2 min-h-[32px] transition-all duration-300">
-          Pantau Lebih Mudah. Kelola Lebih Baik.
-        </h3>
-        <p className="text-xs sm:text-sm text-indigo-100/90 max-w-md mx-auto min-h-[50px] transition-all duration-300">
-          SIPANTAU memudahkan proses pemantauan kegiatan, pelaporan, dan evaluasi mahasiswa magang di BPS Kota Semarang.
-        </p>
+        {/* Dynamic Display Area */}
+        <div className="relative flex-1 flex items-center justify-center w-full min-h-[360px]">
+          {activeSlide === 0 && <Slide1Dashboard />}
+          {activeSlide === 1 && <Slide2TaskDetail />}
+          {activeSlide === 2 && <Slide3SettingsProfile />}
+        </div>
 
-        {/* Carousel Indicators */}
-        <div className="flex justify-center gap-2 mt-4">
-          {slides.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setActiveSlide(index)}
-              className={`h-2 rounded-full transition-all duration-300 ${index === activeSlide ? "w-6 bg-white" : "w-2 bg-white/40 hover:bg-white/60"
+        {/* Bottom Text & Pagination */}
+        <div className="relative z-10 text-center text-white mt-4" key={textKey}>
+          <h3
+            className="text-xl sm:text-2xl font-extrabold tracking-tight mb-2 min-h-[32px]"
+            style={{ animation: "textSlideUp 0.4s ease-out both" }}
+          >
+            {slides[activeSlide].title}
+          </h3>
+          <p
+            className="text-xs sm:text-sm text-indigo-100/90 max-w-sm mx-auto leading-relaxed min-h-[48px]"
+            style={{ animation: "textSlideUp 0.4s ease-out 0.1s both" }}
+          >
+            {slides[activeSlide].subtitle}
+          </p>
+
+          <div className="flex justify-center gap-2 mt-4">
+            {slides.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => handleDotClick(index)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  index === activeSlide ? "w-6 bg-white" : "w-2 bg-white/40 hover:bg-white/60"
                 }`}
-              aria-label={`Go to slide ${index + 1}`}
-            />
-          ))}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
 /* ==========================================================================
-   Slide 1 Mockup: Main Dashboard View
+   SLIDE 1 — DASHBOARD
    ========================================================================== */
-function DashboardMockup() {
+function Slide1Dashboard() {
   return (
-    <div className="relative w-[90%] max-w-[420px] aspect-[4/3] rounded-2xl bg-white border border-slate-100 shadow-xl overflow-hidden flex flex-col">
-      {/* Top Header Bar */}
-      <div className="h-6 border-b border-slate-100 bg-slate-50 flex items-center px-3 gap-1">
-        <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-        <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-        <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-      </div>
+    <div className="relative w-full flex items-center justify-center">
+      <div className="w-[88%] max-w-[380px] aspect-[16/10] rounded-2xl bg-white border border-slate-100 shadow-2xl overflow-hidden flex flex-col z-10">
+        <div className="h-4 border-b border-slate-100 bg-slate-50 flex items-center px-3 gap-1 flex-shrink-0">
+          <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+          <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+          <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+        </div>
 
-      <div className="flex flex-1 min-h-0">
-        {/* Left Sidebar Mockup */}
-        <div className="w-[70px] border-r border-slate-100 bg-slate-50/50 p-1.5 flex flex-col justify-between">
-          <div className="space-y-2">
-            {/* User Avatar */}
-            <div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden mx-auto mb-3">
-              <svg className="w-3 h-3 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-              </svg>
-            </div>
-            {/* Menu */}
-            <div className="space-y-1">
+        <div className="flex flex-1 min-h-0">
+          <div className="w-[64px] border-r border-slate-100 bg-slate-50/60 p-1.5 flex flex-col justify-between flex-shrink-0">
+            <div className="space-y-2">
+              <div className="w-5 h-5 rounded-full bg-slate-200 mx-auto mb-2 flex items-center justify-center">
+                <span className="text-[8px]">👤</span>
+              </div>
               <div className="flex items-center gap-1 bg-white border border-slate-100 rounded px-1 py-0.5 shadow-sm">
                 <span className="text-[6px]">🏠</span>
                 <span className="text-[5px] font-bold text-slate-800">Beranda</span>
               </div>
               <div className="flex items-center gap-1 px-1 py-0.5 text-slate-400">
                 <span className="text-[6px]">👥</span>
-                <span className="text-[5px] font-medium">Team</span>
+                <span className="text-[5px]">Team</span>
               </div>
+            </div>
+            <div className="space-y-1 text-slate-400 text-[4px]">
+              <div>⚙️ Pengaturan</div>
+              <div>🚪 Keluar</div>
             </div>
           </div>
 
-          {/* Bottom Menu */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-1 px-1 py-0.5 text-slate-400">
-              <span className="text-[6px]">⚙️</span>
-              <span className="text-[5px] font-medium">Pengaturan</span>
+          <div className="flex-1 p-2 flex flex-col justify-between min-h-0">
+            <div>
+              <div className="text-[8px] font-bold text-slate-800">Beranda</div>
+              <div className="text-[5px] text-slate-400">Selamat datang kembali Andi!</div>
             </div>
-            <div className="flex items-center gap-1 px-1 py-0.5 text-slate-400">
-              <span className="text-[6px]">🚪</span>
-              <span className="text-[5px] font-medium">Keluar</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 p-2.5 flex flex-col gap-2 min-h-0 overflow-hidden">
-          {/* Header */}
-          <div>
-            <div className="text-[9px] font-bold text-slate-800">Beranda</div>
-            <div className="text-[5.5px] text-slate-400 leading-none">Selamat datang kembali Andi!</div>
-          </div>
+            <div className="rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 p-2 text-white my-1">
+              <div className="text-[7px] font-bold mb-0.5">Selamat Pagi, Andi!</div>
+              <div className="text-[4px] text-indigo-100 leading-tight mb-1">
+                &quot;Tanpa data, Anda hanyalah orang lain dengan pendapat.&quot; Mari bantu BPS menyediakan data berkualitas.
+              </div>
+              <span className="px-1.5 py-0.5 rounded bg-white text-indigo-600 text-[4.5px] font-bold inline-block">
+                Lihat Tugas Hari Ini →
+              </span>
+            </div>
 
-          {/* Welcome Banner Card */}
-          <div className="rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 p-2 text-white flex flex-col gap-0.5">
-            <div className="text-[8px] font-bold">Selamat Pagi, Andi!</div>
-            <div className="text-[5px] text-indigo-100 leading-tight">
-              "Tanpa data, Anda hanyalah orang lain dengan pendapat." Mari bantu BPS menyediakan data berkualitas untuk Indonesia hari ini.
+            <div className="grid grid-cols-4 gap-1">
+              {[
+                { icon: "✓", label: "2 Selesai", color: "text-emerald-500" },
+                { icon: "📄", label: "4 Dijadwalkan", color: "text-blue-500" },
+                { icon: "🔄", label: "1 Diperbarui", color: "text-amber-500" },
+                { icon: "⚠️", label: "1 Terlambat", color: "text-rose-500" },
+              ].map((item, i) => (
+                <div key={i} className="p-1 border border-slate-100 bg-white rounded flex flex-col items-start">
+                  <span className={`text-[6px] font-bold ${item.color}`}>{item.icon}</span>
+                  <span className="text-[4px] font-bold text-slate-700">{item.label}</span>
+                  <span className="text-[3px] text-slate-400">Status terkait</span>
+                </div>
+              ))}
             </div>
-            <button className="self-start mt-1 px-1.5 py-0.5 rounded bg-white text-indigo-600 text-[4px] font-bold flex items-center gap-0.5">
-              Lihat Tugas Hari Ini <span className="text-[4px]">→</span>
-            </button>
-          </div>
 
-          {/* Stats Grid - Horizontal 4 Columns */}
-          <div className="grid grid-cols-4 gap-1">
-            {/* Card 1: 2 Selesai */}
-            <div className="p-1 border border-slate-100 bg-white rounded-md shadow-sm flex flex-col justify-between min-h-[36px]">
-              <div className="flex items-center gap-0.5">
-                <div className="w-2.5 h-2.5 rounded-full border border-emerald-500 flex items-center justify-center text-[5px] text-emerald-500 font-bold">✓</div>
-                <span className="text-[6px] font-bold text-slate-800">2 Selesai</span>
-              </div>
-              <span className="text-[3.8px] text-slate-400 leading-none">Tugas yang sudah terselesaikan.</span>
+            <div className="text-right mt-1">
+              <span className="text-[4.5px] font-bold text-indigo-600">Lihat Tim Sekarang →</span>
             </div>
-            {/* Card 2: 4 Dijadwalkan */}
-            <div className="p-1 border border-slate-100 bg-white rounded-md shadow-sm flex flex-col justify-between min-h-[36px]">
-              <div className="flex items-center gap-0.5">
-                <div className="w-2.5 h-2.5 rounded-full border border-blue-500 flex items-center justify-center text-[5px] text-blue-500 font-bold">📄</div>
-                <span className="text-[6px] font-bold text-slate-800">4 Dijadwalkan</span>
-              </div>
-              <span className="text-[3.8px] text-slate-400 leading-none">Tugas yang segera dimulai.</span>
-            </div>
-            {/* Card 3: 1 Diperbarui */}
-            <div className="p-1 border border-slate-100 bg-white rounded-md shadow-sm flex flex-col justify-between min-h-[36px]">
-              <div className="flex items-center gap-0.5">
-                <div className="w-2.5 h-2.5 rounded-full border border-amber-500 flex items-center justify-center text-[5px] text-amber-500 font-bold">🔄</div>
-                <span className="text-[6px] font-bold text-slate-800">1 Diperbarui</span>
-              </div>
-              <span className="text-[3.8px] text-slate-400 leading-none">Perubahan dalam penugasan.</span>
-            </div>
-            {/* Card 4: 1 Terlambat */}
-            <div className="p-1 border border-slate-100 bg-white rounded-md shadow-sm flex flex-col justify-between min-h-[36px]">
-              <div className="flex items-center gap-0.5">
-                <div className="w-2.5 h-2.5 rounded-full border border-rose-500 flex items-center justify-center text-[5px] text-rose-500 font-bold">⚠️</div>
-                <span className="text-[6px] font-bold text-slate-800">1 Terlambat</span>
-              </div>
-              <span className="text-[3.8px] text-slate-400 leading-none">Penugasan melewati batas waktu.</span>
-            </div>
-          </div>
-
-          {/* Bottom link */}
-          <div className="flex justify-end">
-            <span className="text-[5px] font-bold text-indigo-600 hover:underline cursor-pointer">Lihat Tim Sekarang →</span>
           </div>
         </div>
       </div>
 
-      {/* Floating Badges */}
-      {/* 2 Selesai Widget */}
-      <div className="absolute top-[20%] -left-6 bg-white border border-slate-100/80 rounded-xl p-1.5 flex items-center gap-1.5 shadow-lg animate-float-up z-20">
-        <div className="w-4 h-4 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[8px] text-emerald-600">
+      <div
+        className="absolute top-[8%] left-[-8px] bg-white rounded-xl p-2.5 shadow-2xl border border-slate-100 flex items-center gap-2 z-20"
+        style={{
+          width: "145px",
+          animation: "badge2SelesaiOut 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both",
+        }}
+      >
+        <div className="w-6 h-6 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-500 font-bold text-xs flex-shrink-0">
           ✓
         </div>
         <div>
-          <div className="text-[7px] font-bold text-slate-800">2 Selesai</div>
-          <div className="text-[4.5px] text-slate-400">Tugas yang sudah terselesaikan.</div>
+          <div className="text-[8px] font-extrabold text-slate-800">2 Selesai</div>
+          <div className="text-[5.5px] text-slate-400">Tugas yang sudah terselesaikan.</div>
         </div>
       </div>
 
-      {/* Beranda Button with Cursor */}
-      <div className="absolute top-[12%] right-[10%] bg-white border border-slate-100/80 rounded-lg py-1 px-2 flex items-center gap-1 shadow-md animate-float-slow z-20">
-        <span className="text-[6px]">🏠</span>
-        <span className="text-[6px] font-bold text-slate-700">Beranda</span>
-        {/* Black Cursor Pointer */}
-        <div className="absolute -bottom-1 -right-1 text-slate-800">
-          <svg className="w-2.5 h-2.5 transform rotate-[25deg]" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M4 4l11.733 11.733-3.733 1.067 2.667 5.333-1.6 0.8-2.667-5.333-3.733 3.733z" />
-          </svg>
-        </div>
+      <div
+        className="absolute top-[3%] right-[30px] bg-white rounded-lg px-2.5 py-1.5 shadow-xl border border-slate-100 flex items-center gap-1.5 z-20"
+        style={{
+          animation: "badgeBerandaOut 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both",
+        }}
+      >
+        <span className="text-[9px]">🏠</span>
+        <span className="text-[7.5px] font-bold text-slate-700">Beranda</span>
       </div>
 
-      {/* 1 Diperbarui Widget */}
-      <div className="absolute bottom-[22%] -right-6 bg-white border border-slate-100/80 rounded-xl p-1.5 flex items-center gap-1.5 shadow-lg animate-float-down z-20">
-        <div className="w-4 h-4 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-[8px] text-amber-600">
+      <div
+        className="absolute bottom-[5%] right-[-10px] bg-white rounded-xl p-2.5 shadow-2xl border border-slate-100 flex items-center gap-2 z-20"
+        style={{
+          width: "145px",
+          animation: "badge1DiperbaruiOut 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.9s both",
+        }}
+      >
+        <div className="w-6 h-6 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500 font-bold text-xs flex-shrink-0">
           🔄
         </div>
         <div>
-          <div className="text-[7px] font-bold text-slate-800">1 Diperbarui</div>
-          <div className="text-[4.5px] text-slate-400">Perubahan dalam penugasan.</div>
+          <div className="text-[8px] font-extrabold text-slate-800">1 Diperbarui</div>
+          <div className="text-[5.5px] text-slate-400">Perubahan dalam penugasan.</div>
         </div>
       </div>
     </div>
@@ -223,95 +274,114 @@ function DashboardMockup() {
 }
 
 /* ==========================================================================
-   Slide 2 Mockup: Analytics & Performance Preview
+   SLIDE 2 — TASK DETAIL
    ========================================================================== */
-function AnalyticsMockup() {
+function Slide2TaskDetail() {
   return (
-    <div className="relative w-[90%] max-w-[420px] aspect-[4/3] rounded-2xl bg-white border border-slate-100 shadow-xl overflow-hidden flex flex-col">
-      {/* Top Header Bar */}
-      <div className="h-6 border-b border-slate-100 bg-slate-50 flex items-center px-3 gap-1">
-        <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-        <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-        <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-      </div>
+    <div className="relative w-full flex items-center justify-center" style={{ minHeight: "330px" }}>
+      <div
+        className="absolute bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 z-10"
+        style={{
+          width: "260px",
+          top: "30px",
+          animation: "slide2MainCardReveal 6.5s ease-in-out infinite",
+        }}
+      >
+        <div className="flex items-start justify-between mb-2">
+          <h4 className="text-sm font-extrabold text-slate-800 leading-tight">
+            Pembuatan UI/UX Website
+          </h4>
+          <span className="text-slate-400 font-bold text-sm">···</span>
+        </div>
+        <p className="text-[9px] text-slate-500 leading-snug mb-4">
+          Membuat tampilan antarmuka website Kanban
+        </p>
 
-      <div className="flex flex-1 min-h-0">
-        {/* Left Mini Sidebar */}
-        <div className="w-16 border-r border-slate-100 bg-slate-50 p-2 flex flex-col gap-2">
-          <div className="h-4 w-8 bg-indigo-100 rounded" />
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded bg-slate-300" />
-              <div className="h-1.5 w-6 bg-slate-300 rounded" />
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded bg-indigo-600" />
-              <div className="h-1.5 w-6 bg-slate-300 rounded" />
-            </div>
-          </div>
+        <div className="flex gap-2.5 mb-5">
+          <span className="px-3 py-1.5 rounded-lg bg-indigo-100 text-indigo-700 font-extrabold text-[10px] flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded bg-indigo-500 inline-block" />
+            Tugas
+          </span>
+          <span className="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-600 font-extrabold text-[10px] flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+            Tertinggi
+          </span>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 p-3 flex flex-col gap-2.5 min-h-0 overflow-hidden">
-          {/* Header */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+          <div className="flex -space-x-2">
+            <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600">👤</div>
+            <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600">👤</div>
+            <div className="w-6 h-6 rounded-full bg-slate-300 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-700">+</div>
+          </div>
+          <span className="text-[8px] text-slate-400 font-semibold">📅 1 Jul 2026</span>
+        </div>
+      </div>
+
+      <div
+        className="absolute bg-white rounded-2xl p-3.5 shadow-2xl border border-slate-100 z-20"
+        style={{
+          width: "125px",
+          left: "12px",
+          bottom: "15px",
+          animation: "slide2LeftCardSpread 6.5s ease-in-out infinite",
+        }}
+      >
+        <div className="space-y-2.5">
           <div>
-            <div className="text-[10px] font-bold text-slate-800">Evaluasi</div>
-            <div className="text-[6px] text-slate-400">Statistik aktivitas magang Anda</div>
+            <div className="text-[6.5px] font-bold text-slate-800 mb-1">Jenis Tugas</div>
+            <div className="flex items-center justify-between border border-slate-200 rounded px-1.5 py-1 text-[6.5px] font-bold text-indigo-600 bg-indigo-50/50">
+              <span>■ Design</span>
+              <span className="text-slate-400">▾</span>
+            </div>
           </div>
-
-          {/* Bar Chart Mockup */}
-          <div className="flex-1 border border-slate-100 rounded-lg p-2.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-              <span className="text-[7px] font-bold text-slate-700">Aktivitas Mingguan</span>
-              <span className="text-[5px] text-slate-400">Update 5 mnt lalu</span>
+          <div>
+            <div className="text-[6.5px] font-bold text-slate-800 mb-1">Prioritas Tugas</div>
+            <div className="flex items-center justify-between border border-slate-200 rounded px-1.5 py-1 text-[6.5px] font-bold text-rose-600 bg-rose-50/50">
+              <span>● Tertinggi</span>
+              <span className="text-slate-400">▾</span>
             </div>
-
-            <div className="flex-1 flex items-end justify-between px-2 pt-3 pb-1 gap-2">
-              <div className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full bg-indigo-200 rounded-t h-[40%]" />
-                <span className="text-[4px] text-slate-400">Sen</span>
-              </div>
-              <div className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full bg-indigo-200 rounded-t h-[65%]" />
-                <span className="text-[4px] text-slate-400">Sel</span>
-              </div>
-              <div className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full bg-indigo-600 rounded-t h-[90%] shadow-sm shadow-indigo-100" />
-                <span className="text-[4px] text-indigo-600 font-bold">Rab</span>
-              </div>
-              <div className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full bg-indigo-200 rounded-t h-[50%]" />
-                <span className="text-[4px] text-slate-400">Kam</span>
-              </div>
-              <div className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full bg-indigo-200 rounded-t h-[75%]" />
-                <span className="text-[4px] text-slate-400">Jum</span>
-              </div>
+          </div>
+          <div>
+            <div className="text-[6.5px] font-bold text-slate-800 mb-1">Penerima Tugas</div>
+            <div className="flex -space-x-1">
+              <div className="w-4 h-4 rounded-full bg-indigo-500 text-white text-[4px] font-bold flex items-center justify-center border border-white">AB</div>
+              <div className="w-4 h-4 rounded-full bg-purple-500 text-white text-[4px] font-bold flex items-center justify-center border border-white">MA</div>
+              <div className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-[4px] font-bold flex items-center justify-center border border-white">+</div>
             </div>
+          </div>
+          <div>
+            <div className="text-[6.5px] font-bold text-slate-800 mb-0.5">Tenggat Tugas</div>
+            <div className="text-[6px] text-slate-500 font-medium">📅 4 Juli 2026</div>
           </div>
         </div>
       </div>
 
-      {/* Floating Badges */}
-      {/* Performance Score */}
-      <div className="absolute top-[20%] -left-6 bg-white border border-indigo-100 rounded-xl p-2 flex items-center gap-2 shadow-lg animate-float-up">
-        <div className="w-5 h-5 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[8px] font-extrabold text-indigo-600">
-          A
+      <div
+        className="absolute bg-white rounded-2xl p-3.5 shadow-2xl border border-slate-100 z-20"
+        style={{
+          width: "150px",
+          right: "10px",
+          top: "10px",
+          animation: "slide2RightCardSpread 6.5s ease-in-out infinite",
+        }}
+      >
+        <div className="text-[7.5px] font-bold text-slate-800 mb-1.5">Riwayat</div>
+        <div className="space-y-1.5 pb-2 mb-2 border-b border-slate-100 text-[5.5px]">
+          <div>
+            <span className="font-bold text-slate-800">Andi Basudara</span>
+            <span className="text-slate-500"> telah membuat penugasan </span>
+            <span className="text-indigo-600 font-bold underline">Pembuatan UI/UX Website</span>
+          </div>
+          <div>
+            <span className="font-bold text-slate-800">Miyesha Azka</span>
+            <span className="text-slate-500"> telah mengubah penerima tugas.</span>
+          </div>
         </div>
-        <div>
-          <div className="text-[7.5px] font-bold text-slate-800">Nilai Rata-rata</div>
-          <div className="text-[5px] text-slate-400">Sangat Memuaskan</div>
-        </div>
-      </div>
-
-      {/* Analytics Widget */}
-      <div className="absolute bottom-[20%] -right-6 bg-white border border-indigo-100 rounded-xl p-2 flex items-center gap-2 shadow-lg animate-float-down">
-        <div className="w-5 h-5 rounded-full bg-violet-100 flex items-center justify-center text-xs">
-          📈
-        </div>
-        <div>
-          <div className="text-[8px] font-bold text-slate-800">89% Selesai</div>
-          <div className="text-[5px] text-slate-400">Rasio penyelesaian tugas</div>
+        <div className="text-[7.5px] font-bold text-slate-800 mb-1">Komentar</div>
+        <div className="text-[5.5px]">
+          <span className="font-bold text-slate-800">Nurul Kumala</span>
+          <p className="text-slate-400">Semangat!!!</p>
         </div>
       </div>
     </div>
@@ -319,103 +389,156 @@ function AnalyticsMockup() {
 }
 
 /* ==========================================================================
-   Slide 3 Mockup: Kanban Board View
+   SLIDE 3 — SETTINGS & PROFIL
    ========================================================================== */
-function KanbanMockup() {
+function Slide3SettingsProfile() {
   return (
-    <div className="relative w-[90%] max-w-[420px] aspect-[4/3] rounded-2xl bg-white border border-slate-100 shadow-xl overflow-hidden flex flex-col">
-      {/* Top Header Bar */}
-      <div className="h-6 border-b border-slate-100 bg-slate-50 flex items-center px-3 gap-1">
-        <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-        <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-        <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-      </div>
+    <div className="relative w-full flex items-center justify-center" style={{ minHeight: "340px" }}>
+      <div className="relative w-[92%] max-w-[420px] h-[280px] flex items-start justify-center">
 
-      <div className="flex flex-1 p-2.5 gap-2 min-h-0 bg-slate-50/50">
-        {/* Kanban Task Card Detailed */}
-        <div className="flex-1 bg-white border border-slate-100 rounded-xl p-2 flex flex-col justify-between shadow-sm">
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="px-1 py-0.5 rounded text-[5px] font-bold bg-indigo-50 text-indigo-700">Tugas</span>
-              <span className="px-1 py-0.5 rounded text-[5px] font-bold bg-rose-50 text-rose-700">Tertinggi</span>
-            </div>
-
-            <h4 className="text-[8.5px] font-extrabold text-slate-800 leading-tight">Pembuatan UI/UX Website</h4>
-            <p className="text-[6px] text-slate-400 leading-tight">Membuat tampilan antarmuka website Kanban</p>
+        {/* LAPISAN 1: Card Pengaturan Profil */}
+        <div
+          className="absolute bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-10 flex flex-col"
+          style={{
+            left: "10px",
+            top: "10px",
+            width: "220px",
+            animation: "slide3BaseReveal 6.5s ease-in-out infinite",
+          }}
+        >
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-2.5 text-white">
+            <div className="text-[9px] font-extrabold mb-0.5">Pengaturan</div>
+            <div className="text-[5.5px] text-indigo-100">Simpan perubahan profil Anda.</div>
           </div>
 
-          <div className="flex items-center justify-between mt-3 pt-1.5 border-t border-slate-50">
-            <span className="text-[5px] text-slate-400">1 Jul 2026</span>
-            <div className="flex -space-x-1.5">
-              <div className="w-3.5 h-3.5 rounded-full bg-violet-400 border border-white text-[4px] text-white font-bold flex items-center justify-center">A</div>
-              <div className="w-3.5 h-3.5 rounded-full bg-emerald-400 border border-white text-[4px] text-white font-bold flex items-center justify-center">R</div>
-              <div className="w-3.5 h-3.5 rounded-full bg-amber-400 border border-white text-[4px] text-white font-bold flex items-center justify-center">H</div>
-              <div className="w-3.5 h-3.5 rounded-full bg-slate-100 border border-white text-[4px] text-slate-500 font-bold flex items-center justify-center">+</div>
+          <div className="p-3 bg-white flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 flex items-center justify-center text-white text-[10px] font-bold border-2 border-white shadow">
+                  👤
+                </div>
+                <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-slate-800 border border-white flex items-center justify-center">
+                  <span className="text-[5px] text-white">📷</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-[8.5px] font-extrabold text-slate-800">Andi Basudara</div>
+                <div className="text-[6px] text-slate-400">Pemagang</div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 space-y-1">
+              <div className="text-[5px] font-bold text-slate-400 uppercase tracking-wide">Detail Profil</div>
+              <div className="border border-slate-100 rounded-lg p-1 text-[5.5px] text-slate-600 flex items-center gap-1 bg-slate-50/40">
+                <span>👤</span> <span>Nama: Andi Basudara</span>
+              </div>
+              <div className="border border-slate-100 rounded-lg p-1 text-[5.5px] text-slate-600 flex items-center gap-1 bg-slate-50/40">
+                <span>✉️</span> <span>Email: andi@bps.go.id</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Task Details Side Card */}
-        <div className="w-[100px] bg-white border border-slate-100 rounded-xl p-2 flex flex-col justify-between shadow-sm gap-2">
-          <div className="space-y-1.5">
-            <div>
-              <div className="text-[4.5px] text-slate-400">Jenis Tugas</div>
-              <span className="inline-block mt-0.5 px-1 py-0.5 rounded text-[5.5px] font-bold bg-indigo-50 text-indigo-700">Design</span>
+        {/* LAPISAN 2: Card Tim Teknologi Informasi UNDIP */}
+        <div
+          className="absolute bg-white rounded-2xl p-3.5 shadow-2xl border border-slate-100 z-20"
+          style={{
+            left: "85px",
+            top: "95px",
+            width: "245px",
+            animation: "slide3BaseReveal 6.5s ease-in-out infinite",
+          }}
+        >
+          <div className="text-[9.5px] font-extrabold text-slate-800 mb-1">
+            Tim Teknologi Informasi UNDIP
+          </div>
+          <div className="text-[5.5px] text-slate-400 mb-2 leading-snug">
+            Bertanggung jawab atas pengembangan aplikasi monitoring dan maintenance jaringan.
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5 mb-2">
+            <div className="border border-slate-100 rounded-xl p-1.5 flex items-center gap-1.5 bg-slate-50/50">
+              <span className="text-[11px]">📋</span>
+              <div>
+                <div className="text-[4.5px] text-slate-400">Mentor</div>
+                <div className="text-[7px] font-bold text-slate-800">Bambang Heru</div>
+              </div>
             </div>
-            <div>
-              <div className="text-[4.5px] text-slate-400">Prioritas Tugas</div>
-              <span className="inline-block mt-0.5 px-1 py-0.5 rounded text-[5.5px] font-bold bg-rose-50 text-rose-700">Tertinggi</span>
-            </div>
-            <div>
-              <div className="text-[4.5px] text-slate-400">Penerima Tugas</div>
-              <div className="flex -space-x-1 mt-0.5">
-                <div className="w-3 h-3 rounded-full bg-violet-400 border border-white text-[3.5px] text-white font-bold flex items-center justify-center">A</div>
-                <div className="w-3 h-3 rounded-full bg-emerald-400 border border-white text-[3.5px] text-white font-bold flex items-center justify-center">R</div>
-                <div className="w-3 h-3 rounded-full bg-amber-400 border border-white text-[3.5px] text-white font-bold flex items-center justify-center">H</div>
+
+            <div className="border border-indigo-100 rounded-xl p-1.5 flex items-center gap-1.5 bg-indigo-50/60 shadow-sm">
+              <span className="text-[11px]">☑️</span>
+              <div>
+                <div className="text-[4.5px] text-indigo-600 font-bold">Tugas Aktif</div>
+                <div className="text-[7px] font-bold text-slate-800">5 Tugas</div>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-slate-100 pt-1.5">
-            <div className="text-[4.5px] text-slate-400">Tenggat Tugas</div>
-            <div className="text-[5.5px] font-bold text-slate-800 mt-0.5">4 Jul 2026</div>
-          </div>
-        </div>
-      </div>
+          <div className="flex items-center justify-between pt-0.5">
+            <div className="flex -space-x-1.5">
+              <div className="w-4.5 h-4.5 rounded-full bg-purple-500 text-white font-bold text-[4.5px] flex items-center justify-center border-2 border-white shadow-sm">AB</div>
+              <div className="w-4.5 h-4.5 rounded-full bg-indigo-500 text-white font-bold text-[4.5px] flex items-center justify-center border-2 border-white shadow-sm">MA</div>
+              <div className="w-4.5 h-4.5 rounded-full bg-emerald-500 text-white font-bold text-[4.5px] flex items-center justify-center border-2 border-white shadow-sm">NK</div>
+            </div>
 
-      {/* Floating Chat/Comments Panel */}
-      <div className="absolute bottom-[5%] left-[10%] right-[10%] bg-white/95 backdrop-blur border border-indigo-50 rounded-xl p-2 shadow-lg flex flex-col gap-1.5 animate-float-down">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-          <span className="text-[6.5px] font-bold text-slate-800">Diskusi Tugas</span>
-          <span className="text-[5px] text-slate-400">3 komentar</span>
+            <button className="text-[7px] font-extrabold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+              Lihat Detail ›
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-1">
-          {/* Comment 1 */}
-          <div className="flex items-start gap-1">
-            <div className="w-3 h-3 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[4px]">A</div>
-            <div>
-              <div className="text-[5.5px] font-bold text-slate-700">Andi Basudara</div>
-              <div className="text-[5px] text-slate-500 leading-tight">Saya sudah menyelesaikan tugas...</div>
+        {/* LAPISAN POP-UP: Card Rincian Prioritas & Log Aktivitas */}
+        <div
+          className="absolute bg-white/95 backdrop-blur-md rounded-2xl p-3.5 shadow-2xl border border-indigo-100 z-30 flex flex-col justify-between"
+          style={{
+            left: "190px",
+            top: "25px",
+            width: "215px",
+            animation: "popupRincianPrioritasReveal 6.5s ease-in-out infinite",
+          }}
+        >
+          <div className="mb-2.5">
+            <div className="text-[8px] font-extrabold text-slate-800 mb-0.5">Rincian Prioritas</div>
+            <div className="text-[4.5px] text-slate-400 mb-1.5">Rincian banyak item pekerjaan berdasarkan prioritasnya.</div>
+
+            <div className="flex items-end justify-between h-9 px-1 pt-1 border-b border-slate-100">
+              <div className="w-2 bg-rose-400 h-[60%] rounded-t" />
+              <div className="w-2 bg-rose-200 h-[30%] rounded-t" />
+              <div className="w-2 bg-amber-400 h-[90%] rounded-t" />
+              <div className="w-2 bg-indigo-300 h-[40%] rounded-t" />
+              <div className="w-2 bg-indigo-500 h-[70%] rounded-t" />
             </div>
           </div>
-          {/* Comment 2 */}
-          <div className="flex items-start gap-1">
-            <div className="w-3 h-3 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-[4px]">R</div>
-            <div>
-              <div className="text-[5.5px] font-bold text-slate-700">Riyadi</div>
-              <div className="text-[5px] text-slate-500 leading-tight">Bagus sekali...</div>
-            </div>
-          </div>
-          {/* Comment 3 */}
-          <div className="flex items-start gap-1">
-            <div className="w-3 h-3 rounded-full bg-amber-100 text-amber-700 font-bold flex items-center justify-center text-[4px]">H</div>
-            <div>
-              <div className="text-[5.5px] font-bold text-slate-700">Hardi</div>
-              <div className="text-[5px] text-slate-500 leading-tight">Terima kasih</div>
+
+          <div className="pt-1.5 border-t border-slate-100">
+            <div className="text-[7px] font-bold text-slate-800 mb-1">Log Aktivitas</div>
+            <div className="space-y-1 text-[4.5px]">
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block" />
+                <span className="text-indigo-600 font-semibold underline">Pembuatan UI/UX Website</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                <span className="text-slate-600">Pembuatan Repo GitHub</span>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Cursor Animation */}
+        <div
+          className="absolute z-40 pointer-events-none"
+          style={{
+            left: "50%",
+            top: "50%",
+            animation: "cursorClickLihatDetail 6.5s ease-in-out infinite",
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#000000" style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.35))" }}>
+            <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a1 1 0 0 1 .35-.24l6.26-1.78c.48-.13.57-.79.15-1.06L6.23 3.01a.6.6 0 0 0-.73.2z" />
+          </svg>
+        </div>
+
       </div>
     </div>
   );

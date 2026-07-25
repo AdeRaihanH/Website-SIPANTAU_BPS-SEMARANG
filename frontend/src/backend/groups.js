@@ -3,8 +3,12 @@ import { supabase } from "./client";
 export async function getUserGroups(userId, role) {
   let query = supabase.from("groups").select(`
     *,
-    group_members(user_id)
-  `).eq("is_deleted", false);
+    group_members(
+      user_id,
+      profiles(id, full_name, avatar_url)
+    ),
+    tasks(id, status)
+  `);
   
   if (role === "mentor") {
     query = query.eq("mentor_id", userId);
@@ -31,12 +35,27 @@ export async function getGroupDetails(groupId) {
       group_members(
         profiles(id, full_name, avatar_url, role)
       ),
-      tasks(*)
+      tasks(*, subtasks(*), task_comments(*, user:profiles(full_name, avatar_url)))
     `)
     .eq("id", groupId)
     .single();
 
   if (error) throw error;
+
+  if (data && data.tasks) {
+    data.tasks.forEach(task => {
+      let match;
+      while ((match = task.description?.match(/<!-- SIPANTAU_META:(.*?) -->/))) {
+        try {
+          const meta = JSON.parse(match[1]);
+          if (meta.priority) task.priority = meta.priority;
+          if (meta.assignees) task.assignees = meta.assignees;
+        } catch(e) {}
+        task.description = task.description.replace(match[0], '').trim();
+      }
+    });
+  }
+
   return data;
 }
 
@@ -63,7 +82,7 @@ export async function createGroup(groupData, members) {
   // Log activity
   if (groupData.created_by) {
     const { logActivity } = await import('./dashboard.js');
-    await logActivity(groupData.created_by, `telah membuat kelompok magang: ${newGroup.name}`);
+    await logActivity(groupData.created_by, `telah membuat kelompok magang: ${newGroup.name}`, null, newGroup.id);
   }
 
   return newGroup;
@@ -89,4 +108,23 @@ export async function deleteGroup(groupId, hardDelete = false) {
     const { error } = await supabase.from("groups").update({ is_deleted: true }).eq("id", groupId);
     if (error) throw error;
   }
+}
+
+// Add a member to a group
+export async function addGroupMember(groupId, userId) {
+  const { data, error } = await supabase
+    .from('group_members')
+    .insert([{ group_id: groupId, user_id: userId }]);
+  if (error) throw error;
+  return data;
+}
+
+// Remove a member from a group
+export async function removeGroupMember(groupId, userId) {
+  const { error } = await supabase
+    .from('group_members')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('user_id', userId);
+  if (error) throw error;
 }

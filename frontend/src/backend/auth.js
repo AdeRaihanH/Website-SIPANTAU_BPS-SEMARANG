@@ -20,6 +20,21 @@ export async function signUpUser({ email, password, name, phone, address, instit
   });
 
   if (error) throw error;
+  
+  if (data?.user) {
+    // Update profiles table with extra fields not handled by trigger
+    await supabase.from("profiles").update({
+      phone,
+      address,
+      institution,
+      major,
+      role
+    }).eq("id", data.user.id);
+
+    const { logActivity } = await import('./dashboard.js');
+    await logActivity(data.user.id, `telah mendaftar akun baru sebagai ${role}`);
+  }
+  
   return data;
 }
 
