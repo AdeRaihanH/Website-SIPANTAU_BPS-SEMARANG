@@ -6,16 +6,6 @@ import { useRouter } from "next/navigation";
 export default function VerificationStatus() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  // Form States
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [institution, setInstitution] = useState("");
-  const [major, setMajor] = useState("");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -24,21 +14,15 @@ export default function VerificationStatus() {
         router.push("/");
         return;
       }
-      
+
       const usersListStr = localStorage.getItem("sipantau_users") || "[]";
       const usersList = JSON.parse(usersListStr);
       const foundUser = usersList.find(u => u.email.toLowerCase() === activeEmail.toLowerCase());
-      
+
       if (foundUser) {
         setUser(foundUser);
-        setName(foundUser.name || "");
-        setEmail(foundUser.email || "");
-        setPhone(foundUser.phone || "");
-        setAddress(foundUser.address || "");
-        setInstitution(foundUser.institution || "");
-        setMajor(foundUser.major || "");
 
-        // If approved somehow, redirect them to dashboard
+        // If approved, redirect them to dashboard
         if (foundUser.status === "approved") {
           router.push("/dashboard");
         }
@@ -59,65 +43,8 @@ export default function VerificationStatus() {
     router.push("/");
   };
 
-  const handleSaveChanges = (e) => {
-    e.preventDefault();
-    if (!name || !phone || !address || !institution) {
-      setToast({ type: "error", message: "Semua field wajib diisi!" });
-      setTimeout(() => setToast(null), 3000);
-      return;
-    }
-    if (phone.length < 10) {
-      setToast({ type: "error", message: "Nomor telepon minimal 10 angka!" });
-      setTimeout(() => setToast(null), 3000);
-      return;
-    }
-
-    // Update in mock database list
-    const usersStr = localStorage.getItem("sipantau_users") || "[]";
-    let usersList = JSON.parse(usersStr);
-    const userIndex = usersList.findIndex((u) => u.email === user.email);
-    
-    if (userIndex !== -1) {
-      usersList[userIndex] = {
-        ...usersList[userIndex],
-        name,
-        email,
-        phone,
-        address,
-        institution,
-        major
-      };
-      localStorage.setItem("sipantau_users", JSON.stringify(usersList));
-      
-      // Update local session if email changed
-      if (email !== user.email) {
-        localStorage.setItem("sipantau_email", email);
-      }
-
-      const updatedUser = usersList[userIndex];
-      setUser(updatedUser);
-      
-      // Update session values
-      localStorage.setItem("sipantau_name", name);
-
-      setToast({ type: "success", message: "Perubahan profil berhasil disimpan!" });
-      setTimeout(() => setToast(null), 3000);
-      setIsEditing(false);
-    }
-  };
-
   return (
-    <div className="w-full max-w-[480px] bg-[#f4f4f5] flex flex-col items-center justify-center relative p-6 sm:p-8 rounded-3xl">
-      
-      {/* Toast Alert */}
-      {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg text-xs font-bold transition-all duration-300 flex items-center gap-2 ${
-          toast.type === "success" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
-        }`}>
-          <span>{toast.type === "success" ? "✓" : "⚠️"}</span>
-          <span>{toast.message}</span>
-        </div>
-      )}
+    <div className="w-full max-w-[420px] h-[650px] flex flex-col justify-between items-center relative py-6">
 
       {/* Icon */}
       <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-sm border-2 ${
@@ -140,15 +67,15 @@ export default function VerificationStatus() {
           {isPending ? "Verifikasi Diperlukan" : "Verifikasi Ditolak"}
         </h2>
         <p className="text-sm font-medium text-slate-500 max-w-sm mx-auto leading-relaxed">
-          {isPending 
+          {isPending
             ? "Akun Anda saat ini sedang berada dalam antrean peninjauan oleh Admin."
             : "Pendaftaran akun Anda ditolak oleh admin karena terdapat ketidaksesuaian."
           }
         </p>
       </div>
 
-      {/* Badge */}
-      <div className="mb-10">
+      {/* Status Badge */}
+      <div className="mb-8">
         <span className={`px-4 py-1.5 rounded-full text-xs font-bold ${
           isPending ? "bg-amber-100/50 text-amber-500" : "bg-rose-100/50 text-rose-500"
         }`}>
@@ -160,7 +87,8 @@ export default function VerificationStatus() {
       <div className="w-full bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-8">
         <h3 className="text-xs font-bold text-slate-800 mb-5">Detail Profil</h3>
         <div className="grid grid-cols-2 gap-y-5 gap-x-4">
-          
+
+          {/* Nama */}
           <div className="flex items-start gap-3">
             <div className="text-indigo-500 mt-0.5">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -169,22 +97,13 @@ export default function VerificationStatus() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 font-bold mb-0.5">Nama</p>
-              {isEditing ? (
-                <input
-                  key="name-edit"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full min-h-[36px] text-xs font-bold text-slate-500 bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 focus:text-violet-600 transition-colors leading-tight"
-                />
-              ) : (
-                <div key="name-view" className="min-h-[36px] flex items-center">
-                  <p className="text-xs font-bold text-slate-800 truncate">{user.name}</p>
-                </div>
-              )}
+              <div className="min-h-[36px] flex items-center">
+                <p className="text-xs font-bold text-slate-800 truncate">{user.name}</p>
+              </div>
             </div>
           </div>
 
+          {/* Alamat Rumah */}
           <div className="flex items-start gap-3">
             <div className="text-indigo-500 mt-0.5">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -193,22 +112,13 @@ export default function VerificationStatus() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 font-bold mb-0.5">Alamat Rumah</p>
-              {isEditing ? (
-                <input
-                  key="address-edit"
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full min-h-[36px] text-xs font-bold text-slate-500 bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 focus:text-violet-600 transition-colors leading-tight"
-                />
-              ) : (
-                <div key="address-view" className="min-h-[36px] flex items-center">
-                  <p className="text-xs font-bold text-slate-800 truncate">{user.address}</p>
-                </div>
-              )}
+              <div className="min-h-[36px] flex items-center">
+                <p className="text-xs font-bold text-slate-800 truncate">{user.address}</p>
+              </div>
             </div>
           </div>
 
+          {/* Email */}
           <div className="flex items-start gap-3">
             <div className="text-indigo-500 mt-0.5">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -217,22 +127,13 @@ export default function VerificationStatus() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 font-bold mb-0.5">Email</p>
-              {isEditing ? (
-                <input
-                  key="email-edit"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full min-h-[36px] text-xs font-bold text-slate-500 bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 focus:text-violet-600 transition-colors leading-tight"
-                />
-              ) : (
-                <div className="min-h-[36px] flex items-center">
-                  <p className="text-xs font-bold text-slate-800 truncate">{user.email}</p>
-                </div>
-              )}
+              <div className="min-h-[36px] flex items-center">
+                <p className="text-xs font-bold text-slate-800 truncate">{user.email}</p>
+              </div>
             </div>
           </div>
 
+          {/* Asal Instansi */}
           <div className="flex items-start gap-3">
             <div className="text-indigo-500 mt-0.5">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -241,22 +142,13 @@ export default function VerificationStatus() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 font-bold mb-0.5">Asal Instansi</p>
-              {isEditing ? (
-                <input
-                  key="institution-edit"
-                  type="text"
-                  value={institution}
-                  onChange={(e) => setInstitution(e.target.value)}
-                  className="w-full min-h-[36px] text-xs font-bold text-slate-500 bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 focus:text-violet-600 transition-colors leading-tight"
-                />
-              ) : (
-                <div key="institution-view" className="min-h-[36px] flex items-center">
-                  <p className="text-xs font-bold text-slate-800 truncate">{user.institution}</p>
-                </div>
-              )}
+              <div className="min-h-[36px] flex items-center">
+                <p className="text-xs font-bold text-slate-800 truncate">{user.institution}</p>
+              </div>
             </div>
           </div>
 
+          {/* Nomor Telepon */}
           <div className="flex items-start gap-3">
             <div className="text-indigo-500 mt-0.5">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -265,26 +157,13 @@ export default function VerificationStatus() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 font-bold mb-0.5">Nomor Telepon</p>
-              {isEditing ? (
-                <input
-                  key="phone-edit"
-                  type="text"
-                  value={phone}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (/^\d*$/.test(val)) setPhone(val);
-                  }}
-                  maxLength={14}
-                  className="w-full min-h-[36px] text-xs font-bold text-slate-500 bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 focus:text-violet-600 transition-colors leading-tight"
-                />
-              ) : (
-                <div key="phone-view" className="min-h-[36px] flex items-center">
-                  <p className="text-xs font-bold text-slate-800">{user.phone}</p>
-                </div>
-              )}
+              <div className="min-h-[36px] flex items-center">
+                <p className="text-xs font-bold text-slate-800">{user.phone}</p>
+              </div>
             </div>
           </div>
 
+          {/* Jurusan */}
           {user.role !== "mentor" && (
             <div className="flex items-start gap-3">
               <div className="text-indigo-500 mt-0.5">
@@ -295,83 +174,26 @@ export default function VerificationStatus() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] text-slate-400 font-bold mb-0.5">Jurusan</p>
-                {isEditing ? (
-                  <input
-                    key="major-edit"
-                    type="text"
-                    value={major}
-                    onChange={(e) => setMajor(e.target.value)}
-                    className="w-full min-h-[36px] text-xs font-bold text-slate-500 bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 focus:text-violet-600 transition-colors leading-tight"
-                  />
-                ) : (
-                  <div key="major-view" className="min-h-[36px] flex items-center">
-                    <p className="text-xs font-bold text-slate-800 truncate">{user.major || "-"}</p>
-                  </div>
-                )}
+                <div className="min-h-[36px] flex items-center">
+                  <p className="text-xs font-bold text-slate-800 truncate">{user.major || "-"}</p>
+                </div>
               </div>
             </div>
           )}
 
+        </div>
       </div>
 
       {/* Action Buttons */}
-      <div className="w-full flex gap-3">
-        {isPending ? (
-          <>
-            <button
-              onClick={() => {
-                if (isEditing) {
-                  setIsEditing(false);
-                  setName(user.name || "");
-                  setEmail(user.email || "");
-                  setPhone(user.phone || "");
-                  setAddress(user.address || "");
-                  setInstitution(user.institution || "");
-                  setMajor(user.major || "");
-                } else {
-                  setIsEditing(true);
-                }
-              }}
-              className={`flex-1 font-bold py-3 px-4 rounded-full transition-all duration-200 text-xs cursor-pointer text-center ${
-                isEditing 
-                  ? "bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-700"
-                  : "bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm"
-              }`}
-            >
-              {isEditing ? "Batalkan" : "Ubah Detail Profil"}
-            </button>
-
-            <button
-              onClick={isEditing ? handleSaveChanges : null}
-              disabled={!isEditing}
-              className={`flex-1 font-bold py-3 px-4 rounded-full transition-all duration-200 text-xs text-center ${
-                isEditing
-                  ? "bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white shadow-lg shadow-violet-100 hover:shadow-violet-200 cursor-pointer"
-                  : "bg-violet-300 text-white cursor-not-allowed opacity-70"
-              }`}
-            >
-              Simpan Perubahan
-            </button>
-
-            {!isEditing && (
-              <button
-                onClick={handleBack}
-                className="flex-1 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-700 font-bold py-3 px-4 rounded-full transition-all duration-200 text-xs cursor-pointer text-center"
-              >
-                Kembali
-              </button>
-            )}
-          </>
-        ) : (
-          <button
-            onClick={handleBack}
-            className="w-full bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-700 font-bold py-3 px-4 rounded-full transition-all duration-200 text-xs cursor-pointer text-center"
-          >
-            Kembali
-          </button>
-        )}
+      <div className="w-full">
+        <button
+          onClick={handleBack}
+          className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-3.5 px-6 rounded-full shadow-lg shadow-violet-100 hover:shadow-violet-200 transition-all duration-200 text-sm cursor-pointer text-center"
+        >
+          Kembali
+        </button>
       </div>
-    </div>
+
     </div>
   );
 }
