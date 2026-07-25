@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { createTask, updateTask } from "../../../../backend/tasks";
+import { createTask, updateTask, createTaskComment, createSubtask, updateSubtaskStatus, addHistory } from "../../../../backend/tasks";
+import { getActiveUser } from "../../../../backend/auth";
 
 const parseTaskDate = (dateStr) => {
   if (!dateStr) return null;
@@ -253,13 +254,6 @@ export default function GlobalTaskModals({
 
   const updateAndSaveTasks = (newTasksList) => {
     setTasks(newTasksList);
-    if (typeof window !== "undefined" && team?.id) {
-      try {
-        localStorage.setItem(`sipantau_team_tasks_${team.id}`, JSON.stringify(newTasksList));
-      } catch (e) {
-        console.error("Failed to save tasks to localStorage:", e);
-      }
-    }
   };
 
   const handleUpdateTaskField = (field, value) => {
@@ -293,6 +287,11 @@ export default function GlobalTaskModals({
       // Do not add duplicate
     } else {
       updatedRiwayat = [newHistory, ...updatedRiwayat];
+      
+      // Save history entry to DB (fire and forget, don't block the UI)
+      addHistory(selectedTask.id, newHistory).catch(e => {
+        console.warn("Failed to save history to DB:", e);
+      });
     }
 
     const updated = { ...selectedTask, ...updates, riwayat: updatedRiwayat };
@@ -337,36 +336,84 @@ export default function GlobalTaskModals({
     addToast(toastMsg, "info");
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim() || !selectedTask) return;
     const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
-    const comment = { name: activeUserName, text: newComment };
-    const updated = {
-      ...selectedTask,
-      komentar: [...selectedTask.komentar, comment],
-    };
-    setSelectedTask(updated);
-    updateAndSaveTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
-    setNewComment("");
-    addToast("Komentar berhasil ditambahkan.", "info");
+    
+    try {
+      // Save to DB
+      const user = await getActiveUser();
+      const userId = user?.id;
+      const dbComment = await createTaskComment(selectedTask.id, userId, newComment);
+      
+      const comment = { 
+        id: dbComment.id, 
+        name: activeUserName, 
+        text: newComment,
+        created_at: dbComment.created_at
+      };
+      const updated = {
+        ...selectedTask,
+        komentar: [...selectedTask.komentar, comment],
+      };
+      setSelectedTask(updated);
+      updateAndSaveTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+      setNewComment("");
+      addToast("Komentar berhasil ditambahkan.", "info");
+    } catch (e) {
+      console.error("Gagal menambahkan komentar:", e);
+      addToast("Gagal menambahkan komentar.", "warning");
+    }
   };
 
-  const handleAddSubtask = () => {
+  const handleAddSubtask = async () => {
     if (!newSubtaskName.trim() || !selectedTask) return;
-    const currentSubtasks = selectedTask.subtugas || [];
-    const updatedSubtasks = [...currentSubtasks, { title: newSubtaskName, done: false }];
-    handleUpdateTaskField("subtugas", updatedSubtasks);
-    setIsAddingSubtask(false);
-    setNewSubtaskName("");
+    
+    try {
+      // Save to DB first
+      const dbSubtask = await createSubtask(selectedTask.id, newSubtaskName);
+      
+      const currentSubtasks = selectedTask.subtugas || [];
+      const updatedSubtasks = [...currentSubtasks, { 
+        id: dbSubtask.id, 
+        title: newSubtaskName, 
+        done: false 
+      }];
+      
+      const updated = { ...selectedTask, subtugas: updatedSubtasks };
+      setSelectedTask(updated);
+      updateAndSaveTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+      setIsAddingSubtask(false);
+      setNewSubtaskName("");
+      addToast("Subtugas berhasil ditambahkan.", "info");
+    } catch (e) {
+      console.error("Gagal menambahkan subtugas:", e);
+      addToast("Gagal menambahkan subtugas.", "warning");
+    }
   };
 
-  const handleToggleSubtask = (index) => {
+  const handleToggleSubtask = async (index) => {
     if (!selectedTask) return;
     const currentSubtasks = selectedTask.subtugas || [];
-    const updatedSubtasks = currentSubtasks.map((st, i) => 
-      i === index ? { ...st, done: !st.done } : st
-    );
-    handleUpdateTaskField("subtugas", updatedSubtasks);
+    const target = currentSubtasks[index];
+    if (!target || !target.id) return;
+    
+    const newDone = !target.done;
+    
+    try {
+      // Update DB
+      await updateSubtaskStatus(target.id, newDone);
+      
+      const updatedSubtasks = currentSubtasks.map((st, i) => 
+        i === index ? { ...st, done: newDone } : st
+      );
+      const updated = { ...selectedTask, subtugas: updatedSubtasks };
+      setSelectedTask(updated);
+      updateAndSaveTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
+    } catch (e) {
+      console.error("Gagal mengubah status subtugas:", e);
+      addToast("Gagal mengubah status subtugas.", "warning");
+    }
   };
 
   const handleDeleteTask = (id) => {

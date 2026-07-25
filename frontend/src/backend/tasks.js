@@ -186,6 +186,25 @@ export async function deleteTask(taskId) {
 }
 
 /**
+ * Add a history entry for a task (for frontend display in riwayat)
+ */
+export async function addHistory(taskId, { name, text, time }) {
+  const { data, error } = await supabase
+    .from("task_history")
+    .insert({
+      task_id: taskId,
+      name,
+      text,
+      time: time || "baru saja"
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { id: data.id, name: data.name, text: data.text, time: data.time, created_at: data.created_at };
+}
+
+/**
  * Update a task
  */
 export async function updateTask(taskId, taskData) {
