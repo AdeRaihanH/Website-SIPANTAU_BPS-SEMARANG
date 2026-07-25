@@ -9,8 +9,10 @@ import TabList from "./TabList";
 import TabPapan from "./TabPapan";
 import TabKalender from "./TabKalender";
 import GlobalTaskModals from "./GlobalTaskModals";
+import { supabase } from "../../../../backend/client";
 import { getActiveUser, getProfile } from "../../../../backend/auth";
-import { getGroupDetails, deleteGroup } from "../../../../backend/groups";
+import { getGroupDetails, deleteGroup, addGroupMember, removeGroupMember } from "../../../../backend/groups";
+import { getAllUsers } from "../../../../backend/admin";
 import { deleteTask } from "../../../../backend/tasks";
 
 
@@ -42,6 +44,8 @@ export default function TeamDetailPage({ params }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isAddingTask, setIsAddingTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
+  const reloadTimerRef = React.useRef(null);
 
   // Load backend data
   const loadData = async () => {
@@ -65,49 +69,97 @@ export default function TeamDetailPage({ params }) {
       setTeam(mappedTeam);
 
       // The backend returns tasks inside teamDetails. Let's map them to the frontend format.
-      const mappedTasks = (teamDetails.tasks || []).map(t => ({
-        id: t.id,
-        title: t.title,
-        desc: t.description || "",
-        date: t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' }) : "",
-        type: t.type || "Tugas",
-        priority: t.priority === "high" ? "Tinggi" : t.priority === "medium" ? "Sedang" : t.priority === "urgent" ? "Tertinggi" : "Rendah",
-        status: t.status === "completed" ? "done" : t.status === "in_progress" ? "inprogress" : "todo",
-        done: t.status === "completed",
-        orang: t.assigned_to ? (mappedTeam.membersList.find(m => m.id === t.assigned_to)?.full_name ? [mappedTeam.membersList.find(m => m.id === t.assigned_to).full_name.charAt(0).toUpperCase()] : []) : [],
-        assigned_to: t.assigned_to,
-        riwayat: [],
-        komentar: [],
-        subtugas: []
-      }));
+      const mappedTasks = (teamDetails.tasks || []).map(t => {
+        // Map komentar from task_comments
+        const komentar = (t.task_comments || [])
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+          .map(c => ({
+            id: c.id,
+            name: c.user?.full_name || "User",
+            text: c.content,
+            created_at: c.created_at,
+            avatar_url: c.user?.avatar_url || null
+          }));
 
-      // Get blacklist of deleted task IDs for this team
-      let deletedTaskIds = [];
-      if (typeof window !== "undefined" && teamId) {
-        try {
-          deletedTaskIds = JSON.parse(localStorage.getItem(`sipantau_deleted_task_ids_${teamId}`) || "[]");
-        } catch (e) { }
-      }
+        // Map subtugas from subtasks
+        const subtugas = (t.subtasks || []).map(s => ({
+          id: s.id,
+          title: s.title,
+          done: s.is_completed
+        }));
 
-      // Merge with localStorage persisted tasks for this team
-      let localTasks = [];
-      if (typeof window !== "undefined" && teamId) {
-        try {
-          const stored = localStorage.getItem(`sipantau_team_tasks_${teamId}`);
-          if (stored) localTasks = JSON.parse(stored);
-        } catch (e) { }
-      }
+        // Map riwayat from task_history
+        const riwayat = (t.task_history || [])
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          .map(h => ({
+            id: h.id,
+            name: h.name,
+            text: h.text,
+            time: h.time,
+            created_at: h.created_at
+          }));
 
-      const combinedMap = new Map();
-      mappedTasks.forEach(t => {
-        if (!deletedTaskIds.includes(t.id)) combinedMap.set(t.id, t);
+        // Map assignees (initial letters for avatar display)
+        let orang = [];
+        if (t.assigned_to && mappedTeam.membersList) {
+          const found = mappedTeam.membersList.find(m => m.id === t.assigned_to);
+          if (found && found.full_name) {
+            orang = [found.full_name.charAt(0).toUpperCase()];
+          }
+        }
+        // Also check for assignees array (supports multiple)
+        if (t.assignees && Array.isArray(t.assignees)) {
+          orang = t.assignees.map(aid => {
+            const found = mappedTeam.membersList.find(m => m.id === aid);
+            return found && found.full_name ? found.full_name.charAt(0).toUpperCase() : null;
+          }).filter(Boolean);
+        }
+
+        // Map priority from DB format to frontend
+        const prioMap = {
+          'high': 'Tinggi',
+          'medium': 'Sedang',
+          'low': 'Rendah',
+          'urgent': 'Tertinggi',
+          'critical': 'Tertinggi'
+        };
+        
+        // Map status from DB format to frontend
+        const statusMap = {
+          'completed': 'done',
+          'in_progress': 'inprogress',
+          'in_review': 'review',
+          'todo': 'todo',
+          'done': 'done'
+        };
+
+        return {
+          id: t.id,
+          title: t.title,
+          desc: t.description || "",
+          date: t.due_date ? new Date(t.due_date).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' }) : "",
+          type: t.type || "Tugas",
+          priority: prioMap[t.priority] || (['Tertinggi','Tinggi','Sedang','Rendah','Terendah'].includes(t.priority) ? t.priority : 'Rendah'),
+          status: statusMap[t.status] || (['todo','inprogress','review','done'].includes(t.status) ? t.status : 'todo'),
+          done: t.status === 'completed' || t.status === 'done',
+          orang: orang,
+          assigned_to: t.assigned_to,
+          riwayat: riwayat,
+          komentar: komentar,
+          subtugas: subtugas
+        };
       });
-      localTasks.forEach(t => {
-        if (!deletedTaskIds.includes(t.id)) combinedMap.set(t.id, t);
-      });
 
-      const mergedTasks = Array.from(combinedMap.values());
-      setTasks(mergedTasks);
+      // Set tasks langsung dari database (tanpa localStorage caching)
+      setTasks(mappedTasks);
+
+      // Fetch all registered users from DB for member management
+      try {
+        const users = await getAllUsers();
+        setAllUsers(users || []);
+      } catch (e) {
+        console.warn("Gagal memuat daftar pengguna:", e);
+      }
 
     } catch (e) {
       console.error("Gagal memuat detail kelompok:", e);
@@ -137,22 +189,89 @@ export default function TeamDetailPage({ params }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [teamId]);
 
+  // ========== REALTIME SUBSCRIPTION & PERIODIC POLLING ==========
+  useEffect(() => {
+    if (!teamId) return;
+
+    const scheduleReload = () => {
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      reloadTimerRef.current = setTimeout(() => {
+        loadData();
+        reloadTimerRef.current = null;
+      }, 500);
+    };
+
+    // 1. Subscribe to changes on tasks table for this group
+    const tasksChannel = supabase
+      .channel(`tasks-${teamId}`)
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'tasks',
+          filter: `group_id=eq.${teamId}`
+        }, scheduleReload)
+      .subscribe();
+
+    // 2. Subscribe to subtasks changes (any subtask belonging to tasks in this group)
+    const subtasksChannel = supabase
+      .channel(`subtasks-${teamId}`)
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'subtasks'
+        }, scheduleReload)
+      .subscribe();
+
+    // 3. Subscribe to task_comments changes
+    const commentsChannel = supabase
+      .channel(`comments-${teamId}`)
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'task_comments'
+        }, scheduleReload)
+      .subscribe();
+
+    // 4. Subscribe to task_history changes
+    const historyChannel = supabase
+      .channel(`history-${teamId}`)
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'task_history'
+        }, scheduleReload)
+      .subscribe();
+
+    // 5. Subscribe to group_members changes (team members added/removed)
+    const membersChannel = supabase
+      .channel(`members-${teamId}`)
+      .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'group_members',
+          filter: `group_id=eq.${teamId}`
+        }, scheduleReload)
+      .subscribe();
+
+    // 6. Periodic polling fallback (every 30 seconds)
+    const pollInterval = setInterval(() => {
+      loadData();
+    }, 30000);
+
+    // Cleanup
+    return () => {
+      supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(subtasksChannel);
+      supabase.removeChannel(commentsChannel);
+      supabase.removeChannel(historyChannel);
+      supabase.removeChannel(membersChannel);
+      clearInterval(pollInterval);
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current);
+        reloadTimerRef.current = null;
+      }
+    };
+  }, [teamId]);
+
   const isMentorOrAdmin = isMentor || isAdmin;
 
-  const availableMembers = [
-    { id: "A", name: "Aisha Alida Putri", initial: "A" },
-    { id: "M", name: "Myesha Azka Hafizha", initial: "M" },
-    { id: "N", name: "Nurul Kumala", initial: "N" },
-    { id: "B", name: "Budi Santoso", initial: "B" },
-    { id: "R", name: "Rizky Firmansyah", initial: "R" },
-    { id: "H", name: "Hendra Setiawan", initial: "H" },
-    { id: "C", name: "Citra Kirana", initial: "C" },
-    { id: "D", name: "Dewi Lestari", initial: "D" },
-    { id: "E", name: "Eko Prasetyo", initial: "E" },
-    { id: "F", name: "Fajar Nugraha", initial: "F" },
-    { id: "G", name: "Gita Savitri", initial: "G" },
-    { id: "I", name: "Indra Maulana", initial: "I" },
-  ];
+  // Available members berasal dari database (semua user terdaftar)
+  const availableMembers = allUsers.map(u => ({
+    id: u.id,
+    name: u.full_name || u.email || "User",
+    initial: (u.full_name || "?").charAt(0).toUpperCase(),
+    avatar_url: u.avatar_url || null
+  }));
 
   const tabs = [
     {
@@ -284,9 +403,15 @@ export default function TeamDetailPage({ params }) {
                             </div>
                             {isMember ? (
                               <button
-                                onClick={async () => {
-                                  // Add remove member logic if we have an API for it
-                                  alert("Menghapus member dari UI ini belum diimplementasi di API");
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await removeGroupMember(team.id, m.id);
+                                    // Reload data
+                                    loadData();
+                                  } catch (err) {
+                                    console.error("Gagal menghapus anggota:", err);
+                                  }
                                 }}
                                 className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
                               >
@@ -294,8 +419,15 @@ export default function TeamDetailPage({ params }) {
                               </button>
                             ) : (
                               <button
-                                onClick={async () => {
-                                  alert("Menambah member dari UI ini belum diimplementasi di API");
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await addGroupMember(team.id, m.id);
+                                    // Reload data
+                                    loadData();
+                                  } catch (err) {
+                                    console.error("Gagal menambah anggota:", err);
+                                  }
                                 }}
                                 className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
                               >
@@ -481,17 +613,6 @@ export default function TeamDetailPage({ params }) {
                     deleteTask(taskToDelete.id).catch(e => console.warn("Supabase deleteTask error:", e));
                     const newTasksList = tasks.filter(t => t.id !== taskToDelete.id);
                     setTasks(newTasksList);
-                    if (typeof window !== "undefined" && teamId) {
-                      localStorage.setItem(`sipantau_team_tasks_${teamId}`, JSON.stringify(newTasksList));
-
-                      try {
-                        const deletedIds = JSON.parse(localStorage.getItem(`sipantau_deleted_task_ids_${teamId}`) || "[]");
-                        if (!deletedIds.includes(taskToDelete.id)) {
-                          deletedIds.push(taskToDelete.id);
-                          localStorage.setItem(`sipantau_deleted_task_ids_${teamId}`, JSON.stringify(deletedIds));
-                        }
-                      } catch (e) { }
-                    }
                     setTaskToDelete(null);
                     setSelectedTask(null);
 
