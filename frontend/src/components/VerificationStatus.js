@@ -22,8 +22,8 @@ export default function VerificationStatus() {
       if (foundUser) {
         setUser(foundUser);
 
-        // If approved, redirect them to dashboard
-        if (foundUser.status === "approved") {
+        // If approved (active), redirect them to dashboard
+        if (foundUser.status === "active") {
           router.push("/dashboard");
         }
       } else {
