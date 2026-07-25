@@ -58,6 +58,20 @@ input[type="password"]::-webkit-clear-button {
   display: none;
 }
 
+/* Ensure all interactive elements show pointer cursor */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+label {
+  cursor: pointer;
+}
+
+/* Non-interactive elements keep default cursor */
+button:disabled,
+[role="button"]:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Custom Scrollbar for compact lists */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
