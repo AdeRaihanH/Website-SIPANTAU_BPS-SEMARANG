@@ -20,12 +20,12 @@ const memberColors = ["bg-violet-400", "bg-emerald-400", "bg-amber-400", "bg-ros
 export default function TeamDetailPage({ params }) {
   const unwrappedParams = React.use ? React.use(params) : params;
   const teamId = unwrappedParams?.id;
-  
+
   const [team, setTeam] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [showTeamMembersDrop, setShowTeamMembersDrop] = useState(false);
   const teamMembersRef = React.useRef(null);
-  
+
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isMentor, setIsMentor] = useState(false);
@@ -34,7 +34,7 @@ export default function TeamDetailPage({ params }) {
   const [showAddMemberDrop, setShowAddMemberDrop] = useState(false);
   const [showTeamActionsDrop, setShowTeamActionsDrop] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
-  
+
   const addMemberRef = React.useRef(null);
   const teamActionsRef = React.useRef(null);
 
@@ -57,13 +57,13 @@ export default function TeamDetailPage({ params }) {
       }
 
       const teamDetails = await getGroupDetails(teamId);
-      
+
       const mappedTeam = {
         ...teamDetails,
         membersList: (teamDetails.group_members || []).map(gm => gm.profiles)
       };
       setTeam(mappedTeam);
-      
+
       // The backend returns tasks inside teamDetails. Let's map them to the frontend format.
       const mappedTasks = (teamDetails.tasks || []).map(t => ({
         id: t.id,
@@ -86,7 +86,7 @@ export default function TeamDetailPage({ params }) {
       if (typeof window !== "undefined" && teamId) {
         try {
           deletedTaskIds = JSON.parse(localStorage.getItem(`sipantau_deleted_task_ids_${teamId}`) || "[]");
-        } catch(e) {}
+        } catch (e) { }
       }
 
       // Merge with localStorage persisted tasks for this team
@@ -95,7 +95,7 @@ export default function TeamDetailPage({ params }) {
         try {
           const stored = localStorage.getItem(`sipantau_team_tasks_${teamId}`);
           if (stored) localTasks = JSON.parse(stored);
-        } catch(e) {}
+        } catch (e) { }
       }
 
       const combinedMap = new Map();
@@ -123,11 +123,11 @@ export default function TeamDetailPage({ params }) {
         setActiveTab(savedTab);
       }
     }
-    
+
     function handleClickOutside(event) {
-      if (teamMembersRef.current && !teamMembersRef.current.contains(event.target) && 
-          addMemberRef.current && !addMemberRef.current.contains(event.target) &&
-          teamActionsRef.current && !teamActionsRef.current.contains(event.target)) {
+      if (teamMembersRef.current && !teamMembersRef.current.contains(event.target) &&
+        addMemberRef.current && !addMemberRef.current.contains(event.target) &&
+        teamActionsRef.current && !teamActionsRef.current.contains(event.target)) {
         setShowTeamMembersDrop(false);
         setShowAddMemberDrop(false);
         setShowTeamActionsDrop(false);
@@ -214,7 +214,7 @@ export default function TeamDetailPage({ params }) {
         </div>
 
         <div className="relative flex items-center gap-1" ref={teamMembersRef}>
-          <div 
+          <div
             className="flex -space-x-2 cursor-pointer hover:opacity-90 transition-opacity mr-2"
             onClick={() => {
               if (isMentorOrAdmin) {
@@ -238,10 +238,10 @@ export default function TeamDetailPage({ params }) {
               );
             })}
           </div>
-          
+
           {isMentorOrAdmin && (
             <div className="relative" ref={addMemberRef}>
-              <div 
+              <div
                 onClick={() => {
                   setShowAddMemberDrop(!showAddMemberDrop);
                   setShowTeamMembersDrop(false);
@@ -251,7 +251,7 @@ export default function TeamDetailPage({ params }) {
               >
                 +
               </div>
-              
+
               {/* Manage Members Dropdown */}
               {showAddMemberDrop && (
                 <div className="absolute top-full right-0 mt-2 bg-white border border-slate-100 shadow-xl rounded-xl p-3 z-[100] w-64 text-left">
@@ -267,44 +267,44 @@ export default function TeamDetailPage({ params }) {
                     {availableMembers
                       .filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()))
                       .map((m, idx) => {
-                      const isMember = team.membersList.some(mem => mem.id === m.id);
-                      let avatar = userAvatars[m.id];
+                        const isMember = team.membersList.some(mem => mem.id === m.id);
+                        let avatar = userAvatars[m.id];
 
-                      return (
-                        <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
-                          <div className="flex items-center gap-3">
-                            {avatar ? (
-                              <img src={avatar} alt={m.id} className="w-6 h-6 rounded-full object-cover shadow-sm shrink-0" />
+                        return (
+                          <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+                            <div className="flex items-center gap-3">
+                              {avatar ? (
+                                <img src={avatar} alt={m.id} className="w-6 h-6 rounded-full object-cover shadow-sm shrink-0" />
+                              ) : (
+                                <div className={`w-6 h-6 rounded-full ${memberColors[idx % memberColors.length]} flex items-center justify-center text-white text-[9px] font-bold shadow-sm shrink-0`}>
+                                  {m.id}
+                                </div>
+                              )}
+                              <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
+                            </div>
+                            {isMember ? (
+                              <button
+                                onClick={async () => {
+                                  // Add remove member logic if we have an API for it
+                                  alert("Menghapus member dari UI ini belum diimplementasi di API");
+                                }}
+                                className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
                             ) : (
-                              <div className={`w-6 h-6 rounded-full ${memberColors[idx % memberColors.length]} flex items-center justify-center text-white text-[9px] font-bold shadow-sm shrink-0`}>
-                                {m.id}
-                              </div>
+                              <button
+                                onClick={async () => {
+                                  alert("Menambah member dari UI ini belum diimplementasi di API");
+                                }}
+                                className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                              </button>
                             )}
-                            <span className="text-[11px] font-bold text-slate-700">{m.name}</span>
                           </div>
-                          {isMember ? (
-                            <button 
-                              onClick={async () => {
-                                // Add remove member logic if we have an API for it
-                                alert("Menghapus member dari UI ini belum diimplementasi di API");
-                              }}
-                              className="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Hapus Anggota"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={async () => {
-                                alert("Menambah member dari UI ini belum diimplementasi di API");
-                              }}
-                              className="text-slate-300 hover:text-emerald-500 transition-colors p-1" title="Tambah Anggota"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 </div>
               )}
@@ -325,18 +325,18 @@ export default function TeamDetailPage({ params }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
                 </svg>
               </button>
-              
+
               {/* Team Actions Dropdown */}
               {showTeamActionsDrop && (
                 <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-slate-100 shadow-xl rounded-xl p-1.5 z-[60]">
-                  <button 
+                  <button
                     onClick={() => setShowTeamActionsDrop(false)}
                     className="flex items-center justify-between px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-violet-600 transition-colors text-left w-full rounded-lg cursor-pointer"
                   >
                     Edit Kelompok
                     <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
                   </button>
-                  <button 
+                  <button
                     onClick={async () => {
                       if (window.confirm("Hapus kelompok ini?")) {
                         try {
@@ -356,7 +356,7 @@ export default function TeamDetailPage({ params }) {
               )}
             </div>
           )}
-          
+
           {(!isMentorOrAdmin && showTeamMembersDrop) && (
             <div className="absolute top-full right-0 mt-2 bg-white border border-slate-100 shadow-xl rounded-xl p-3 z-[100] w-64 text-left">
               <div className="text-center text-xs font-bold text-slate-700 mb-3 pb-2 border-b border-slate-100">Anggota Kelompok</div>
@@ -364,7 +364,7 @@ export default function TeamDetailPage({ params }) {
                 {team.membersList.map((m, idx) => {
                   let fullName = m.full_name;
                   let avatar = m.avatar_url;
-                  
+
                   if (currentUser && m.id === currentUser.id) {
                     fullName += " (Anda)";
                   }
@@ -401,8 +401,8 @@ export default function TeamDetailPage({ params }) {
               }
             }}
             className={`flex-1 pb-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-all ${activeTab === tab.id
-                ? "border-violet-600 text-violet-700"
-                : "border-transparent text-slate-400 hover:text-slate-600"
+              ? "border-violet-600 text-violet-700"
+              : "border-transparent text-slate-400 hover:text-slate-600"
               }`}
           >
             <span className="text-base">{tab.icon}</span>
@@ -457,7 +457,7 @@ export default function TeamDetailPage({ params }) {
 
       {/* Custom Delete Confirmation Modal */}
       {taskToDelete && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[1000000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-rose-50 flex items-center justify-center text-rose-500">
               <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -490,7 +490,7 @@ export default function TeamDetailPage({ params }) {
                           deletedIds.push(taskToDelete.id);
                           localStorage.setItem(`sipantau_deleted_task_ids_${teamId}`, JSON.stringify(deletedIds));
                         }
-                      } catch(e) {}
+                      } catch (e) { }
                     }
                     setTaskToDelete(null);
                     setSelectedTask(null);

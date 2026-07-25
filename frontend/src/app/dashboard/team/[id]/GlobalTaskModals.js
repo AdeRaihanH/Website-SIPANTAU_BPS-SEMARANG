@@ -506,8 +506,8 @@ export default function GlobalTaskModals({
     switch (activeDropdown) {
       case "jenis":
         return (
-          <div id="sipantau-floating-dropdown" style={style} className="bg-white border border-slate-150 rounded-[1.5rem] shadow-xl p-4 space-y-3 w-64 text-left">
-            <div className="text-center text-xs font-bold text-slate-700">Jenis Tugas</div>
+          <div id="sipantau-floating-dropdown" style={style} className="bg-white border border-slate-150 rounded-2xl shadow-xl p-3 space-y-2 w-52 text-left">
+            <div className="text-center text-xs font-bold text-slate-700 mt-1">Jenis Tugas</div>
             <input
               type="text"
               placeholder="Cari jenis tugas..."
@@ -561,8 +561,8 @@ export default function GlobalTaskModals({
         );
       case "prioritas":
         return (
-          <div id="sipantau-floating-dropdown" style={style} className="bg-white border border-slate-150 rounded-[1.5rem] shadow-xl p-4 w-60 text-left">
-            <div className="space-y-2">
+          <div id="sipantau-floating-dropdown" style={style} className="bg-white border border-slate-150 rounded-2xl shadow-xl p-3 w-48 text-left">
+            <div className="space-y-1.5">
               {["Terendah", "Rendah", "Sedang", "Tinggi", "Tertinggi"].map((prio) => (
                 <button
                   key={prio}
@@ -582,8 +582,8 @@ export default function GlobalTaskModals({
         );
       case "penerima":
         return (
-          <div id="sipantau-floating-dropdown" style={style} className="bg-white border border-slate-100 rounded-2xl shadow-xl p-3 space-y-1.5 w-60 text-left">
-            <div className="text-center text-xs font-bold text-slate-700 mb-2">Anggota</div>
+          <div id="sipantau-floating-dropdown" style={style} className="bg-white border border-slate-100 rounded-2xl shadow-xl p-3 space-y-1.5 w-52 text-left">
+            <div className="text-center text-xs font-bold text-slate-700 mb-1">Anggota</div>
             <input
               type="text"
               placeholder="Cari anggota..."
@@ -826,7 +826,12 @@ export default function GlobalTaskModals({
       if (top + modalHeight > window.innerHeight - padding) {
         top = (rect.top || 100) - modalHeight - 6;
       }
-      left = rect.left + ((rect.width || 0) / 2) - (modalWidth / 2);
+      
+      if (rect.right && (rect.right > window.innerWidth / 2)) {
+        left = rect.right - modalWidth;
+      } else {
+        left = rect.left + ((rect.width || 0) / 2) - (modalWidth / 2);
+      }
     }
 
     // Strict Viewport Clamping
@@ -1307,9 +1312,10 @@ export default function GlobalTaskModals({
                   }
                   const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
                   
-                  let dbStatus = typeof isAddingTask === "object" && isAddingTask.status ? isAddingTask.status : (addStatus || "todo");
-                  if (dbStatus === "done" || dbStatus === "completed") dbStatus = "done";
-                  else if (dbStatus === "inprogress") dbStatus = "in_progress";
+                  let localUiStatus = typeof isAddingTask === "object" && isAddingTask.status ? isAddingTask.status : (addStatus || "todo");
+                  let dbStatus = localUiStatus;
+                  if (localUiStatus === "done" || localUiStatus === "completed") { dbStatus = "done"; localUiStatus = "done"; }
+                  else if (localUiStatus === "inprogress") { dbStatus = "in_progress"; localUiStatus = "inprogress"; }
 
                   const mappedPriority = addPriority === "Tertinggi" ? "urgent" : addPriority === "Tinggi" ? "high" : addPriority === "Sedang" ? "medium" : "low";
 
@@ -1355,8 +1361,8 @@ export default function GlobalTaskModals({
                     date: addDate,
                     type: addType,
                     priority: addPriority,
-                    status: dbStatus,
-                    done: dbStatus === "completed" || dbStatus === "done",
+                    status: localUiStatus,
+                    done: localUiStatus === "completed" || localUiStatus === "done",
                     orang: addOrang.length > 0 ? addOrang : [],
                     riwayat: [{ name: activeUserName, text: "telah menambahkan tugas baru", time: "baru saja" }],
                     komentar: [],

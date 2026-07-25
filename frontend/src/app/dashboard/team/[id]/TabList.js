@@ -126,7 +126,7 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
                     onClick={() => setSelectedTask(task)}
                     className="text-xs text-slate-600 hover:bg-slate-50/50 transition-colors cursor-pointer"
                   >
-                    <td className="py-3">
+                    <td className="py-3" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={task.done}
