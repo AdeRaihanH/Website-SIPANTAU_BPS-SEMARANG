@@ -164,8 +164,12 @@ export async function createTask(taskData) {
   }
 
   // Try getting current active user to log activity
-  const { data } = await supabase.auth.getUser().catch(() => ({ data: {} }));
-  const user = data?.user;
+  const { getActiveUser, getProfile } = await import('./auth.js');
+  const user = await getActiveUser().catch(() => null);
+  let profile = null;
+  if (user && user.id) {
+    profile = await getProfile(user.id).catch(() => null);
+  }
 
   const { data: insertedTask, error } = await supabase
     .from("tasks")
@@ -175,28 +179,18 @@ export async function createTask(taskData) {
 
   if (error) throw error;
 
-  // Log activity if user is authenticated
   if (user && user.id) {
-    try {
-      const { logActivity } = await import('./dashboard.js');
-      await logActivity(user.id, `telah membuat penugasan baru`, insertedTask.id, cleanData.group_id || insertedTask.group_id);
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .single();
-
-      const userName = profile?.full_name || user.email || "User";
-      await supabase.from("task_history").insert({
-        task_id: insertedTask.id,
-        name: userName,
-        text: "telah menambahkan tugas baru",
-        time: "baru saja"
-      }).catch(() => null);
-    } catch (e) {
-      console.warn("Log activity for createTask failed silently:", e);
-    }
+    const { logActivity } = await import('./dashboard.js');
+    await logActivity(user.id, `telah menambahkan tugas baru`, insertedTask.id, insertedTask.group_id);
+    
+    // SIMULTANEOUSLY save to task_history so everyone in the team gets this in baseLogs!
+    const displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || "Anggota Tim";
+    await supabase.from("task_history").insert({
+      task_id: insertedTask.id,
+      name: displayName,
+      text: "telah menambahkan tugas baru",
+      time: "baru saja"
+    });
   }
 
   return insertedTask;
@@ -205,7 +199,69 @@ export async function createTask(taskData) {
 /**
  * Delete a task
  */
-export async function deleteTask(taskId) {
+export async function deleteTask(taskId, userId, groupId, taskTitle) {
+  let finalUserId = userId;
+  if (!finalUserId) {
+    try {
+      const { getActiveUser } = await import('./auth.js');
+      const user = await getActiveUser();
+      if (user) finalUserId = user.id;
+    } catch (e) {}
+  }
+
+  // Rescue logs to prevent ON DELETE CASCADE from wiping them!
+  try {
+    // 1. Fetch existing activity logs for this task
+    const { data: actLogs } = await supabase.from("activity_logs").select("*").eq("task_id", taskId);
+    const existingDescs = new Set();
+    
+    if (actLogs && actLogs.length > 0) {
+      for (const al of actLogs) {
+        let desc = al.description || "";
+        existingDescs.add(desc);
+        if (taskTitle && !desc.includes(taskTitle)) desc = `${desc} ${taskTitle}`;
+        existingDescs.add(desc);
+        await supabase.from("activity_logs").update({ task_id: null, description: desc }).eq("id", al.id);
+      }
+    }
+
+    // 2. Backup missing rich UI task_history into activity_logs
+    const { data: histories } = await supabase.from("task_history").select("*").eq("task_id", taskId);
+    if (histories && histories.length > 0 && finalUserId) {
+      const savedLogs = [];
+      for (const h of histories) {
+        let desc = h.text;
+        if (taskTitle && !desc.includes(taskTitle)) desc = `${desc} ${taskTitle}`;
+        
+        // Prevent duplicates
+        if (!existingDescs.has(desc) && !existingDescs.has(h.text)) {
+          savedLogs.push({
+            user_id: finalUserId,
+            description: desc,
+            group_id: groupId,
+            created_at: h.created_at
+          });
+        }
+      }
+      if (savedLogs.length > 0) {
+        await supabase.from("activity_logs").insert(savedLogs);
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to rescue task logs:", err);
+  }
+
+  // 3. Log active deletion
+  if (finalUserId) {
+    try {
+      const { logActivity } = await import('./dashboard.js');
+      await logActivity(finalUserId, `telah menghapus tugas ${taskTitle || ""}`.trim(), null, groupId);
+    } catch (e) {
+      console.warn("Failed to log activity for deletion", e);
+    }
+  }
+
+  // 4. Truly delete the task
   const { error } = await supabase
     .from("tasks")
     .delete()

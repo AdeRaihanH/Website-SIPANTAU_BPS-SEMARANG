@@ -37,7 +37,10 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
     const newStatus = newDone ? "done" : "todo";
     const dbStatus = newDone ? "done" : "todo";
     
-    const updatedTasksList = tasks.map((t) => t.id === id ? { ...t, done: newDone, status: newStatus } : t);
+    const activeUserName = typeof window !== "undefined" ? (localStorage.getItem("sipantau_name") || "Andi Basudara") : "Andi Basudara";
+    const newHistory = { name: activeUserName, text: "telah mengubah status tugas", time: "baru saja", created_at: new Date().toISOString() };
+    
+    const updatedTasksList = tasks.map((t) => t.id === id ? { ...t, done: newDone, status: newStatus, riwayat: [newHistory, ...(t.riwayat || [])] } : t);
     setTasks(updatedTasksList);
 
     if (typeof window !== "undefined") {
@@ -45,6 +48,10 @@ export default function TabList({ tasks, setTasks, setSelectedTask, setIsAddingT
         detail: { message: newDone ? "Tugas ditandai selesai." : "Tugas dikembalikan ke Belum Selesai.", type: "info" }
       }));
     }
+
+    import("../../../../backend/tasks").then(mod => {
+      mod.addHistory(id, newHistory).catch(err => console.warn(err));
+    });
 
     updateTask(id, { status: dbStatus }).catch(err => {
       console.warn("Supabase updateTask checkbox error:", err);

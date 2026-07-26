@@ -446,14 +446,14 @@ export default function Dashboard() {
             {/* Log Akun - Admin */}
             <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-4">
               <div className="border-b border-slate-50 pb-4">
-                <h3 className="text-sm font-extrabold text-slate-800">Log Akun</h3>
+                <h3 className="text-sm font-extrabold text-slate-800 notranslate" translate="no">Log Akun</h3>
                 <p className="text-[11px] text-slate-400 font-medium mt-1">Informasi terbaru mengenai akun dan aktivitas admin SIPANTAU.</p>
               </div>
 
               <div className="divide-y divide-slate-50/80 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
                 {(() => {
-                  // Merge user registrations with admin activity logs, sorted by date
-                  const userLogs = [...adminUsers].reverse().map(u => ({
+                  // Render only user registration and verification status logs
+                  const userLogs = [...adminUsers].map(u => ({
                     type: "user",
                     id: u.id,
                     full_name: u.full_name,
@@ -461,22 +461,11 @@ export default function Dashboard() {
                     status: u.status,
                     role: u.role,
                     created_at: u.created_at,
-                  }));
-                  const actionLogs = adminActivityLogs
-                    .filter(log => !log.task_id) // Hanya log terkait akun (bukan tugas)
-                    .map(log => ({
-                      type: "activity",
-                      id: log.id,
-                      full_name: log.profiles?.full_name || "Admin",
-                      avatar_url: log.profiles?.avatar_url,
-                      description: log.description,
-                      created_at: log.created_at,
-                    }));
-                  const merged = [...userLogs, ...actionLogs]
-                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                    .slice(0, 15);
+                  }))
+                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                  .slice(0, 15);
                   
-                  if (merged.length === 0) {
+                  if (userLogs.length === 0) {
                     return (
                       <div className="py-8 flex flex-col items-center justify-center text-center w-full">
                         <img src="/empty-activity.svg" alt="Belum ada Log Akun" className="w-40 h-28 object-contain mb-3" />
@@ -485,7 +474,7 @@ export default function Dashboard() {
                     );
                   }
                   
-                  return merged.map((item, index) => {
+                  return userLogs.map((item, index) => {
                     if (item.type === "user") {
                       let text = "";
                       let roleText = "";
@@ -632,14 +621,14 @@ export default function Dashboard() {
 
             {/* Log Aktivitas - Intern/Mentor */}
             <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-4">
-              <div className="border-b border-slate-50 pb-4 flex items-center justify-between">
+              <div className="border-b border-slate-50 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-800">Log Aktivitas Pribadi</h3>
                   <p className="text-[11px] text-slate-400 font-medium mt-1">Informasi terbaru mengenai aktivitas yang telah Anda lakukan.</p>
                 </div>
                 <button
                   onClick={handleDownloadPDF}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer w-fit"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

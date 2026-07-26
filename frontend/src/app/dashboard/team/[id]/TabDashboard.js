@@ -41,7 +41,7 @@ const getUserAvatar = (name) => {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=f1f5f9&color=64748b&bold=true`;
 };
 
-export default function TabDashboard({ tasks = [] }) {
+export default function TabDashboard({ tasks = [], teamLogs = [] }) {
   const [, setTick] = React.useState(0);
 
   // Ticker to auto-update relative timestamps in real-time
@@ -50,16 +50,19 @@ export default function TabDashboard({ tasks = [] }) {
     return () => clearInterval(timer);
   }, []);
 
-  // 1. Stats Row calculations
-  const selesai = tasks.filter(t => t.status === "done").length;
-  const dijadwalkan = tasks.filter(t => t.status === "todo").length;
-  const diperbarui = tasks.filter(t => t.status === "inprogress" || t.status === "review").length;
-  const terlambat = tasks.filter(isOverdue).length;
+  // Filter out deleted tasks for charts
+  const activeTasks = tasks.filter(t => t.status !== "deleted");
+
+  // 1. Stats Row calculations using activeTasks
+  const selesai = activeTasks.filter(t => t.status === "done").length;
+  const dijadwalkan = activeTasks.filter(t => t.status === "todo").length;
+  const diperbarui = activeTasks.filter(t => t.status === "inprogress" || t.status === "review").length;
+  const terlambat = activeTasks.filter(isOverdue).length;
 
   // 2. Priority Chart calculations (Case-insensitive)
   const priorities = ["Tertinggi", "Tinggi", "Sedang", "Rendah", "Terendah"];
   const priorityCounts = priorities.map(prio =>
-    tasks.filter(t => t.priority && t.priority.toLowerCase() === prio.toLowerCase()).length
+    activeTasks.filter(t => t.priority && t.priority.toLowerCase() === prio.toLowerCase()).length
   );
   const maxPriorityCount = Math.max(...priorityCounts, 1);
 
@@ -67,16 +70,32 @@ export default function TabDashboard({ tasks = [] }) {
   const defaultTypes = ["Design", "Bug", "Aset", "Fitur", "Tugas"];
   const types = Array.from(new Set([
     ...defaultTypes,
-    ...tasks.map(t => t.type).filter(Boolean)
+    ...activeTasks.map(t => t.type).filter(Boolean)
   ]));
   const typeCounts = types.map(type =>
-    tasks.filter(t => t.type && t.type.toLowerCase() === type.toLowerCase()).length
+    activeTasks.filter(t => t.type && t.type.toLowerCase() === type.toLowerCase()).length
   );
   const maxTypeCount = Math.max(...typeCounts, 1);
 
   // 4. Activity Logs (Extract and sort by recency - newest first)
-  const logs = tasks
-    .flatMap(t => (t.riwayat || []).map(r => ({ ...r, taskTitle: t.title })))
+  const baseLogs = tasks.flatMap(t => (t.riwayat || []).map(r => ({ ...r, taskTitle: t.title })));
+  
+  const additionalLogs = teamLogs.filter(a => a.description && a.description.includes("telah menghapus")).map(a => {
+    let taskName = "Tugas";
+    const descParts = a.description.split("tugas");
+    if (descParts.length > 1 && descParts[1].trim()) {
+      taskName = descParts[1].trim();
+    }
+    return {
+      name: a.profiles?.full_name || 'User',
+      text: "telah menghapus tugas",
+      taskTitle: taskName,
+      created_at: a.created_at,
+      time: "baru saja"
+    };
+  });
+
+  const logs = [...baseLogs, ...additionalLogs]
     .sort((a, b) => {
       const getTimestamp = (item) => {
         if (item.created_at) {
@@ -88,7 +107,7 @@ export default function TabDashboard({ tasks = [] }) {
       };
       return getTimestamp(b) - getTimestamp(a);
     })
-    .slice(0, 30); // Show top 20 sorted activities for scrolling
+    .slice(0, 30); // Show top 30 sorted activities for scrolling
 
   const priorityColors = {
     "Tertinggi": "bg-[#fca5a5]", // Soft pink/rose-300

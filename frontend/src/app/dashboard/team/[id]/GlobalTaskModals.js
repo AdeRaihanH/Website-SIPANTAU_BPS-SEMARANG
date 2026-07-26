@@ -855,6 +855,10 @@ export default function GlobalTaskModals({
       return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
     }
 
+    if (window.innerWidth < 640) {
+      return { top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "90vw", maxWidth: "320px" };
+    }
+
     const rect = isAddingTaskObj.rect || (typeof isAddingTaskObj.left === "number" ? isAddingTaskObj : null);
 
     if (!rect || typeof rect.left !== "number") {
@@ -1427,6 +1431,7 @@ export default function GlobalTaskModals({
                     const createdTask = await createTask(newTaskData);
                     if (createdTask && createdTask.id) {
                       createdTaskId = createdTask.id;
+                      // addHistory is now handled centrally inside backend/tasks.js createTask
                     }
                   } catch (e) {
                     console.warn("Supabase createTask fallback to local persistence:", e);

@@ -220,13 +220,13 @@ export default function TabPapan({ tasks, setTasks, setSelectedTask, setIsAdding
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start h-[calc(100vh-160px)]">
+      <div className="flex lg:grid lg:grid-cols-4 overflow-x-auto lg:overflow-x-visible gap-4 items-start h-[calc(100vh-160px)] pb-4 lg:pb-0 snap-x custom-scrollbar">
       {columns.map((col) => {
         const colTasks = tasks.filter((t) => t.status === col.id);
         return (
           <div
             key={col.id}
-            className={`rounded-2xl p-3 border border-slate-100 ${col.bg} flex flex-col gap-3 h-full max-h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-colors`}
+            className={`w-[85vw] sm:w-[45vw] lg:w-auto shrink-0 snap-center rounded-2xl p-3 border border-slate-100 ${col.bg} flex flex-col gap-3 h-full max-h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-colors`}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, col.id)}
           >
