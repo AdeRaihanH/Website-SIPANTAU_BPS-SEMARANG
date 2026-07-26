@@ -5,11 +5,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUpUser, signInUser } from "../backend/auth";
 
-export default function AuthForm({ defaultRole = "pemagang" }) {
+export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordChange }) {
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+
+  useEffect(() => {
+    if (onForgotPasswordChange) {
+      onForgotPasswordChange(isForgotPassword);
+    }
+  }, [isForgotPassword, onForgotPasswordChange]);
+
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
@@ -97,8 +104,8 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
     e.preventDefault();
 
     if (isSignUp) {
-      if (signUpPhone.length > 10) {
-        setPhoneError("Nomor telepon maksimal 10 angka!");
+      if (signUpPhone.length > 15) {
+        setPhoneError("Nomor telepon maksimal 15 angka!");
         return;
       }
       if (signUpPhone && !/^\d+$/.test(signUpPhone)) {
@@ -123,6 +130,10 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
           role: finalRole,
         });
       } catch (err) {
+        if (err.message?.toLowerCase().includes("user already registered") || err.message?.toLowerCase().includes("already exists")) {
+          alert("Email ini sudah pernah terdaftar di Sipantau! Jika Anda sempat dihapus Admin dan ingin mendaftar ulang, silakan masuk lewat menu LOGIN menggunakan kata sandi Anda sebelumnya, lalu klik tombol 'Koreksi & Ajukan Ulang'.");
+          return;
+        }
         console.warn("Supabase signUp warning/fallback:", err.message);
       }
 
@@ -207,16 +218,37 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
     }
   };
 
-  const handleForgotSubmit = (e) => {
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
+
+  const handleForgotSubmit = async (e) => {
     e.preventDefault();
     if (!forgotEmail) return;
 
-    setForgotSuccess(true);
-    localStorage.setItem("sipantau_reset_email", forgotEmail);
+    setIsForgotLoading(true);
+    try {
+      const response = await fetch('/api/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: forgotEmail,
+          type: 'reset_password'
+        })
+      });
 
-    setTimeout(() => {
-      router.push("/reset-password");
-    }, 2500);
+      if (!response.ok) {
+        throw new Error("Gagal mengirim email. Pastikan server nyala dan konfigurasi SMTP benar.");
+      }
+
+      setForgotSuccess(true);
+      // Removed the automatic redirection. 
+      // The user must click the link in their email to access the reset-password page.
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setIsForgotLoading(false);
+    }
   };
 
   if (isForgotPassword) {
@@ -239,7 +271,7 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
               </svg>
             </div>
             <p className="text-xs font-bold leading-tight">
-              Tautan reset password berhasil dikirim ke email Anda! Mengarahkan ke halaman reset...
+              Tautan reset password berhasil dikirim ke email Anda! Silakan cek kotak masuk atau folder spam Anda.
             </p>
           </div>
         )}
@@ -254,7 +286,7 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
               value={forgotEmail}
               onChange={(e) => setForgotEmail(e.target.value)}
               placeholder="sipantau@gmail.com"
-              disabled={forgotSuccess}
+              disabled={forgotSuccess || isForgotLoading}
               className="w-full border border-slate-200 bg-slate-50/30 rounded-full px-5 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all duration-200 disabled:opacity-50"
               required
             />
@@ -263,10 +295,15 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
           <div className="flex flex-col gap-3 mt-4">
             <button
               type="submit"
-              disabled={forgotSuccess}
-              className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-3 px-6 rounded-full shadow-lg shadow-violet-100 hover:shadow-violet-200 transition-all duration-200 text-sm cursor-pointer disabled:opacity-70"
+              disabled={forgotSuccess || isForgotLoading}
+              className="w-full flex justify-center items-center gap-2 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-3 px-6 rounded-full shadow-lg shadow-violet-100 hover:shadow-violet-200 transition-all duration-200 text-sm cursor-pointer disabled:opacity-70"
             >
-              Kirim Tautan Reset
+              {isForgotLoading ? (
+                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : forgotSuccess ? "Tautan Terkirim" : "Kirim Tautan Reset"}
             </button>
             <button
               type="button"
@@ -467,8 +504,8 @@ export default function AuthForm({ defaultRole = "pemagang" }) {
                     setSignUpPhone(val);
                     if (val && !/^\d+$/.test(val)) {
                       setPhoneError("Nomor telepon hanya boleh berisi angka (tidak boleh huruf/simbol)!");
-                    } else if (val.length > 10) {
-                      setPhoneError("Nomor telepon maksimal 10 angka!");
+                    } else if (val.length > 15) {
+                      setPhoneError("Nomor telepon maksimal 15 angka!");
                     } else {
                       setPhoneError("");
                     }

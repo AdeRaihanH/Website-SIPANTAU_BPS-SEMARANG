@@ -10,7 +10,7 @@ export async function getAdminStats() {
   const getCount = async (status = null, excludeDeleted = false) => {
     let query = supabase.from("profiles").select("*", { count: "exact", head: true });
     if (status) query = query.eq("status", status);
-    if (excludeDeleted) query = query.neq("full_name", "DELETED_USER");
+    if (excludeDeleted) query = query.neq("full_name", "DELETED_USER").neq("status", "deleted");
     const { count, error } = await query;
     if (error) return 0;
     return count || 0;

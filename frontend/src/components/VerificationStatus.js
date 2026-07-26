@@ -2,39 +2,131 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { updateProfile, getActiveUser, getProfile } from "../backend/auth";
 
 export default function VerificationStatus() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const activeEmail = localStorage.getItem("sipantau_email");
-      if (!activeEmail) {
-        router.push("/");
-        return;
+    const fetchUser = async () => {
+      let foundUser = null;
+      let activeEmail = localStorage.getItem("sipantau_email");
+
+      // 1. Coba baca dari Supabase Terlebih Dahulu agar real-time
+      try {
+        const activeSbUser = await getActiveUser();
+        if (activeSbUser) {
+          const profile = await getProfile(activeSbUser.id);
+          if (profile) {
+            foundUser = profile;
+            activeEmail = profile.email;
+            
+            // Sinkronkan status balik ke mock db localStorage agar tak tersangkut
+            const usersListStr = localStorage.getItem("sipantau_users") || "[]";
+            const usersList = JSON.parse(usersListStr);
+            const userIndex = usersList.findIndex(u => u.email.toLowerCase() === activeEmail.toLowerCase());
+            if (userIndex !== -1) {
+              usersList[userIndex].status = profile.status;
+              localStorage.setItem("sipantau_users", JSON.stringify(usersList));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Supabase fetch failed or offline:", err);
       }
 
-      const usersListStr = localStorage.getItem("sipantau_users") || "[]";
-      const usersList = JSON.parse(usersListStr);
-      const foundUser = usersList.find(u => u.email.toLowerCase() === activeEmail.toLowerCase());
+      // 2. Fallback baca dari Local Storage (Mock DB)
+      if (!foundUser) {
+        if (!activeEmail) {
+          router.push("/");
+          return;
+        }
+        const usersListStr = localStorage.getItem("sipantau_users") || "[]";
+        const usersList = JSON.parse(usersListStr);
+        foundUser = usersList.find(u => u.email.toLowerCase() === activeEmail.toLowerCase());
+      }
 
       if (foundUser) {
         setUser(foundUser);
-
-        // If approved (active), redirect them to dashboard
+        const originalName = foundUser.name || foundUser.full_name || "";
+        setEditData({
+          name: originalName === "DELETED_USER" ? "" : originalName,
+          address: foundUser.address || "",
+          phone: foundUser.phone || "",
+          institution: foundUser.institution || "",
+          major: foundUser.major || "",
+          role: foundUser.role || "pemagang",
+        });
         if (foundUser.status === "active") {
           router.push("/dashboard");
         }
       } else {
         router.push("/");
       }
+    };
+
+    if (typeof window !== "undefined") {
+      fetchUser();
     }
   }, [router]);
 
   if (!user) return null;
 
   const isPending = user.status === "pending";
+
+
+
+  const handleReapply = async () => {
+    if (!user) return;
+    
+    // If not in editing mode yet, just enter edit mode
+    if (!isEditing) {
+      setIsEditing(true);
+      return;
+    }
+
+    setIsUpdating(true);
+    
+    try {
+      const updates = { 
+        status: "pending",
+        full_name: editData.name,
+        address: editData.address,
+        phone: editData.phone,
+        institution: editData.institution,
+        major: editData.major,
+        role: editData.role
+      };
+
+      // 1. Update ke Supabase
+      if (user.id && typeof user.id === 'string' && user.id.includes('-')) {
+        await updateProfile(user.id, updates);
+      }
+      
+      // 2. Update local storage mock DB
+      const usersListStr = localStorage.getItem("sipantau_users") || "[]";
+      const usersList = JSON.parse(usersListStr);
+      const userIndex = usersList.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
+      if (userIndex !== -1) {
+        usersList[userIndex] = { ...usersList[userIndex], ...updates, name: editData.name };
+        localStorage.setItem("sipantau_users", JSON.stringify(usersList));
+      }
+      
+      // 3. Ubah State Lokal & kembalikan view
+      setUser({ ...user, ...updates, name: editData.name });
+      setIsEditing(false);
+       
+    } catch (err) {
+      console.error("Gagal melakukan pengajuan ulang:", err);
+      alert("Gagal mengirim ulang pendaftaran.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleBack = () => {
     localStorage.removeItem("sipantau_role");
@@ -44,7 +136,7 @@ export default function VerificationStatus() {
   };
 
   return (
-    <div className="w-full max-w-[420px] h-[650px] flex flex-col justify-between items-center relative py-6">
+    <div className="w-full max-w-[420px] lg:h-[650px] flex flex-col justify-center items-center relative py-4 lg:py-0">
 
       {/* Icon */}
       <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-sm border-2 ${
@@ -64,12 +156,18 @@ export default function VerificationStatus() {
       {/* Title & Desc */}
       <div className="text-center space-y-3 mb-8">
         <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">
-          {isPending ? "Verifikasi Diperlukan" : "Verifikasi Ditolak"}
+          {isPending 
+            ? "Verifikasi Diperlukan" 
+            : user.status === "deleted" 
+              ? "Akun Dihapus" 
+              : "Verifikasi Ditolak"}
         </h2>
         <p className="text-sm font-medium text-slate-500 max-w-sm mx-auto leading-relaxed">
           {isPending
             ? "Akun Anda saat ini sedang berada dalam antrean peninjauan oleh Admin."
-            : "Pendaftaran akun Anda ditolak oleh admin karena terdapat ketidaksesuaian."
+            : user.status === "deleted"
+              ? "Akun Anda telah dihapus oleh Admin dari sistem SIPANTAU."
+              : "Pendaftaran akun Anda ditolak oleh admin karena terdapat ketidaksesuaian."
           }
         </p>
       </div>
@@ -79,7 +177,11 @@ export default function VerificationStatus() {
         <span className={`px-4 py-1.5 rounded-full text-xs font-bold ${
           isPending ? "bg-amber-100/50 text-amber-500" : "bg-rose-100/50 text-rose-500"
         }`}>
-          {isPending ? "Status: Menunggu Persetujuan" : "Status: Pendaftaran Ditolak"}
+          {isPending 
+            ? "Status: Menunggu Persetujuan" 
+            : user.status === "deleted" 
+              ? "Status: Dihapus" 
+              : "Status: Pendaftaran Ditolak"}
         </span>
       </div>
 
@@ -98,7 +200,16 @@ export default function VerificationStatus() {
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 font-bold mb-0.5">Nama</p>
               <div className="min-h-[36px] flex items-center">
-                <p className="text-xs font-bold text-slate-800 truncate">{user.name}</p>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editData.name}
+                    onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                    className="w-full text-xs font-bold text-slate-800 border-b border-indigo-300 focus:border-indigo-600 outline-none pb-0.5 bg-transparent"
+                  />
+                ) : (
+                  <p className="text-xs font-bold text-slate-800 truncate">{user.name || user.full_name}</p>
+                )}
               </div>
             </div>
           </div>
@@ -113,7 +224,16 @@ export default function VerificationStatus() {
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 font-bold mb-0.5">Alamat Rumah</p>
               <div className="min-h-[36px] flex items-center">
-                <p className="text-xs font-bold text-slate-800 truncate">{user.address}</p>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editData.address}
+                    onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                    className="w-full text-xs font-bold text-slate-800 border-b border-indigo-300 focus:border-indigo-600 outline-none pb-0.5 bg-transparent"
+                  />
+                ) : (
+                  <p className="text-xs font-bold text-slate-800 truncate">{user.address}</p>
+                )}
               </div>
             </div>
           </div>
@@ -143,7 +263,16 @@ export default function VerificationStatus() {
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 font-bold mb-0.5">Asal Instansi</p>
               <div className="min-h-[36px] flex items-center">
-                <p className="text-xs font-bold text-slate-800 truncate">{user.institution}</p>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editData.institution}
+                    onChange={(e) => setEditData({ ...editData, institution: e.target.value })}
+                    className="w-full text-xs font-bold text-slate-800 border-b border-indigo-300 focus:border-indigo-600 outline-none pb-0.5 bg-transparent"
+                  />
+                ) : (
+                  <p className="text-xs font-bold text-slate-800 truncate">{user.institution}</p>
+                )}
               </div>
             </div>
           </div>
@@ -158,13 +287,48 @@ export default function VerificationStatus() {
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 font-bold mb-0.5">Nomor Telepon</p>
               <div className="min-h-[36px] flex items-center">
-                <p className="text-xs font-bold text-slate-800">{user.phone}</p>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editData.phone}
+                    onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                    className="w-full text-xs font-bold text-slate-800 border-b border-indigo-300 focus:border-indigo-600 outline-none pb-0.5 bg-transparent"
+                  />
+                ) : (
+                  <p className="text-xs font-bold text-slate-800">{user.phone}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Role / Peran */}
+          <div className="flex items-start gap-3">
+            <div className="text-indigo-500 mt-0.5">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-slate-400 font-bold mb-0.5">Peran</p>
+              <div className="min-h-[36px] flex items-center">
+                {isEditing ? (
+                  <select
+                    value={editData.role}
+                    onChange={(e) => setEditData({ ...editData, role: e.target.value })}
+                    className="w-full text-xs font-bold text-slate-800 border-b border-indigo-300 focus:border-indigo-600 outline-none pb-0.5 bg-transparent"
+                  >
+                    <option value="pemagang">Pemagang</option>
+                    <option value="mentor">Mentor</option>
+                  </select>
+                ) : (
+                  <p className="text-xs font-bold text-slate-800 capitalize">{user.role}</p>
+                )}
               </div>
             </div>
           </div>
 
           {/* Jurusan */}
-          {user.role !== "mentor" && (
+          {(isEditing ? editData.role !== "mentor" : user.role !== "mentor") && (
             <div className="flex items-start gap-3">
               <div className="text-indigo-500 mt-0.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -175,7 +339,16 @@ export default function VerificationStatus() {
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] text-slate-400 font-bold mb-0.5">Jurusan</p>
                 <div className="min-h-[36px] flex items-center">
-                  <p className="text-xs font-bold text-slate-800 truncate">{user.major || "-"}</p>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editData.major}
+                      onChange={(e) => setEditData({ ...editData, major: e.target.value })}
+                      className="w-full text-xs font-bold text-slate-800 border-b border-indigo-300 focus:border-indigo-600 outline-none pb-0.5 bg-transparent"
+                    />
+                  ) : (
+                    <p className="text-xs font-bold text-slate-800 truncate">{user.major || "-"}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -185,13 +358,52 @@ export default function VerificationStatus() {
       </div>
 
       {/* Action Buttons */}
-      <div className="w-full">
-        <button
-          onClick={handleBack}
-          className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-3.5 px-6 rounded-full shadow-lg shadow-violet-100 hover:shadow-violet-200 transition-all duration-200 text-sm cursor-pointer text-center"
-        >
-          Kembali
-        </button>
+      <div className="w-full flex-col gap-3 flex mt-4">
+        {!isPending && (
+          <button
+            onClick={handleReapply}
+            disabled={isUpdating}
+            className={`w-full text-white font-bold py-3.5 px-6 rounded-full shadow-lg transition-all duration-200 text-sm cursor-pointer text-center disabled:opacity-70 flex items-center justify-center gap-2 ${
+              isEditing 
+                ? 'bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 shadow-emerald-100/50 hover:shadow-emerald-200' 
+                : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700 shadow-blue-100/50 hover:shadow-blue-200'
+            }`}
+          >
+            {isUpdating ? (
+              <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              isEditing ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )
+            )}
+            {isEditing ? "Simpan & Kirim Ulang" : "Koreksi & Ajukan Ulang Pendaftaran"}
+          </button>
+        )}
+        {isEditing ? (
+          <button
+            onClick={() => setIsEditing(false)}
+            disabled={isUpdating}
+            className="w-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 font-bold py-3.5 px-6 rounded-full transition-all duration-200 text-sm cursor-pointer text-center"
+          >
+            Batal Koreksi
+          </button>
+        ) : (
+          <button
+            onClick={handleBack}
+            className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-3.5 px-6 rounded-full shadow-lg shadow-violet-100 hover:shadow-violet-200 transition-all duration-200 text-sm cursor-pointer text-center"
+          >
+            Kembali ke Halaman Login
+          </button>
+        )}
       </div>
 
     </div>

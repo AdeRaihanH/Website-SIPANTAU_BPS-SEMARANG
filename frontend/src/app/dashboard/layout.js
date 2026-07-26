@@ -29,6 +29,12 @@ export default function DashboardLayout({ children }) {
       }
       const profile = await getProfile(user.id);
       if (profile) {
+        if (profile.status === 'rejected' && profile.full_name === 'DELETED_USER') {
+          await signOutUser().catch(() => {});
+          localStorage.clear();
+          router.push("/");
+          return;
+        }
         setUserName(profile.full_name || profile.name || "User");
         setUserRole(profile.role ? profile.role.toLowerCase() : "pemagang");
         setAvatar(profile.avatar_url || "");
@@ -92,37 +98,85 @@ export default function DashboardLayout({ children }) {
     ]
     : baseNavItems;
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close menu when route changes on mobile
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || "User")}&background=f1f5f9&color=64748b&bold=true`;
 
   return (
-    <div className="h-screen w-screen bg-[#f4f4f5] flex font-sans overflow-hidden relative">
-      {/* Sidebar */}
-      <aside className="w-64 shrink-0 flex flex-col justify-between py-3 pl-4 pr-3 h-full">
+    <div className="h-screen w-screen bg-[#f4f4f5] flex flex-col md:flex-row font-sans overflow-hidden relative">
+      
+      {/* ================= MOBILE HEADER ================= */}
+      <div className="md:hidden flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200 shrink-0 z-40 relative shadow-sm">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-1.5 -ml-1.5 rounded-xl text-slate-500 hover:bg-slate-100 flex items-center justify-center transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+          </button>
+          <span className="font-extrabold text-slate-800 tracking-tight text-lg">SIPANTAU</span>
+        </div>
+        <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200">
+          <img src={avatar || defaultAvatar} alt="Avatar" className="w-full h-full object-cover" />
+        </div>
+      </div>
+
+      {/* ================= MOBILE MENU OVERLAY ================= */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 z-[90] md:hidden transition-opacity" 
+          onClick={() => setMobileMenuOpen(false)} 
+        />
+      )}
+
+      {/* ================= SIDEBAR ================= */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-[100] transform ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:relative md:translate-x-0 w-64 md:w-64 bg-[#f4f4f5] md:bg-transparent shrink-0 flex flex-col justify-between py-5 md:py-3 pl-4 pr-3 h-full transition-transform duration-300 shadow-2xl md:shadow-none bg-white md:bg-transparent`}
+      >
         <div className="space-y-8">
-          {/* Avatar Link */}
-          {userRole === "admin" ? (
-            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md block">
-              <img
-                src={avatar || defaultAvatar}
-                alt="User Avatar"
-                className="w-full h-full object-cover"
-              />
+          {/* Mobile Close Button & Desktop Avatar Link */}
+          <div className="flex items-center justify-between pl-1 pr-2 md:pr-0">
+            {userRole === "admin" ? (
+              <div className="hidden md:block w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md">
+                <img src={avatar || defaultAvatar} alt="User Avatar" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <Link 
+                href="/dashboard/settings" 
+                className="hidden md:block w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
+              >
+                <img src={avatar || defaultAvatar} alt="User Avatar" className="w-full h-full object-cover" />
+              </Link>
+            )}
+
+            {/* Mobile close button inside drawer */}
+            <div className="md:hidden flex items-center gap-3">
+               <div className="w-10 h-10 rounded-full overflow-hidden border shadow-sm">
+                  <img src={avatar || defaultAvatar} alt="Avatar" className="w-full h-full object-cover" />
+               </div>
+               <div className="flex flex-col">
+                  <span className="text-xs font-bold text-slate-700">{userName}</span>
+                  <span className="text-[10px] font-semibold text-slate-400 capitalize">{userRole}</span>
+               </div>
             </div>
-          ) : (
-            <Link
-              href="/dashboard/settings"
-              className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200 block cursor-pointer"
+            
+            <button 
+              onClick={() => setMobileMenuOpen(false)}
+              className="md:hidden w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
             >
-              <img
-                src={avatar || defaultAvatar}
-                alt="User Avatar"
-                className="w-full h-full object-cover"
-              />
-            </Link>
-          )}
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
 
           {/* Nav Items */}
-          <nav className="space-y-1">
+          <nav className="space-y-1 mt-4 md:mt-0">
             {navItems.map((item) => {
               const isActive = item.href === "/dashboard"
                 ? pathname === "/dashboard"
@@ -132,8 +186,8 @@ export default function DashboardLayout({ children }) {
                   key={item.href}
                   href={item.href}
                   className={`group flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold text-sm transition-all duration-200 ${isActive
-                    ? "bg-white text-slate-900 border border-slate-100 shadow-sm font-bold"
-                    : "text-slate-500 hover:text-slate-800 hover:bg-white/50"
+                    ? "bg-violet-50 md:bg-white text-slate-900 md:border md:border-slate-100 shadow-sm font-bold"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50 md:hover:bg-white/50"
                     }`}
                 >
                   <span className={`text-lg transition-colors duration-200 ${isActive ? "text-violet-600" : "text-slate-400 group-hover:text-slate-600"}`}>{item.icon}</span>
@@ -145,13 +199,13 @@ export default function DashboardLayout({ children }) {
         </div>
 
         {/* Bottom Nav */}
-        <div className="space-y-1 border-t border-slate-200/60 pt-4">
+        <div className="space-y-1 border-t border-slate-200/60 pt-4 mt-auto">
           {userRole !== "admin" && (
             <Link
               href="/dashboard/settings"
               className={`group w-full flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold text-sm transition-all duration-200 ${pathname?.startsWith("/dashboard/settings")
-                ? "bg-white text-slate-900 border border-slate-100 shadow-sm font-bold"
-                : "text-slate-500 hover:text-slate-800 hover:bg-white/50"
+                ? "bg-violet-50 md:bg-white text-slate-900 md:border md:border-slate-100 shadow-sm font-bold"
+                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50 md:hover:bg-white/50"
                 }`}
             >
               <span className={`text-lg transition-colors duration-200 ${pathname?.startsWith("/dashboard/settings") ? "text-violet-600" : "text-slate-400 group-hover:text-slate-600"}`}>
@@ -175,16 +229,16 @@ export default function DashboardLayout({ children }) {
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 py-3 pr-3 min-w-0 h-full flex flex-col">
-        <div className={`bg-white rounded-[2.5rem] shadow-xl border border-slate-100 flex-1 p-6 sm:p-8 flex flex-col ${pathname === "/dashboard/accounts" ? "overflow-hidden" : "overflow-y-auto"}`}>
+      {/* ================= MAIN CONTENT ================= */}
+      <main className="flex-1 py-4 px-2 md:px-0 md:py-3 md:pr-3 min-w-0 h-full flex flex-col sm:pt-4 md:pt-3">
+        <div className={`bg-white rounded-3xl md:rounded-[2.5rem] shadow-xl border border-slate-100 flex-1 p-4 md:p-6 lg:p-8 flex flex-col ${pathname === "/dashboard/accounts" ? "overflow-hidden" : "overflow-y-auto"}`}>
           {children}
         </div>
       </main>
 
       {/* ================= LOGOUT CONFIRMATION MODAL ================= */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[999] bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full text-center shadow-2xl space-y-5 border border-slate-100 transform scale-100 transition-all duration-300 animate-in fade-in zoom-in-95">
             <div className="mx-auto w-14 h-14 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 mb-2">
               <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">

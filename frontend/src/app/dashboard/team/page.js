@@ -571,13 +571,6 @@ export default function TeamPage() {
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
                           </button>
                           <button
-                            onClick={() => { router.push(`/dashboard/team/${team.id}`); setOpenDropdown(null); }}
-                            className="flex items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-violet-600 transition-colors text-left w-full cursor-pointer"
-                          >
-                            Edit Kelompok
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
-                          </button>
-                          <button
                             onClick={() => { setDeleteConfirmTeam(team); setOpenDropdown(null); }}
                             className="flex items-center justify-between px-4 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 transition-colors text-left w-full cursor-pointer border-t border-slate-50 mt-1"
                           >

@@ -44,6 +44,7 @@ export default function TeamDetailPage({ params }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isAddingTask, setIsAddingTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [teamActivityLogs, setTeamActivityLogs] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const reloadTimerRef = React.useRef(null);
   const [memberSearch, setMemberSearch] = useState("");
@@ -78,6 +79,10 @@ export default function TeamDetailPage({ params }) {
       }
 
       if (!teamDetails) return;
+
+      if (users) {
+        setAllUsers(users);
+      }
 
       const mappedTeam = {
         id: teamDetails.id,
@@ -208,6 +213,14 @@ export default function TeamDetailPage({ params }) {
         memoryCache.set(`tasks_${teamId}`, finalTasks);
         return finalTasks;
       });
+
+      try {
+        const { getTeamActivityLogs } = await import("../../../../backend/activity");
+        const logsData = await getTeamActivityLogs(teamId);
+        setTeamActivityLogs(logsData || []);
+      } catch (e) {
+        console.warn("Failed to fetch team activity logs", e);
+      }
 
     } catch (e) {
       console.error("Gagal memuat detail kelompok:", e);
@@ -523,10 +536,17 @@ export default function TeamDetailPage({ params }) {
               {showTeamActionsDrop && (
                 <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-slate-100 shadow-xl rounded-xl p-1.5 z-[60]">
                   <button
-                    onClick={() => setShowTeamActionsDrop(false)}
+                    onClick={() => {
+                      setShowTeamActionsDrop(false);
+                      setActiveTab("dashboard");
+                      if (typeof window !== "undefined") {
+                        localStorage.setItem(`sipantau_team_active_tab_${team.id}`, "dashboard");
+                        localStorage.setItem("sipantau_team_active_tab", "dashboard");
+                      }
+                    }}
                     className="flex items-center justify-between px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-violet-600 transition-colors text-left w-full rounded-lg cursor-pointer"
                   >
-                    Edit Kelompok
+                    Detail Kelompok
                     <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
                   </button>
                   <button
@@ -606,7 +626,7 @@ export default function TeamDetailPage({ params }) {
 
       {/* Content */}
       <div className="flex-1 min-h-0 bg-slate-50/50 rounded-xl p-4 overflow-auto">
-        {activeTab === "dashboard" && <TabDashboard tasks={tasks} />}
+        {activeTab === "dashboard" && <TabDashboard tasks={tasks} teamLogs={teamActivityLogs} team={team} />}
         {activeTab === "list" && (
           <TabList
             tasks={tasks}
@@ -671,7 +691,7 @@ export default function TeamDetailPage({ params }) {
               <button
                 onClick={async () => {
                   try {
-                    deleteTask(taskToDelete.id).catch(e => console.warn("Supabase deleteTask error:", e));
+                    deleteTask(taskToDelete.id, null, team?.id, taskToDelete.title).catch(e => console.warn("Supabase deleteTask error:", e));
                     const newTasksList = tasks.filter(t => t.id !== taskToDelete.id);
                     updateAndSaveTasks(newTasksList);
                     setTaskToDelete(null);

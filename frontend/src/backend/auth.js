@@ -24,6 +24,8 @@ export async function signUpUser({ email, password, name, phone, address, instit
   if (data?.user) {
     // Update profiles table with extra fields not handled by trigger
     await supabase.from("profiles").update({
+      full_name: name,
+      status: "pending",
       phone,
       address,
       institution,

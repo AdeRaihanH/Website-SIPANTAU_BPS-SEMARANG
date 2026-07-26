@@ -51,10 +51,10 @@ const CAROUSEL_STYLES = `
   @keyframes cursorClickLihatDetail {
     0%   { transform: translate(70px, 120px); opacity: 0; }
     12%  { transform: translate(70px, 120px); opacity: 1; }
-    35%  { transform: translate(52px, 64px); opacity: 1; } /* Tepat di tombol 'Lihat Detail >' */
-    42%  { transform: translate(52px, 64px) scale(0.75); opacity: 1; } /* CLICK ACTION */
-    48%  { transform: translate(52px, 64px) scale(1); opacity: 1; }
-    78%  { transform: translate(52px, 64px); opacity: 1; }
+    35%  { transform: translate(95px, 58px); opacity: 1; } /* Tepat di tombol 'Lihat Detail >' */
+    42%  { transform: translate(95px, 58px) scale(0.75); opacity: 1; } /* CLICK ACTION */
+    48%  { transform: translate(95px, 58px) scale(1); opacity: 1; }
+    78%  { transform: translate(95px, 58px); opacity: 1; }
     90%  { transform: translate(70px, 120px); opacity: 0; }
     100% { transform: translate(70px, 120px); opacity: 0; }
   }
@@ -110,7 +110,7 @@ export default function ShowcaseCarousel() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CAROUSEL_STYLES }} />
-      <div className="relative w-full max-w-[550px] flex-1 min-h-[650px] md:h-[650px] rounded-[2.5rem] bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 p-8 flex flex-col justify-between overflow-hidden shadow-2xl shadow-indigo-200">
+      <div className="relative w-full max-w-[550px] flex-1 min-h-[460px] md:min-h-[650px] md:h-[650px] rounded-[2.5rem] bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 p-8 flex flex-col justify-between overflow-hidden shadow-2xl shadow-indigo-200 transform scale-95 md:scale-100 origin-top">
 
         {/* Decorative background glows */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
@@ -460,8 +460,8 @@ function Slide2TaskDetail() {
    ========================================================================== */
 function Slide3SettingsProfile() {
   return (
-    <div className="relative w-full flex items-center justify-center" style={{ minHeight: "340px" }}>
-      <div className="relative w-[92%] max-w-[420px] h-[280px] flex items-start justify-center">
+    <div className="relative w-full flex items-center justify-center overflow-visible" style={{ minHeight: "340px" }}>
+      <div className="relative w-[410px] h-[280px] shrink-0 origin-center transform scale-[0.75] sm:scale-95 md:scale-100 flex items-start justify-center">
 
         {/* LAPISAN 1: Card Pengaturan Profil */}
         <div

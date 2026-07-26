@@ -263,6 +263,17 @@ export default function AccountsPage({ searchParams }) {
     }
   };
 
+  const isAllSelected = paginatedUsers.length > 0 && paginatedUsers.every(user => selectedUsers.includes(user.id));
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedUsers(selectedUsers.filter(id => !paginatedUsers.find(u => u.id === id)));
+    } else {
+      const newIds = paginatedUsers.map(u => u.id).filter(id => !selectedUsers.includes(id));
+      setSelectedUsers([...selectedUsers, ...newIds]);
+    }
+  };
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden relative">
       {/* Toast Notification Container */}
@@ -307,12 +318,12 @@ export default function AccountsPage({ searchParams }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 shrink-0 mb-3">
+      <div className="flex overflow-x-auto whitespace-nowrap custom-scrollbar border-b border-slate-200 shrink-0 mb-3 pb-1">
         {["Semua", "Belum Diverifikasi", "Sudah Diverifikasi", "Ditolak"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === tab
+            className={`px-4 sm:px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === tab
               ? "border-violet-600 text-slate-900"
               : "border-transparent text-slate-400 hover:text-slate-600"
               }`}
@@ -328,15 +339,15 @@ export default function AccountsPage({ searchParams }) {
       </div>
 
       {/* Actions Bar */}
-      <div className="flex justify-between items-center py-1 shrink-0 mb-3">
-        <div className="flex items-center gap-4">
-          <div className="relative w-72">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-1 shrink-0 mb-4 gap-3 sm:gap-0">
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-72">
             <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
-              placeholder="Cari nama pengguna atau instansi"
+              placeholder="Cari nama atau instansi..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border-none rounded-full text-xs font-medium focus:outline-none focus:ring-2 focus:ring-violet-200 transition-shadow"
@@ -344,29 +355,29 @@ export default function AccountsPage({ searchParams }) {
           </div>
 
           {selectedUsers.length > 0 && (
-            <>
+            <div className="flex gap-2">
               <div className="px-4 py-2 bg-violet-100 text-violet-600 text-[11px] font-bold rounded-full flex items-center gap-2">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
-                {selectedUsers.length} terpilih
+                {selectedUsers.length}
               </div>
               <button
                 onClick={() => { setUserToDelete(null); setShowDeleteConfirm(true); }}
                 className="px-4 py-2 bg-rose-100 hover:bg-rose-200 text-rose-500 text-[11px] font-bold rounded-full flex items-center gap-2 transition-colors cursor-pointer"
               >
-                Hapus Akun
+                Hapus
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </button>
-            </>
+            </div>
           )}
         </div>
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md shadow-violet-100 transition-all flex items-center gap-2 cursor-pointer"
+          className="w-full sm:w-auto justify-center bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md shadow-violet-100 transition-all flex items-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -388,7 +399,12 @@ export default function AccountsPage({ searchParams }) {
               <thead className="sticky top-0 z-20 bg-white shadow-sm">
                 <tr className="bg-white text-[11px] font-bold text-slate-400">
                   <th className="pl-6 py-4 w-10 border-b border-slate-100 bg-white">
-                    <input type="checkbox" className="w-4 h-4 rounded text-violet-600 border-slate-300 focus:ring-violet-500 cursor-pointer" />
+                    <input
+                      type="checkbox"
+                      checked={!!isAllSelected}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 rounded text-violet-600 border-slate-300 focus:ring-violet-500 cursor-pointer"
+                    />
                   </th>
                   <th className="py-4 w-10 border-b border-slate-100 bg-white"></th>
                   <th className="px-2 py-4 font-semibold border-b border-slate-100 bg-white">Pengguna</th>
@@ -440,8 +456,8 @@ export default function AccountsPage({ searchParams }) {
                               alt={displayName}
                               className="w-7 h-7 rounded-full border border-slate-200 object-cover"
                             />
-                            <span className="text-xs font-bold text-slate-800">{displayName}</span>
-                          </div>
+                              <span className="text-xs font-bold text-slate-800 notranslate" translate="no">{displayName}</span>
+                            </div>
                         </td>
                         <td className="px-6 py-4 border-none">
                           <div className="relative group/role inline-block" onClick={(e) => e.stopPropagation()}>
@@ -551,7 +567,7 @@ export default function AccountsPage({ searchParams }) {
                                         className="text-xs font-bold text-slate-400 bg-transparent outline-none w-full border-b border-slate-200 pb-0.5 focus:border-violet-500 transition-colors"
                                       />
                                     ) : (
-                                      <p className="text-xs font-bold text-slate-800">{displayName}</p>
+                                      <p className="text-xs font-bold text-slate-800 notranslate" translate="no">{displayName}</p>
                                     )}
                                   </div>
                                 </div>
