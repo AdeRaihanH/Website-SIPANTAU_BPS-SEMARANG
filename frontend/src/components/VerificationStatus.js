@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { updateProfile, getActiveUser, getProfile } from "../backend/auth";
+import { updateProfile, getActiveUser, getProfile, signOutUser } from "../backend/auth";
 
 export default function VerificationStatus() {
   const router = useRouter();
@@ -13,60 +13,31 @@ export default function VerificationStatus() {
 
   useEffect(() => {
     const fetchUser = async () => {
-      let foundUser = null;
-      let activeEmail = localStorage.getItem("sipantau_email");
-
-      // 1. Coba baca dari Supabase Terlebih Dahulu agar real-time
       try {
         const activeSbUser = await getActiveUser();
         if (activeSbUser) {
           const profile = await getProfile(activeSbUser.id);
           if (profile) {
-            foundUser = profile;
-            activeEmail = profile.email;
-            
-            // Sinkronkan status balik ke mock db localStorage agar tak tersangkut
-            const usersListStr = localStorage.getItem("sipantau_users") || "[]";
-            const usersList = JSON.parse(usersListStr);
-            const userIndex = usersList.findIndex(u => u.email.toLowerCase() === activeEmail.toLowerCase());
-            if (userIndex !== -1) {
-              usersList[userIndex].status = profile.status;
-              localStorage.setItem("sipantau_users", JSON.stringify(usersList));
+            setUser(profile);
+            const originalName = profile.full_name || "";
+            setEditData({
+              name: originalName === "DELETED_USER" ? "" : originalName,
+              address: profile.address || "",
+              phone: profile.phone || "",
+              institution: profile.institution || "",
+              major: profile.major || "",
+              role: profile.role || "pemagang",
+            });
+            if (profile.status === "active") {
+              router.push("/dashboard");
             }
+            return;
           }
         }
       } catch (err) {
-        console.warn("Supabase fetch failed or offline:", err);
+        console.warn("Supabase fetch failed:", err);
       }
-
-      // 2. Fallback baca dari Local Storage (Mock DB)
-      if (!foundUser) {
-        if (!activeEmail) {
-          router.push("/");
-          return;
-        }
-        const usersListStr = localStorage.getItem("sipantau_users") || "[]";
-        const usersList = JSON.parse(usersListStr);
-        foundUser = usersList.find(u => u.email.toLowerCase() === activeEmail.toLowerCase());
-      }
-
-      if (foundUser) {
-        setUser(foundUser);
-        const originalName = foundUser.name || foundUser.full_name || "";
-        setEditData({
-          name: originalName === "DELETED_USER" ? "" : originalName,
-          address: foundUser.address || "",
-          phone: foundUser.phone || "",
-          institution: foundUser.institution || "",
-          major: foundUser.major || "",
-          role: foundUser.role || "pemagang",
-        });
-        if (foundUser.status === "active") {
-          router.push("/dashboard");
-        }
-      } else {
-        router.push("/");
-      }
+      router.push("/");
     };
 
     if (typeof window !== "undefined") {
@@ -107,17 +78,8 @@ export default function VerificationStatus() {
         await updateProfile(user.id, updates);
       }
       
-      // 2. Update local storage mock DB
-      const usersListStr = localStorage.getItem("sipantau_users") || "[]";
-      const usersList = JSON.parse(usersListStr);
-      const userIndex = usersList.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
-      if (userIndex !== -1) {
-        usersList[userIndex] = { ...usersList[userIndex], ...updates, name: editData.name };
-        localStorage.setItem("sipantau_users", JSON.stringify(usersList));
-      }
-      
-      // 3. Ubah State Lokal & kembalikan view
-      setUser({ ...user, ...updates, name: editData.name });
+      // 2. Ubah State Lokal & kembalikan view
+      setUser({ ...user, ...updates, full_name: editData.name });
       setIsEditing(false);
        
     } catch (err) {
@@ -128,10 +90,8 @@ export default function VerificationStatus() {
     }
   };
 
-  const handleBack = () => {
-    localStorage.removeItem("sipantau_role");
-    localStorage.removeItem("sipantau_name");
-    localStorage.removeItem("sipantau_email");
+  const handleBack = async () => {
+    try { await signOutUser(); } catch (e) {}
     router.push("/");
   };
 
