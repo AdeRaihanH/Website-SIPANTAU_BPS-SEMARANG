@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
 
 // Sub-components for tabs (to be implemented)
@@ -11,7 +11,7 @@ import TabKalender from "./TabKalender";
 import GlobalTaskModals from "./GlobalTaskModals";
 import { supabase } from "../../../../backend/client";
 import { getActiveUser, getProfile } from "../../../../backend/auth";
-import { getGroupDetails, deleteGroup, addGroupMember, removeGroupMember } from "../../../../backend/groups";
+import { getGroupDetails, deleteGroup, addGroupMember, removeGroupMember, clearGroupCache } from "../../../../backend/groups";
 import { getAllUsers } from "../../../../backend/admin";
 import { deleteTask } from "../../../../backend/tasks";
 
@@ -28,6 +28,7 @@ export default function TeamDetailPage({ params }) {
   const router = useRouter();
 
   const [team, setTeam] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [currentUser, setCurrentUser] = useState(null);
   const [isMentor, setIsMentor] = useState(false);
@@ -49,25 +50,16 @@ export default function TeamDetailPage({ params }) {
   const reloadTimerRef = React.useRef(null);
   const [memberSearch, setMemberSearch] = useState("");
 
-  // Instant cache restore on mount (0ms delay)
-  useEffect(() => {
-    if (teamId) {
-      const cachedTeam = memoryCache.get(`team_${teamId}`);
-      if (cachedTeam) setTeam(cachedTeam);
-      const cachedTasks = memoryCache.get(`tasks_${teamId}`);
-      if (cachedTasks && Array.isArray(cachedTasks)) setTasks(cachedTasks);
-    }
-  }, [teamId]);
-
   // Load backend data
-  const loadData = async () => {
+  const loadData = async ({ forceRefresh = false } = {}) => {
+    setLoading(true);
     try {
       if (!teamId) return;
 
       const authUser = await getActiveUser();
       
       const [teamDetails, users, profile] = await Promise.all([
-        getGroupDetails(teamId).catch(() => null),
+        getGroupDetails(teamId, { forceRefresh }).catch(() => null),
         getAllUsers().catch(() => []),
         authUser ? getProfile(authUser.id).catch(() => null) : Promise.resolve(null)
       ]);
@@ -95,6 +87,10 @@ export default function TeamDetailPage({ params }) {
       };
       setTeam(mappedTeam);
       memoryCache.set(`team_${teamId}`, mappedTeam);
+      // Persist to localStorage for hard refresh survival
+      try {
+        localStorage.setItem(`sipantau_team_${teamId}`, JSON.stringify(mappedTeam));
+      } catch (e) {}
 
       // The backend returns tasks inside teamDetails. Let's map them to the frontend format.
       const mappedTasks = (teamDetails.tasks || []).map(t => {
@@ -209,9 +205,12 @@ export default function TeamDetailPage({ params }) {
 
         const dbIds = new Set(mergedMappedTasks.map(t => t.id));
         const localTasks = (prevTasks || []).filter(t => typeof t.id === "string" && t.id.startsWith("task-") && !dbIds.has(t.id));
-        const finalTasks = [...mergedMappedTasks, ...localTasks];
-        memoryCache.set(`tasks_${teamId}`, finalTasks);
-        return finalTasks;
+        const finalTasks = [...mergedMappedTasks, ...localTasks];        memoryCache.set(`tasks_${teamId}`, finalTasks);
+        // Persist to localStorage for hard refresh survival
+        try {
+          localStorage.setItem(`sipantau_tasks_${teamId}`, JSON.stringify(finalTasks));
+        } catch (e) {}
+      return finalTasks;
       });
 
       try {
@@ -222,8 +221,11 @@ export default function TeamDetailPage({ params }) {
         console.warn("Failed to fetch team activity logs", e);
       }
 
+
     } catch (e) {
       console.error("Gagal memuat detail kelompok:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -232,6 +234,10 @@ export default function TeamDetailPage({ params }) {
       const updated = typeof newTasksList === "function" ? newTasksList(prev) : newTasksList;
       if (teamId) {
         memoryCache.set(`tasks_${teamId}`, updated);
+        // Persist task updates to localStorage
+        try {
+          localStorage.setItem(`sipantau_tasks_${teamId}`, JSON.stringify(updated));
+        } catch (e) {}
         if (typeof window !== "undefined" && window._sipantauMemoryCache) {
           window._sipantauMemoryCache.set(`tasks_${teamId}`, updated);
         }
@@ -239,6 +245,37 @@ export default function TeamDetailPage({ params }) {
       return updated;
     });
   };
+
+  // useLayoutEffect: restore dari localStorage SETELAH hydration tapi SEBELUM browser paint
+  useLayoutEffect(() => {
+    if (!teamId) return;
+    try {
+      // Restore team dari localStorage
+      const fromMem = memoryCache.get(`team_${teamId}`);
+      const cachedTeam = fromMem || (() => {
+        try {
+          const ls = localStorage.getItem(`sipantau_team_${teamId}`);
+          return ls ? JSON.parse(ls) : null;
+        } catch { return null; }
+      })();
+      if (cachedTeam) {
+        setTeam(cachedTeam);
+        setLoading(false);
+      }
+
+      // Restore tasks dari localStorage
+      const tasksFromMem = memoryCache.get(`tasks_${teamId}`);
+      const cachedTasks = (tasksFromMem && Array.isArray(tasksFromMem)) ? tasksFromMem : (() => {
+        try {
+          const ls = localStorage.getItem(`sipantau_tasks_${teamId}`);
+          return ls ? JSON.parse(ls) : null;
+        } catch { return null; }
+      })();
+      if (cachedTasks && Array.isArray(cachedTasks)) {
+        setTasks(cachedTasks);
+      }
+    } catch {}
+  }, [teamId]);
 
   useEffect(() => {
     loadData();
@@ -270,7 +307,8 @@ export default function TeamDetailPage({ params }) {
     const scheduleReload = () => {
       if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
       reloadTimerRef.current = setTimeout(() => {
-        loadData();
+        clearGroupCache(teamId);
+        loadData({ forceRefresh: true });
         reloadTimerRef.current = null;
       }, 500);
     };
@@ -319,7 +357,8 @@ export default function TeamDetailPage({ params }) {
 
     // 6. Periodic polling fallback (every 30 seconds)
     const pollInterval = setInterval(() => {
-      loadData();
+      clearGroupCache(teamId);
+      loadData({ forceRefresh: true });
     }, 30000);
 
     // Cleanup
@@ -386,7 +425,12 @@ export default function TeamDetailPage({ params }) {
     },
   ];
 
-  if (!team) return <div className="p-4 text-center">Loading...</div>;
+  if (loading || !team) return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
+      <div className="w-8 h-8 border-3 border-violet-200 border-t-violet-600 rounded-full animate-spin mb-3" />
+      <p className="text-sm font-bold text-slate-500">Memuat detail kelompok...</p>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -480,9 +524,10 @@ export default function TeamDetailPage({ params }) {
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   try {
+                                    clearGroupCache(team.id);
                                     await removeGroupMember(team.id, m.id);
                                     // Reload data
-                                    loadData();
+                                    loadData({ forceRefresh: true });
                                   } catch (err) {
                                     console.error("Gagal menghapus anggota:", err);
                                   }
@@ -496,9 +541,10 @@ export default function TeamDetailPage({ params }) {
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   try {
+                                    clearGroupCache(team.id);
                                     await addGroupMember(team.id, m.id);
                                     // Reload data
-                                    loadData();
+                                    loadData({ forceRefresh: true });
                                   } catch (err) {
                                     console.error("Gagal menambah anggota:", err);
                                   }
@@ -553,6 +599,7 @@ export default function TeamDetailPage({ params }) {
                     onClick={async () => {
                       if (window.confirm("Hapus kelompok ini?")) {
                         try {
+                          clearGroupCache(team.id);
                           await deleteGroup(team.id, false);
                           router.push("/dashboard/team");
                         } catch (e) {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../backend/client";
 import { getActiveUser, getProfile } from "../../../backend/auth";
@@ -43,31 +43,10 @@ export default function TeamPage() {
   const [hardDeleteConfirmTeam, setHardDeleteConfirmTeam] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
-
-  // Restore instant cache on mount (0ms delay)
-  useEffect(() => {
-    try {
-      const cachedRole = localStorage.getItem("sipantau_role");
-      if (cachedRole) {
-        setRole(cachedRole);
-        setIsMentor(cachedRole === "mentor");
-        setIsAdmin(cachedRole === "admin");
-      }
-      const cachedTeams = memoryCache.get("teams");
-      if (cachedTeams && cachedTeams.length > 0) {
-        setTeams(cachedTeams);
-        setIsLoading(false);
-      }
-      const cachedUsers = memoryCache.get("users");
-      if (cachedUsers && cachedUsers.length > 0) {
-        setAllUsers(cachedUsers);
-        setAllMentors(cachedUsers.filter(u => u.role === "mentor"));
-        setAvailableMembers(cachedUsers.filter(u => u.role === "pemagang" || u.role === "intern"));
-      }
-    } catch (e) {}
-  }, []);
+  const [teamsRefreshing, setTeamsRefreshing] = useState(false);
 
   const loadData = async () => {
+    setTeamsRefreshing(true);
     try {
       const authUser = await getActiveUser();
       if (!authUser) return;
@@ -115,11 +94,48 @@ export default function TeamPage() {
 
       memoryCache.set("teams", activeGroups);
       memoryCache.set("users", allSysUsers);
+      
+      // Persist ke localStorage agar hard refresh berikutnya instan
+      try {
+        localStorage.setItem("sipantau_teams", JSON.stringify(activeGroups));
+        localStorage.setItem("sipantau_deletedTeams", JSON.stringify(delGroups));
+        localStorage.setItem("sipantau_allUsers", JSON.stringify(allSysUsers));
+      } catch (e) {}
     } catch (e) {
       console.error("Gagal memuat data:", e);
       setIsLoading(false);
+    } finally {
+      setTeamsRefreshing(false);
     }
   };
+
+  // useLayoutEffect: restore dari localStorage SETELAH hydration tapi SEBELUM browser paint
+  useLayoutEffect(() => {
+    try {
+      const teamsLS = localStorage.getItem("sipantau_teams");
+      if (teamsLS) {
+        const parsed = JSON.parse(teamsLS);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTeams(parsed);
+          setIsLoading(false);
+        }
+      }
+      const usersLS = localStorage.getItem("sipantau_allUsers");
+      if (usersLS) {
+        const parsed = JSON.parse(usersLS);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAllUsers(parsed);
+          setAllMentors(parsed.filter(u => u.role === "mentor"));
+          setAvailableMembers(parsed.filter(u => u.role === "pemagang" || u.role === "intern"));
+        }
+      }
+      const deletedLS = localStorage.getItem("sipantau_deletedTeams");
+      if (deletedLS) {
+        const parsed = JSON.parse(deletedLS);
+        if (Array.isArray(parsed)) setDeletedTeams(parsed);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -203,8 +219,14 @@ export default function TeamPage() {
     if (deleteConfirmTeam) {
       try {
         await deleteGroup(deleteConfirmTeam.id, false);
-        setTeams(teams.filter(t => t.id !== deleteConfirmTeam.id));
-        setDeletedTeams([...deletedTeams, { ...deleteConfirmTeam, is_deleted: true }]);
+        const updatedTeams = teams.filter(t => t.id !== deleteConfirmTeam.id);
+        const updatedDeleted = [...deletedTeams, { ...deleteConfirmTeam, is_deleted: true }];
+        setTeams(updatedTeams);
+        setDeletedTeams(updatedDeleted);
+        try {
+          localStorage.setItem("sipantau_teams", JSON.stringify(updatedTeams));
+          localStorage.setItem("sipantau_deletedTeams", JSON.stringify(updatedDeleted));
+        } catch (e) {}
         setDeleteConfirmTeam(null);
         setViewDeleted(true); // Automatically switch to "Kelompok Terhapus" tab!
 
@@ -223,7 +245,9 @@ export default function TeamPage() {
     if (hardDeleteConfirmTeam) {
       try {
         await deleteGroup(hardDeleteConfirmTeam.id, true);
-        setDeletedTeams(deletedTeams.filter(t => t.id !== hardDeleteConfirmTeam.id));
+        const filteredDeleted = deletedTeams.filter(t => t.id !== hardDeleteConfirmTeam.id);
+        setDeletedTeams(filteredDeleted);
+        try { localStorage.setItem("sipantau_deletedTeams", JSON.stringify(filteredDeleted)); } catch (e) {}
         setHardDeleteConfirmTeam(null);
 
         const toastId = Date.now();
@@ -240,8 +264,14 @@ export default function TeamPage() {
   const handleRestore = async (team) => {
     try {
       await updateGroup(team.id, { is_deleted: false });
-      setDeletedTeams(deletedTeams.filter(t => t.id !== team.id));
-      setTeams([...teams, { ...team, is_deleted: false }]);
+      const restoredDeleted = deletedTeams.filter(t => t.id !== team.id);
+      const restoredTeams = [...teams, { ...team, is_deleted: false }];
+      setDeletedTeams(restoredDeleted);
+      setTeams(restoredTeams);
+      try {
+        localStorage.setItem("sipantau_teams", JSON.stringify(restoredTeams));
+        localStorage.setItem("sipantau_deletedTeams", JSON.stringify(restoredDeleted));
+      } catch (e) {}
       setOpenDropdown(null);
       setViewDeleted(false); // Automatically switch back to "Kelompok Aktif" tab!
 
@@ -293,6 +323,10 @@ export default function TeamPage() {
       };
 
       await createGroup(newGroupData, memberIds);
+      
+      // Hapus cache groups biar loadData refresh
+      try { localStorage.removeItem("sipantau_teams"); } catch (e) {}
+      try { localStorage.removeItem("sipantau_deletedTeams"); } catch (e) {}
       
       // Reload teams
       await loadData();
@@ -514,7 +548,7 @@ export default function TeamPage() {
                 }
                 router.push(`/dashboard/team/${team.id}`);
               }}
-              className="border border-slate-100 rounded-none p-6 bg-white hover:shadow-lg hover:shadow-slate-100 transition-all duration-200 flex flex-col gap-4 relative overflow-hidden group cursor-pointer"
+              className={`border ${teamsRefreshing ? 'border-slate-200 opacity-80' : 'border-slate-100 opacity-100'} rounded-none p-6 bg-white hover:shadow-lg hover:shadow-slate-100 transition-all duration-700 flex flex-col gap-4 relative overflow-hidden group cursor-pointer`}
             >
               {/* Left accent border */}
               <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-600" />
@@ -587,7 +621,7 @@ export default function TeamPage() {
 
               {/* Info Chips */}
               <div className="grid grid-cols-2 gap-3 pl-2 mt-2 w-full">
-                {/* Mentor chip */}
+                {/* Mentor chip (jarang berubah, tanpa skeleton) */}
                 <div className="flex items-center justify-center gap-3 border border-slate-200 rounded-md py-3 px-2 bg-white">
                   <svg className="w-6 h-6 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
@@ -598,14 +632,18 @@ export default function TeamPage() {
                   </div>
                 </div>
 
-                {/* Tugas chip */}
-                <div className="flex items-center justify-center gap-3 border border-slate-200 rounded-md py-3 px-2 bg-white">
+                {/* Tugas chip (sering berubah, skeleton saat refresh) */}
+                <div className={`flex items-center justify-center gap-3 border border-slate-200 rounded-md py-3 px-2 bg-white transition-all duration-500 ${teamsRefreshing ? 'opacity-60' : 'opacity-100'}`}>
                   <svg className="w-6 h-6 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
                   <div className="flex flex-col text-left">
                     <div className="text-[12px] font-bold text-slate-800 leading-tight">Tugas Aktif</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{team.totalTugas} Tugas</div>
+                    {teamsRefreshing ? (
+                      <div className="h-3 w-16 bg-slate-200 rounded animate-pulse mt-0.5" />
+                    ) : (
+                      <div className="text-[10px] text-slate-400 mt-0.5 transition-opacity duration-300">{team.totalTugas} Tugas</div>
+                    )}
                   </div>
                 </div>
               </div>

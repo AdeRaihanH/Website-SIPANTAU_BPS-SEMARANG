@@ -1,5 +1,20 @@
 import { supabase } from "./client";
 
+/** In-memory cache for getGroupDetails */
+const groupCache = new Map();
+let groupCachePromise = null;
+
+/**
+ * Clear the group details cache
+ */
+export function clearGroupCache(groupId) {
+  if (groupId) {
+    groupCache.delete(groupId);
+  } else {
+    groupCache.clear();
+  }
+}
+
 export async function getUserGroups(userId, role) {
   let query = supabase.from("groups").select(`
     *,
@@ -27,15 +42,35 @@ export async function getUserGroups(userId, role) {
   return groupsData;
 }
 
-export async function getGroupDetails(groupId) {
+const GROUP_COLUMNS = "id, name, description, mentor_id, created_by, is_deleted, created_at";
+const TASK_COLUMNS = "id, title, description, due_date, type, priority, status, assigned_to, group_id, created_at, updated_at";
+const SUBTASK_COLUMNS = "id, title, is_completed, task_id";
+const COMMENT_COLUMNS = "id, content, created_at, user_id, task_id";
+const HISTORY_COLUMNS = "id, name, text, time, created_at, task_id";
+const PROFILE_COLUMNS = "id, full_name, avatar_url, role";
+
+/**
+ * Get detailed group info with tasks, members and related data
+ */
+export async function getGroupDetails(groupId, { forceRefresh = false } = {}) {
+  // Return cached data immediately
+  if (!forceRefresh && groupCache.has(groupId)) {
+    return groupCache.get(groupId);
+  }
+
   const { data, error } = await supabase
     .from("groups")
     .select(`
-      *,
+      ${GROUP_COLUMNS},
       group_members(
-        profiles(id, full_name, avatar_url, role)
+        profiles(${PROFILE_COLUMNS})
       ),
-      tasks(*, subtasks(*), task_comments(*, user:profiles(full_name, avatar_url)), task_history(*))
+      tasks(
+        ${TASK_COLUMNS},
+        subtasks(${SUBTASK_COLUMNS}),
+        task_comments(${COMMENT_COLUMNS}, user:profiles(${PROFILE_COLUMNS})),
+        task_history(${HISTORY_COLUMNS})
+      )
     `)
     .eq("id", groupId)
     .single();
@@ -55,6 +90,9 @@ export async function getGroupDetails(groupId) {
       }
     });
   }
+
+  // Cache the result
+  groupCache.set(groupId, data);
 
   return data;
 }

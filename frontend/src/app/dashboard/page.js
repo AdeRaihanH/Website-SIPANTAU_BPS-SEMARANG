@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getActiveUser, getProfile } from "../../backend/auth";
 import { getAllUsers } from "../../backend/admin";
-import { getAdminStats, getPersonalStats, getPersonalLogs } from "../../backend/dashboard";
+import { getPersonalStats, getPersonalLogs } from "../../backend/dashboard";
 import { supabase } from "../../backend/client";
 
 // Module-level in-memory cache (0ms latency, zero quota limits, 100% safe)
@@ -13,9 +13,9 @@ const memoryCache = new Map();
 export default function Dashboard() {
   const router = useRouter();
   const [userName, setUserName] = useState("User");
-  const [userFullName, setUserFullName] = useState("User Name");
+  const [userFullName, setUserFullName] = useState("User");
   const [userAvatar, setUserAvatar] = useState("");
-  const [userRole, setUserRole] = useState("intern");
+  const [userRole, setUserRole] = useState(null);
   const [adminUsers, setAdminUsers] = useState([]);
   const logRef = useRef(null);
 
@@ -24,28 +24,39 @@ export default function Dashboard() {
   const [personalStats, setPersonalStats] = useState({ completed: 0, scheduled: 0, updated: 0, overdue: 0 });
   const [activityLogs, setActivityLogs] = useState([]);
   const [adminActivityLogs, setAdminActivityLogs] = useState([]);
+  const [statsRefreshing, setStatsRefreshing] = useState(false);
   const adminReloadRef = useRef(null);
 
-  // Instant cache restore on mount (0ms delay)
-  useEffect(() => {
+  // useLayoutEffect: restore dari localStorage SETELAH hydration tapi SEBELUM browser paint
+  useLayoutEffect(() => {
     try {
-      const cachedRole = localStorage.getItem("sipantau_role");
-      const cachedName = localStorage.getItem("sipantau_name");
-      if (cachedName) setUserName(cachedName.split(" ")[0]);
-      if (cachedRole) setUserRole(cachedRole.toLowerCase());
-
-      const cachedAdminStats = memoryCache.get("adminStats");
-      if (cachedAdminStats) setAdminStats(cachedAdminStats);
-      
-      const cachedPersonalStats = memoryCache.get("personalStats");
-      if (cachedPersonalStats) setPersonalStats(cachedPersonalStats);
-
-      const cachedLogs = memoryCache.get("activityLogs");
-      if (cachedLogs && Array.isArray(cachedLogs)) {
-        setActivityLogs(cachedLogs);
-        setAdminActivityLogs(cachedLogs);
+      const prof = localStorage.getItem("sipantau_profile_cache");
+      if (prof) {
+        const p = JSON.parse(prof);
+        if (p.userName) setUserName(p.userName);
+        if (p.userFullName) setUserFullName(p.userFullName);
+        if (p.userRole) setUserRole(p.userRole);
+        if (p.avatar) setUserAvatar(p.avatar);
       }
-    } catch (e) {}
+      const adminS = localStorage.getItem("sipantau_adminStats");
+      if (adminS) {
+        const s = JSON.parse(adminS);
+        if (s && typeof s === 'object') setAdminStats(s);
+      }
+      const persS = localStorage.getItem("sipantau_personalStats");
+      if (persS) {
+        const s = JSON.parse(persS);
+        if (s && typeof s === 'object') setPersonalStats(s);
+      }
+      const logs = localStorage.getItem("sipantau_activityLogs");
+      if (logs) {
+        const l = JSON.parse(logs);
+        if (Array.isArray(l)) {
+          setActivityLogs(l);
+          setAdminActivityLogs(l);
+        }
+      }
+    } catch {}
   }, []);
 
   const loadProfile = async () => {
@@ -58,39 +69,74 @@ export default function Dashboard() {
       setUserId(user.id);
       
       const profile = await getProfile(user.id);
-      if (profile) {
-        const role = profile.role ? profile.role.toLowerCase() : "pemagang";
-        setUserRole(role);
-        setUserName(profile.full_name ? profile.full_name.split(" ")[0] : "User");
-        setUserFullName(profile.full_name || "User Name");
-        setUserAvatar(profile.avatar_url || "");
-        
-        if (role === "admin") {
-          const [users, stats, logs] = await Promise.all([
-            getAllUsers().catch(() => []),
-            getAdminStats().catch(() => ({ total: 0, pending: 0, approved: 0, rejected: 0 })),
-            getPersonalLogs(user.id, "admin").catch(() => [])
-          ]);
-          setAdminUsers(users);
-          setAdminStats(stats);
-          setAdminActivityLogs(logs || []);
+      if (!profile) return;
+      
+      const role = profile.role ? profile.role.toLowerCase() : "pemagang";
+      const firstName = profile.full_name ? profile.full_name.split(" ")[0] : "User";
+      setUserRole(role);
+      setUserName(firstName);
+      setUserFullName(profile.full_name || "User Name");
+      setUserAvatar(profile.avatar_url || "");
+      
+      // Simpan profile ke localStorage agar hard refresh berikutnya instan
+      try {
+        const existing = JSON.parse(localStorage.getItem("sipantau_profile_cache") || "{}");
+        localStorage.setItem("sipantau_profile_cache", JSON.stringify({
+          ...existing,
+          userName: firstName,
+          userFullName: profile.full_name || "User Name",
+          userRole: role,
+          avatar: profile.avatar_url || ""
+        }));
+      } catch (e) {}
 
-          memoryCache.set("adminStats", stats);
-          memoryCache.set("activityLogs", logs || []);
-        } else {
-          const [stats, logs] = await Promise.all([
-            getPersonalStats(user.id, role).catch(() => ({ completed: 0, scheduled: 0, updated: 0, overdue: 0 })),
-            getPersonalLogs(user.id, role).catch(() => [])
-          ]);
-          setPersonalStats(stats);
-          setActivityLogs(logs || []);
+      
+      if (role === "admin") {
+        setStatsRefreshing(true);
+        const [users, logs] = await Promise.all([
+          getAllUsers().catch(() => []),
+          getPersonalLogs(user.id, "admin").catch(() => [])
+        ]);
+        setAdminUsers(users);
+        // Derive stats from users data (avoids 4 separate count queries)
+        const activeUsers = users.filter(u => u.full_name !== 'DELETED_USER');
+        const derivedStats = {
+          total: activeUsers.length,
+          pending: activeUsers.filter(u => u.status === 'pending').length,
+          approved: activeUsers.filter(u => u.status === 'active').length,
+          rejected: activeUsers.filter(u => u.status === 'rejected').length,
+        };
+        setAdminStats(derivedStats);
+        setAdminActivityLogs(logs || []);
+        setStatsRefreshing(false);
 
-          memoryCache.set("personalStats", stats);
-          memoryCache.set("activityLogs", logs || []);
-        }
+        memoryCache.set("adminStats", derivedStats);
+        memoryCache.set("activityLogs", logs || []);
+        try {
+          localStorage.setItem("sipantau_adminStats", JSON.stringify(derivedStats));
+          localStorage.setItem("sipantau_activityLogs", JSON.stringify(logs || []));
+        } catch (e) {}
+      } else {
+        setStatsRefreshing(true);
+        const [stats, logs] = await Promise.all([
+          getPersonalStats(user.id, role).catch(() => ({ completed: 0, scheduled: 0, updated: 0, overdue: 0 })),
+          getPersonalLogs(user.id, role).catch(() => [])
+        ]);
+        setPersonalStats(stats);
+        setActivityLogs(logs || []);
+        setStatsRefreshing(false);
+
+        memoryCache.set("personalStats", stats);
+        memoryCache.set("activityLogs", logs || []);
+        try {
+          localStorage.setItem("sipantau_personalStats", JSON.stringify(stats));
+          localStorage.setItem("sipantau_activityLogs", JSON.stringify(logs || []));
+        } catch (e) {}
       }
     } catch (e) {
       console.error("Error loading profile or stats", e);
+    } finally {
+      setStatsRefreshing(false);
     }
   };
 
@@ -103,17 +149,27 @@ export default function Dashboard() {
     if (!userId || userRole !== "admin") return;
 
     const refreshAdminData = async () => {
+      setStatsRefreshing(true);
       try {
-        const [users, stats, logs] = await Promise.all([
+        const [users, logs] = await Promise.all([
           getAllUsers(),
-          getAdminStats(),
           getPersonalLogs(userId, "admin")
         ]);
         setAdminUsers(users);
-        setAdminStats(stats);
+        // Derive stats from users data (avoids 4 separate count queries)
+        const activeUsers = users.filter(u => u.full_name !== 'DELETED_USER');
+        const derivedStats = {
+          total: activeUsers.length,
+          pending: activeUsers.filter(u => u.status === 'pending').length,
+          approved: activeUsers.filter(u => u.status === 'active').length,
+          rejected: activeUsers.filter(u => u.status === 'rejected').length,
+        };
+        setAdminStats(derivedStats);
         setAdminActivityLogs(logs || []);
       } catch (e) {
         console.warn("Admin refresh error:", e);
+      } finally {
+        setStatsRefreshing(false);
       }
     };
 
@@ -159,6 +215,7 @@ export default function Dashboard() {
 
     // Periodic polling every 30s untuk refresh stats & logs
     const pollInterval = setInterval(async () => {
+      setStatsRefreshing(true);
       try {
         const stats = await getPersonalStats(userId, userRole);
         setPersonalStats(stats);
@@ -166,6 +223,8 @@ export default function Dashboard() {
         setActivityLogs(logs);
       } catch (e) {
         console.warn("Polling refresh error:", e);
+      } finally {
+        setStatsRefreshing(false);
       }
     }, 30000);
 
@@ -435,8 +494,8 @@ export default function Dashboard() {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-${stat.color}-100 text-${stat.color}-500 bg-${stat.color}-50`}>
                     {stat.icon}
                   </div>
-                  <div>
-                    <h3 className="text-sm font-extrabold text-slate-800 leading-tight">{stat.label}</h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`text-sm font-extrabold leading-tight transition-all duration-500 ${statsRefreshing ? 'text-slate-400' : 'text-slate-800'}`}>{stat.label}</h3>
                     <p className="text-[10px] font-semibold text-slate-400 mt-0.5">{stat.desc}</p>
                   </div>
                 </button>
@@ -612,7 +671,7 @@ export default function Dashboard() {
                     <div className={`w-6 h-6 rounded-full border border-${stat.color}-500 flex items-center justify-center text-${stat.color}-500 font-extrabold text-xs shrink-0`}>
                       {stat.icon}
                     </div>
-                    <span className="text-sm font-extrabold text-slate-800">{stat.label}</span>
+                    <span className={`text-sm font-extrabold transition-all duration-500 ${statsRefreshing ? 'text-slate-400' : 'text-slate-800'}`}>{stat.label}</span>
                   </div>
                   <span className="text-[11px] font-semibold text-slate-400 mt-3">{stat.desc}</span>
                 </div>

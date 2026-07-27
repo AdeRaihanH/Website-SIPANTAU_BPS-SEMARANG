@@ -95,8 +95,17 @@ export default function SettingsPage() {
         major
       });
 
-      // Dispatch event to update sidebar display name
+      // Dispatch event + update localStorage cache langsung
       window.dispatchEvent(new Event("sipantau-profile-updated"));
+      try {
+        const existing = JSON.parse(localStorage.getItem("sipantau_profile_cache") || "{}");
+        localStorage.setItem("sipantau_profile_cache", JSON.stringify({
+          ...existing,
+          userName: name.split(" ")[0] || name,
+          userFullName: name,
+          avatar: avatar || existing.avatar || ""
+        }));
+      } catch (e) {}
 
       setToast({ type: "success", message: "Perubahan profil berhasil disimpan!" });
       setTimeout(() => setToast(null), 3000);

@@ -63,6 +63,7 @@ export async function signInUser(email, password) {
 export async function signOutUser() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+  profileCache.clear(); // Clear cache on logout to prevent stale data
 }
 
 /**
@@ -76,10 +77,17 @@ export async function getActiveUser() {
   return userData.user;
 }
 
+// Module-level profile cache (avoids duplicate getProfile calls between layout and pages)
+const profileCache = new Map();
+
 /**
  * Get profile data for a specific user ID
  */
 export async function getProfile(userId) {
+  // Return cached profile if available (during SPA navigation)
+  const cached = profileCache.get(userId);
+  if (cached) return cached;
+  
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
@@ -87,7 +95,19 @@ export async function getProfile(userId) {
     .single();
 
   if (error) throw error;
+  profileCache.set(userId, data);
   return data;
+}
+
+/**
+ * Clear profile cache (called when profile is updated)
+ */
+export function clearProfileCache(userId) {
+  if (userId) {
+    profileCache.delete(userId);
+  } else {
+    profileCache.clear();
+  }
 }
 
 /**
@@ -102,5 +122,7 @@ export async function updateProfile(userId, updates) {
     .single();
 
   if (error) throw error;
+  // Update cache with fresh data
+  profileCache.set(userId, data);
   return data;
 }

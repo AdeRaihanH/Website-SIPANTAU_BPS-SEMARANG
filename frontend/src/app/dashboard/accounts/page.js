@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, use } from "react";
-import { getAllUsers, updateUserStatus, updateUserProfile, deleteUsers } from "../../../backend/admin";
+import { getAllUsers, updateUserStatus, updateUserProfile, deleteUsers, clearUsersCache } from "../../../backend/admin";
 import { getActiveUser, signUpUser } from "../../../backend/auth";
 import { supabase } from "../../../backend/client";
 
@@ -9,6 +9,7 @@ export default function AccountsPage({ searchParams }) {
   const resolvedSearchParams = use(searchParams);
   const [activeAdminId, setActiveAdminId] = useState(null);
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -65,6 +66,7 @@ export default function AccountsPage({ searchParams }) {
         institution: editFormData.institution,
         major: editFormData.major
       });
+      clearUsersCache();
       const updatedUsers = users.map(u =>
         u.id === editingRow ? { ...u, ...editFormData } : u
       );
@@ -85,15 +87,39 @@ export default function AccountsPage({ searchParams }) {
     }
   };
 
-  const loadUsers = async () => {
+  // Restore cached users from localStorage on mount (instant display)
+  useEffect(() => {
     try {
-      const activeUser = await getActiveUser();
-      if (activeUser) setActiveAdminId(activeUser.id);
+      const cached = localStorage.getItem("sipantau_allUsers");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setUsers(parsed);
+          setLoading(false);
+        }
+      }
+    } catch (e) {}
+  }, []);
 
-      const dbUsers = await getAllUsers();
+  const loadUsers = async ({ forceRefresh = false } = {}) => {
+    setLoading(true);
+    try {
+      // Run auth and users fetch in parallel
+      const [activeUser, dbUsers] = await Promise.all([
+        getActiveUser(),
+        getAllUsers({ forceRefresh }),
+      ]);
+
+      if (activeUser) setActiveAdminId(activeUser.id);
       setUsers(dbUsers);
+      // Save to localStorage for instant display on hard refresh
+      try {
+        localStorage.setItem("sipantau_allUsers", JSON.stringify(dbUsers));
+      } catch (e) {}
     } catch (e) {
       console.error("Gagal memuat pengguna:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -129,6 +155,7 @@ export default function AccountsPage({ searchParams }) {
       const { data: currentSession } = await supabase.auth.getSession();
       const sessionToRestore = currentSession?.session;
 
+      clearUsersCache();
       await signUpUser({
         email: newAccount.email,
         password: newAccount.password || "password123",
@@ -145,7 +172,7 @@ export default function AccountsPage({ searchParams }) {
         await supabase.auth.setSession(sessionToRestore);
       }
 
-      await loadUsers();
+      await loadUsers({ forceRefresh: true });
       setShowAddModal(false);
       setNewAccount({ name: "", email: "", phone: "", address: "", role: "pemagang", institution: "", major: "", password: "" });
       showToast("Sukses", "Akun baru telah berhasil ditambahkan.");
@@ -164,6 +191,7 @@ export default function AccountsPage({ searchParams }) {
 
   const handleUpdateStatus = async (userId, newStatus) => {
     try {
+      clearUsersCache();
       if (activeAdminId) {
         await updateUserStatus(activeAdminId, userId, newStatus);
         
@@ -260,6 +288,7 @@ export default function AccountsPage({ searchParams }) {
 
       const updatedUsers = users.filter(u => !idsToDelete.includes(u.id));
       setUsers(updatedUsers);
+      clearUsersCache();
 
       if (userToDelete) {
         setUserToDelete(null);
@@ -397,7 +426,14 @@ export default function AccountsPage({ searchParams }) {
       </div>
 
       {/* Users Table Container (HELD INTACT FOR BACKEND / DATABASE ACCOUNTS) */}
-      {filteredUsers.length === 0 ? (
+      {loading ? (
+        <div className="flex-1 bg-white rounded-xl border border-slate-100 shadow-sm flex flex-col items-center justify-center p-12 text-center min-h-[350px] mb-3">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-8 h-8 border-3 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+            <p className="text-sm font-bold text-slate-500">Memuat data akun...</p>
+          </div>
+        </div>
+      ) : filteredUsers.length === 0 ? (
         <div className="flex-1 bg-white rounded-xl border border-slate-100 shadow-sm flex flex-col items-center justify-center p-12 text-center min-h-[350px] mb-3">
           <img src="/empty-accounts.svg" alt="Belum ada akun terdaftar" className="w-56 h-36 object-contain mb-4" />
           <p className="text-sm font-extrabold text-slate-800">Belum ada akun terdaftar</p>
@@ -483,6 +519,7 @@ export default function AccountsPage({ searchParams }) {
                                   key={r}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    clearUsersCache();
                                     const newUsers = users.map(u => u.id === user.id ? { ...u, role: r } : u);
                                     setUsers(newUsers);
                                     updateUserProfile(user.id, { role: r }).catch(e => alert(e.message));
