@@ -1,17 +1,48 @@
 import { supabase } from "./client";
 
+/** In-memory cache for getAllUsers */
+let usersCache = null;
+let usersCachePromise = null;
+
 /**
  * Get all users for admin accounts table
  */
-export async function getAllUsers() {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .order("created_at", { ascending: false });
+export async function getAllUsers({ forceRefresh = false } = {}) {
+  // Return cached data immediately if available
+  if (!forceRefresh && usersCache) {
+    return usersCache;
+  }
 
-  if (error) throw error;
-  // Filter out soft-deleted users
-  return data.filter(u => !(u.status === 'rejected' && u.full_name === 'DELETED_USER'));
+  // Deduplicate concurrent calls
+  if (!forceRefresh && usersCachePromise) {
+    return usersCachePromise;
+  }
+
+  usersCachePromise = (async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, phone, address, institution, major, role, status, avatar_url, created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    // Filter out soft-deleted users
+    const filtered = data.filter(u => !(u.status === 'rejected' && u.full_name === 'DELETED_USER'));
+    usersCache = filtered;
+    return filtered;
+  })();
+
+  try {
+    return await usersCachePromise;
+  } finally {
+    usersCachePromise = null;
+  }
+}
+
+/**
+ * Clear the users cache (call after add/update/delete)
+ */
+export function clearUsersCache() {
+  usersCache = null;
 }
 
 /**

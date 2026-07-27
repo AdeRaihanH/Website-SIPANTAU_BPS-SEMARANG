@@ -52,55 +52,25 @@ export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordCha
     );
   };
 
-  // Clear any existing active session and initialize mock database if needed
+  // Clear any existing active session
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // Clear active login sessions
       localStorage.removeItem("sipantau_role");
       localStorage.removeItem("sipantau_name");
       localStorage.removeItem("sipantau_email");
-
-      // Initialize default accounts in database if empty, or inject missing ones
-      const existingUsersStr = localStorage.getItem("sipantau_users");
-      let usersList = [];
-      if (existingUsersStr) {
-        try {
-          usersList = JSON.parse(existingUsersStr);
-        } catch (e) {
-          usersList = [];
+      localStorage.removeItem("sipantau_fullName");
+      localStorage.removeItem("sipantau_avatar");
+      localStorage.removeItem("sipantau_adminStats");
+      localStorage.removeItem("sipantau_personalStats");
+      localStorage.removeItem("sipantau_activityLogs");
+      localStorage.removeItem("sipantau_allUsers");
+      // Clear team caches
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith("sipantau_team_") || key?.startsWith("sipantau_tasks_")) {
+          localStorage.removeItem(key);
         }
       }
-
-      // Remove legacy dummy seed users if present
-      const dummyEmails = [
-        "mentor@bps.go.id", "pemagang@gmail.com", "pemagang123@gmail.com",
-        "mentor123@bps.go.id", "citra@gmail.com", "eko@gmail.com",
-        "aisha@gmail.com", "myesha@gmail.com", "nurul@gmail.com"
-      ];
-      usersList = usersList.filter(u => !dummyEmails.includes(u.email) && !u.email.endsWith("@sipantau.com"));
-
-      const defaultUsers = [
-        {
-          email: "admin123@gmail.com",
-          password: "admin123",
-          name: "Admin Utama",
-          phone: "08111111111",
-          address: "Kantor Pusat BPS",
-          institution: "BPS Kota Semarang",
-          role: "admin",
-          status: "active"
-        }
-      ];
-
-      let isUpdated = false;
-      defaultUsers.forEach(defaultUser => {
-        if (!usersList.find(u => u.email === defaultUser.email)) {
-          usersList.push(defaultUser);
-          isUpdated = true;
-        }
-      });
-
-      localStorage.setItem("sipantau_users", JSON.stringify(usersList));
     }
   }, []);
 
@@ -121,7 +91,7 @@ export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordCha
       const finalName = signUpName || "Pengguna Baru";
       const finalEmail = signUpEmail || "baru@gmail.com";
 
-      // Save to Supabase backend if available, fallback to mock DB
+      // Save to Supabase backend
       try {
         await signUpUser({
           email: finalEmail,
@@ -138,34 +108,10 @@ export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordCha
           alert("Email ini sudah pernah terdaftar di Sipantau! Jika Anda sempat dihapus Admin dan ingin mendaftar ulang, silakan masuk lewat menu LOGIN menggunakan kata sandi Anda sebelumnya, lalu klik tombol 'Koreksi & Ajukan Ulang'.");
           return;
         }
-        console.warn("Supabase signUp warning/fallback:", err.message);
+        console.warn("Supabase signUp error:", err.message);
+        alert("Gagal mendaftar: " + err.message);
+        return;
       }
-
-      // Check user existence in local storage DB
-      const usersListStr = localStorage.getItem("sipantau_users") || "[]";
-      const usersList = JSON.parse(usersListStr);
-
-      const newUser = {
-        email: finalEmail,
-        password: signUpPassword || "12345678",
-        name: finalName,
-        phone: signUpPhone || "08123456789",
-        address: signUpAddress || "-",
-        institution: signUpInstitution || "-",
-        major: signUpMajor || "-",
-        role: finalRole,
-        status: "pending"
-      };
-
-      if (!usersList.find(u => u.email.toLowerCase() === finalEmail.toLowerCase())) {
-        usersList.push(newUser);
-        localStorage.setItem("sipantau_users", JSON.stringify(usersList));
-      }
-
-      // Save active session state
-      localStorage.setItem("sipantau_role", finalRole);
-      localStorage.setItem("sipantau_name", finalName);
-      localStorage.setItem("sipantau_email", finalEmail);
 
       // Redirect to verification view
       router.push("/verification");
@@ -176,16 +122,10 @@ export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordCha
         return;
       }
 
-      // Try Supabase auth first
-      let supabaseSuccess = false;
+      // Try Supabase auth
       try {
         const { user, profile } = await signInUser(signInEmail, signInPassword);
         if (profile) {
-          localStorage.setItem("sipantau_role", profile.role);
-          localStorage.setItem("sipantau_name", profile.full_name || profile.name);
-          localStorage.setItem("sipantau_email", profile.email);
-          supabaseSuccess = true;
-
           if (profile.status === "pending" || profile.status === "rejected") {
             router.push("/verification");
           } else {
@@ -194,31 +134,12 @@ export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordCha
           return;
         }
       } catch (err) {
-        console.warn("Supabase signIn attempt fallback to local database:", err.message);
+        console.warn("Supabase signIn error:", err.message);
+        setLoginError(true);
+        return;
       }
-
-      // Lookup user in mock database if Supabase did not redirect
-      if (!supabaseSuccess) {
-        const usersListStr = localStorage.getItem("sipantau_users") || "[]";
-        const usersList = JSON.parse(usersListStr);
-        const foundUser = usersList.find(
-          u => u.email.toLowerCase() === signInEmail.toLowerCase() && u.password === signInPassword
-        );
-
-        if (foundUser) {
-          localStorage.setItem("sipantau_role", foundUser.role);
-          localStorage.setItem("sipantau_name", foundUser.name);
-          localStorage.setItem("sipantau_email", foundUser.email);
-
-          if (foundUser.status === "pending" || foundUser.status === "rejected") {
-            router.push("/verification");
-          } else {
-            router.push("/dashboard");
-          }
-        } else {
-          setLoginError(true);
-        }
-      }
+      
+      setLoginError(true);
     }
   };
 

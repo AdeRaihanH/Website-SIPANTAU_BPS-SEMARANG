@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, useSelectedLayoutSegment } from "next/navigation";
 import { getActiveUser, getProfile, signOutUser } from "../../backend/auth";
+
+const LS_PROFILE_KEY = "sipantau_profile_cache";
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const activeSegment = useSelectedLayoutSegment();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Profile states
+  // Profile states — pakai fallback default agar SSR vs client MATCH
   const [avatar, setAvatar] = useState("");
   const [userName, setUserName] = useState("User");
   const [userRole, setUserRole] = useState("pemagang");
@@ -19,36 +21,51 @@ export default function DashboardLayout({ children }) {
     try {
       const user = await getActiveUser();
       if (!user) {
-        const localRole = localStorage.getItem("sipantau_role");
-        const localName = localStorage.getItem("sipantau_name");
-        if (localRole) {
-          setUserRole(localRole.toLowerCase());
-          setUserName(localName || "User");
-        }
+        router.push("/");
         return;
       }
       const profile = await getProfile(user.id);
       if (profile) {
         if (profile.status === 'rejected' && profile.full_name === 'DELETED_USER') {
           await signOutUser().catch(() => {});
-          localStorage.clear();
           router.push("/");
           return;
         }
-        setUserName(profile.full_name || profile.name || "User");
-        setUserRole(profile.role ? profile.role.toLowerCase() : "pemagang");
-        setAvatar(profile.avatar_url || "");
+        const newName = profile.full_name || profile.name || "User";
+        const newRole = profile.role ? profile.role.toLowerCase() : "pemagang";
+        const newAvatar = profile.avatar_url || "";
+        
+        setUserName(newName);
+        setUserRole(newRole);
+        setAvatar(newAvatar);
+        
+        // Cache ke localStorage agar hard refresh berikutnya instan
+        try {
+          localStorage.setItem(LS_PROFILE_KEY, JSON.stringify({
+            userName: newName,
+            userRole: newRole,
+            avatar: newAvatar
+          }));
+        } catch (e) {}
       }
     } catch (error) {
       console.error("Error loading profile:", error);
-      const localRole = localStorage.getItem("sipantau_role");
-      const localName = localStorage.getItem("sipantau_name");
-      if (localRole) {
-        setUserRole(localRole.toLowerCase());
-        setUserName(localName || "User");
-      }
+      router.push("/");
     }
   };
+
+  // useLayoutEffect: restore dari localStorage SETELAH hydration tapi SEBELUM browser paint
+  useLayoutEffect(() => {
+    try {
+      const cached = localStorage.getItem(LS_PROFILE_KEY);
+      if (cached) {
+        const p = JSON.parse(cached);
+        if (p.userName) setUserName(p.userName);
+        if (p.userRole) setUserRole(p.userRole);
+        if (p.avatar) setAvatar(p.avatar);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     loadUserProfile();
@@ -103,7 +120,7 @@ export default function DashboardLayout({ children }) {
   // Close menu when route changes on mobile
   useEffect(() => {
     setMobileMenuOpen(false);
-  }, [pathname]);
+  }, [activeSegment]);
 
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || "User")}&background=f1f5f9&color=64748b&bold=true`;
   const profileHref = userRole === "admin" ? "/dashboard/accounts" : "/dashboard/settings";
@@ -180,9 +197,8 @@ export default function DashboardLayout({ children }) {
           {/* Nav Items */}
           <nav className="space-y-1 mt-4 md:mt-0">
             {navItems.map((item) => {
-              const isActive = item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href) && !pathname.startsWith("/dashboard/settings");
+              const itemSegment = item.href === "/dashboard" ? null : item.href.replace("/dashboard/", "");
+              const isActive = activeSegment === itemSegment;
               return (
                 <Link
                   key={item.href}
@@ -206,12 +222,12 @@ export default function DashboardLayout({ children }) {
             <Link
               href="/dashboard/settings"
               onClick={() => setMobileMenuOpen(false)}
-              className={`group w-full flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold text-sm transition-all duration-200 ${pathname?.startsWith("/dashboard/settings")
+              className={`group w-full flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold text-sm transition-all duration-200 ${activeSegment === "settings"
                 ? "bg-violet-50 md:bg-white text-slate-900 md:border md:border-slate-100 shadow-sm font-bold"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50 md:hover:bg-white/50"
                 }`}
             >
-              <span className={`text-lg transition-colors duration-200 ${pathname?.startsWith("/dashboard/settings") ? "text-violet-600" : "text-slate-400 group-hover:text-slate-600"}`}>
+              <span className={`text-lg transition-colors duration-200 ${activeSegment === "settings" ? "text-violet-600" : "text-slate-400 group-hover:text-slate-600"}`}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31-2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -234,7 +250,7 @@ export default function DashboardLayout({ children }) {
 
       {/* ================= MAIN CONTENT ================= */}
       <main className="flex-1 py-4 px-2 md:px-0 md:py-3 md:pr-3 min-w-0 h-full flex flex-col sm:pt-4 md:pt-3">
-        <div className={`bg-white rounded-3xl md:rounded-[2.5rem] shadow-xl border border-slate-100 flex-1 p-4 md:p-6 lg:p-8 flex flex-col ${pathname === "/dashboard/accounts" ? "overflow-hidden" : "overflow-y-auto"}`}>
+        <div className={`bg-white rounded-3xl md:rounded-[2.5rem] shadow-xl border border-slate-100 flex-1 p-4 md:p-6 lg:p-8 flex flex-col ${activeSegment === "accounts" ? "overflow-hidden" : "overflow-y-auto"}`}>
           {children}
         </div>
       </main>
@@ -265,12 +281,11 @@ export default function DashboardLayout({ children }) {
                 onClick={async () => {
                   try {
                     await signOutUser();
-                    localStorage.removeItem("sipantau_role");
-                    localStorage.removeItem("sipantau_name");
-                    localStorage.removeItem("sipantau_email");
+                    localStorage.removeItem("sipantau_profile_cache");
                     router.push("/");
                   } catch (e) {
                     console.error("Logout error", e);
+                    localStorage.removeItem("sipantau_profile_cache");
                     router.push("/");
                   }
                 }}
