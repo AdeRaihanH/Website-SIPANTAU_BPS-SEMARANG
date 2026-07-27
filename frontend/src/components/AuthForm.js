@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUpUser, signInUser } from "../backend/auth";
 
-export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordChange }) {
+export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordChange, initialSignUp = false }) {
   const router = useRouter();
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(initialSignUp);
   const [showPassword, setShowPassword] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+
+  useEffect(() => {
+    setIsSignUp(initialSignUp);
+  }, [initialSignUp]);
 
   useEffect(() => {
     if (onForgotPasswordChange) {

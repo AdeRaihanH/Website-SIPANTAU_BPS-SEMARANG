@@ -106,6 +106,7 @@ export default function DashboardLayout({ children }) {
   }, [pathname]);
 
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || "User")}&background=f1f5f9&color=64748b&bold=true`;
+  const profileHref = userRole === "admin" ? "/dashboard/accounts" : "/dashboard/settings";
 
   return (
     <div className="h-screen w-screen bg-[#f4f4f5] flex flex-col md:flex-row font-sans overflow-hidden relative">
@@ -123,9 +124,12 @@ export default function DashboardLayout({ children }) {
           </button>
           <span className="font-extrabold text-slate-800 tracking-tight text-lg">SIPANTAU</span>
         </div>
-        <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200">
+        <Link 
+          href={profileHref} 
+          className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 active:scale-95 transition-transform block hover:border-violet-500 shadow-sm"
+        >
           <img src={avatar || defaultAvatar} alt="Avatar" className="w-full h-full object-cover" />
-        </div>
+        </Link>
       </div>
 
       {/* ================= MOBILE MENU OVERLAY ================= */}
@@ -143,33 +147,31 @@ export default function DashboardLayout({ children }) {
         <div className="space-y-8">
           {/* Mobile Close Button & Desktop Avatar Link */}
           <div className="flex items-center justify-between pl-1 pr-2 md:pr-0">
-            {userRole === "admin" ? (
-              <div className="hidden md:block w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md">
-                <img src={avatar || defaultAvatar} alt="User Avatar" className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <Link 
-                href="/dashboard/settings" 
-                className="hidden md:block w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
-              >
-                <img src={avatar || defaultAvatar} alt="User Avatar" className="w-full h-full object-cover" />
-              </Link>
-            )}
+            <Link 
+              href={profileHref} 
+              className="hidden md:block w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
+            >
+              <img src={avatar || defaultAvatar} alt="User Avatar" className="w-full h-full object-cover" />
+            </Link>
 
-            {/* Mobile close button inside drawer */}
-            <div className="md:hidden flex items-center gap-3">
-               <div className="w-10 h-10 rounded-full overflow-hidden border shadow-sm">
+            {/* Mobile profile link inside drawer */}
+            <Link
+              href={profileHref}
+              onClick={() => setMobileMenuOpen(false)}
+              className="md:hidden flex items-center gap-3 active:scale-95 transition-all cursor-pointer group"
+            >
+               <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 shadow-sm shrink-0 group-hover:border-violet-500">
                   <img src={avatar || defaultAvatar} alt="Avatar" className="w-full h-full object-cover" />
                </div>
                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-700">{userName}</span>
+                  <span className="text-xs font-bold text-slate-800 group-hover:text-violet-600 transition-colors">{userName}</span>
                   <span className="text-[10px] font-semibold text-slate-400 capitalize">{userRole}</span>
                </div>
-            </div>
+            </Link>
             
             <button 
               onClick={() => setMobileMenuOpen(false)}
-              className="md:hidden w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
+              className="md:hidden w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -203,6 +205,7 @@ export default function DashboardLayout({ children }) {
           {userRole !== "admin" && (
             <Link
               href="/dashboard/settings"
+              onClick={() => setMobileMenuOpen(false)}
               className={`group w-full flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold text-sm transition-all duration-200 ${pathname?.startsWith("/dashboard/settings")
                 ? "bg-violet-50 md:bg-white text-slate-900 md:border md:border-slate-100 shadow-sm font-bold"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50 md:hover:bg-white/50"

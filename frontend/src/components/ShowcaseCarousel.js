@@ -90,9 +90,13 @@ const slides = [
   },
 ];
 
-export default function ShowcaseCarousel() {
+export default function ShowcaseCarousel({ onSelectSignUp, onSelectSignIn, isMobileFullScreen = false }) {
   const [activeSlide, setActiveSlide] = useState(0);
   const [textKey, setTextKey] = useState(0);
+
+  // Touch Swipe Gesture State
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -107,23 +111,56 @@ export default function ShowcaseCarousel() {
     setTextKey((k) => k + 1);
   };
 
+  const handleTouchStart = (e) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    if (distance > 40) {
+      // Swipe left -> Next slide
+      setActiveSlide((prev) => (prev + 1) % slides.length);
+      setTextKey((k) => k + 1);
+    } else if (distance < -40) {
+      // Swipe right -> Prev slide
+      setActiveSlide((prev) => (prev - 1 + slides.length) % slides.length);
+      setTextKey((k) => k + 1);
+    }
+    setTouchStart(0);
+    setTouchEnd(0);
+  };
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CAROUSEL_STYLES }} />
-      <div className="relative w-full max-w-[550px] flex-1 min-h-[460px] md:min-h-[650px] md:h-[650px] rounded-[2.5rem] bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 p-8 flex flex-col justify-between overflow-hidden shadow-2xl shadow-indigo-200 transform scale-95 md:scale-100 origin-top">
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`relative w-full flex-1 flex flex-col justify-between overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 select-none touch-pan-y ${
+          isMobileFullScreen
+            ? "min-h-screen h-screen rounded-none p-6 sm:p-8 shadow-none border-none"
+            : "max-w-[550px] min-h-[460px] md:min-h-[650px] md:h-[650px] rounded-[2.5rem] p-6 sm:p-8 shadow-2xl shadow-indigo-200 transform scale-95 md:scale-100 origin-top"
+        }`}
+      >
 
         {/* Decorative background glows */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-300/20 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
 
         {/* Dynamic Display Area */}
-        <div className="relative flex-1 flex items-center justify-center w-full min-h-[360px]">
+        <div className="relative flex-1 flex items-center justify-center w-full min-h-[340px]">
           {activeSlide === 0 && <Slide1Dashboard />}
           {activeSlide === 1 && <Slide2TaskDetail />}
           {activeSlide === 2 && <Slide3SettingsProfile />}
         </div>
 
-        {/* Bottom Text & Pagination */}
+        {/* Bottom Text, Pagination & Mobile Actions */}
         <div className="relative z-10 text-center text-white mt-4" key={textKey}>
           <h3
             className="text-xl sm:text-2xl font-extrabold tracking-tight mb-2 min-h-[32px]"
@@ -132,7 +169,7 @@ export default function ShowcaseCarousel() {
             {slides[activeSlide].title}
           </h3>
           <p
-            className="text-xs sm:text-sm text-indigo-100/90 max-w-sm mx-auto leading-relaxed min-h-[48px]"
+            className="text-xs sm:text-sm text-indigo-100/90 max-w-sm mx-auto leading-relaxed min-h-[44px]"
             style={{ animation: "textSlideUp 0.4s ease-out 0.1s both" }}
           >
             {slides[activeSlide].subtitle}
@@ -150,6 +187,26 @@ export default function ShowcaseCarousel() {
               />
             ))}
           </div>
+
+          {/* Action Buttons for Mobile Onboarding View */}
+          {onSelectSignUp && onSelectSignIn && (
+            <div className="flex md:hidden flex-col gap-2.5 mt-5 w-full max-w-xs mx-auto z-20">
+              <button
+                type="button"
+                onClick={onSelectSignUp}
+                className="w-full bg-white hover:bg-slate-50 active:bg-slate-100 text-violet-700 font-extrabold py-3 px-6 rounded-full text-xs shadow-lg transition-all cursor-pointer transform active:scale-95"
+              >
+                Sign Up
+              </button>
+              <button
+                type="button"
+                onClick={onSelectSignIn}
+                className="w-full bg-white/20 hover:bg-white/30 active:bg-white/40 text-white font-bold py-3 px-6 rounded-full text-xs border border-white/40 backdrop-blur-sm transition-all cursor-pointer transform active:scale-95"
+              >
+                Login
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>

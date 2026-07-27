@@ -838,78 +838,209 @@ export default function AccountsPage({ searchParams }) {
           onClick={() => setShowAddModal(false)}
         >
           <div
-            className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[95vh]"
+            className="bg-white rounded-2xl w-full max-w-[480px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] p-6 text-slate-800"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-white shrink-0">
-              <h2 className="text-[15px] font-extrabold text-slate-800">Tambah Akun</h2>
+            {/* Modal Header */}
+            <div className="pb-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 mb-4">
+              <h2 className="text-base font-bold text-slate-900">Tambah Akun</h2>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 font-bold cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Nama</label>
+            {/* Modal Body */}
+            <div className="space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-1">
+              {/* Nama */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+                  <span className="text-rose-500 font-bold">*</span> Nama
+                </label>
                 <input
                   type="text"
                   value={newAccount.name}
                   onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
-                  placeholder="Masukkan nama"
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:bg-white focus:ring-1 focus:ring-violet-500 transition-all duration-200"
+                  placeholder="Masukkan nama lengkap"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Email</label>
+
+              {/* Email */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+                  <span className="text-rose-500 font-bold">*</span> Email
+                </label>
                 <input
                   type="email"
                   value={newAccount.email}
                   onChange={(e) => setNewAccount({ ...newAccount, email: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:bg-white focus:ring-1 focus:ring-violet-500 transition-all duration-200"
                   placeholder="nama@email.com"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Peran (Role)</label>
-                <select
-                  value={newAccount.role}
-                  onChange={(e) => setNewAccount({ ...newAccount, role: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500 bg-white"
-                >
-                  <option value="pemagang">Pemagang</option>
-                  <option value="mentor">Mentor</option>
-                  <option value="admin">Admin</option>
-                </select>
+
+              {/* Nomor Telepon */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+                  <span className="text-rose-500 font-bold">*</span> Nomor Telepon
+                </label>
+                <input
+                  type="tel"
+                  value={newAccount.phone}
+                  onChange={(e) => setNewAccount({ ...newAccount, phone: e.target.value })}
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:bg-white focus:ring-1 focus:ring-violet-500 transition-all duration-200"
+                  placeholder="Contoh: 0812345678"
+                />
               </div>
-              {newAccount.role !== "mentor" && (
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-800 block"><span className="text-rose-500">*</span> Instansi / Universitas</label>
+
+              {/* Alamat Rumah */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+                  <span className="text-rose-500 font-bold">*</span> Alamat Rumah
+                </label>
+                <input
+                  type="text"
+                  value={newAccount.address}
+                  onChange={(e) => setNewAccount({ ...newAccount, address: e.target.value })}
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:bg-white focus:ring-1 focus:ring-violet-500 transition-all duration-200"
+                  placeholder="Masukkan alamat lengkap"
+                />
+              </div>
+
+              {/* Role Radio buttons */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+                  <span className="text-rose-500 font-bold">*</span> Role
+                </label>
+                <div className="flex items-center gap-6 mt-1">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="accountRole"
+                      value="pemagang"
+                      checked={newAccount.role === "pemagang"}
+                      onChange={() => {
+                        setNewAccount({
+                          ...newAccount,
+                          role: "pemagang",
+                          institution: newAccount.institution === "BPS Kota Semarang" ? "" : newAccount.institution
+                        });
+                      }}
+                      className="sr-only"
+                    />
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                      newAccount.role === "pemagang" ? "border-violet-600 bg-white" : "border-slate-300 group-hover:border-slate-400"
+                    }`}>
+                      {newAccount.role === "pemagang" && <div className="w-2 h-2 rounded-full bg-violet-600" />}
+                    </div>
+                    <span className="text-xs font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">Pemagang</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="accountRole"
+                      value="mentor"
+                      checked={newAccount.role === "mentor"}
+                      onChange={() => {
+                        setNewAccount({
+                          ...newAccount,
+                          role: "mentor",
+                          institution: "BPS Kota Semarang",
+                          major: ""
+                        });
+                      }}
+                      className="sr-only"
+                    />
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                      newAccount.role === "mentor" ? "border-violet-600 bg-white" : "border-slate-300 group-hover:border-slate-400"
+                    }`}>
+                      {newAccount.role === "mentor" && <div className="w-2 h-2 rounded-full bg-violet-600" />}
+                    </div>
+                    <span className="text-xs font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">Mentor</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Asal Instansi & Jurusan Fields (Side by Side / Full Width) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`flex flex-col gap-1 ${newAccount.role === "mentor" ? "col-span-2" : ""}`}>
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+                    <span className="text-rose-500 font-bold">*</span> Asal Instansi
+                  </label>
                   <input
                     type="text"
-                    value={newAccount.institution}
+                    value={newAccount.role === "mentor" ? "BPS Kota Semarang" : newAccount.institution}
                     onChange={(e) => setNewAccount({ ...newAccount, institution: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
-                    placeholder="Contoh: Universitas Diponegoro"
+                    readOnly={newAccount.role === "mentor"}
+                    placeholder={newAccount.role === "mentor" ? "BPS Kota Semarang" : "Masukkan nama universitas / instansi"}
+                    className={`w-full border rounded-xl px-4 py-2.5 text-xs font-medium outline-none transition-all duration-200 ${
+                      newAccount.role === "mentor"
+                        ? "border-slate-200 bg-slate-100/70 text-slate-500 cursor-not-allowed"
+                        : "border-slate-200 bg-slate-50/50 text-slate-800 placeholder-slate-400 focus:border-violet-500 focus:bg-white focus:ring-1 focus:ring-violet-500"
+                    }`}
                   />
                 </div>
-              )}
+
+                {newAccount.role !== "mentor" && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+                      <span className="text-rose-500 font-bold">*</span> Jurusan
+                    </label>
+                    <input
+                      type="text"
+                      value={newAccount.major}
+                      onChange={(e) => setNewAccount({ ...newAccount, major: e.target.value })}
+                      placeholder="Masukkan jurusan"
+                      className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:bg-white focus:ring-1 focus:ring-violet-500 transition-all duration-200"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Password */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-0.5">
+                  <span className="text-rose-500 font-bold">*</span> Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newAccount.password}
+                    onChange={(e) => setNewAccount({ ...newAccount, password: e.target.value })}
+                    className="w-full border border-slate-200 bg-slate-50/50 rounded-xl pl-4 pr-10 py-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-violet-500 focus:bg-white focus:ring-1 focus:ring-violet-500 transition-all duration-200"
+                    placeholder="Masukkan password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  >
+                    {showPassword ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.02 10.02 0 014.122-.963c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3 shrink-0">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-500 cursor-pointer"
-              >
-                Batal
-              </button>
+            {/* Submit Button */}
+            <div className="pt-3 mt-1 shrink-0">
               <button
                 onClick={handleAddAccount}
-                className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-xs font-bold text-white shadow-md shadow-violet-100 cursor-pointer"
+                className="w-full bg-[#6344e7] hover:bg-[#5232d6] active:bg-[#4526c7] text-white font-bold py-3 rounded-xl text-xs shadow-md shadow-violet-200 transition-all cursor-pointer"
               >
-                Simpan Akun
+                Tambah Akun
               </button>
             </div>
           </div>
