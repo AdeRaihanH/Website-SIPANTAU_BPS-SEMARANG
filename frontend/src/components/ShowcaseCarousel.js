@@ -142,11 +142,10 @@ export default function ShowcaseCarousel({ onSelectSignUp, onSelectSignIn, isMob
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`relative w-full flex-1 flex flex-col justify-between overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 select-none touch-pan-y ${
-          isMobileFullScreen
-            ? "min-h-screen h-screen rounded-none p-4 sm:p-8 shadow-none border-none"
+        className={`relative w-full flex-1 flex flex-col justify-start md:justify-between overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 select-none touch-pan-y ${isMobileFullScreen
+            ? "min-h-screen h-screen rounded-none p-4 sm:p-8 shadow-none border-none pt-4 sm:pt-8"
             : "max-w-[550px] min-h-[460px] md:min-h-[650px] md:h-[650px] rounded-[2.5rem] p-6 sm:p-8 shadow-2xl shadow-indigo-200 transform scale-95 md:scale-100 origin-top"
-        }`}
+          }`}
       >
 
         {/* Decorative background glows */}
@@ -154,35 +153,34 @@ export default function ShowcaseCarousel({ onSelectSignUp, onSelectSignIn, isMob
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-300/20 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
 
         {/* Dynamic Display Area */}
-        <div className="relative flex-1 flex items-center justify-center w-full min-h-[180px] sm:min-h-[240px] md:min-h-[340px]">
+        <div className="relative flex-shrink-0 flex items-center justify-center w-full min-h-[140px] sm:min-h-[220px] md:min-h-[340px] py-1 transform scale-75 sm:scale-90 md:scale-100 origin-top">
           {activeSlide === 0 && <Slide1Dashboard />}
           {activeSlide === 1 && <Slide2TaskDetail />}
           {activeSlide === 2 && <Slide3SettingsProfile />}
         </div>
 
         {/* Bottom Text, Pagination & Mobile Actions */}
-        <div className="relative z-10 text-center text-white mt-1 sm:mt-4 shrink-0" key={textKey}>
+        <div className="relative z-10 text-center text-white mt-1 sm:mt-4 shrink-0 -mt-4 sm:mt-0" key={textKey}>
           <h3
-            className="text-lg sm:text-2xl font-extrabold tracking-tight mb-1 min-h-[28px]"
+            className="text-base sm:text-2xl font-extrabold tracking-tight mb-1"
             style={{ animation: "textSlideUp 0.4s ease-out both" }}
           >
             {slides[activeSlide].title}
           </h3>
           <p
-            className="text-xs sm:text-sm text-indigo-100/90 max-w-xs sm:max-w-sm mx-auto leading-snug min-h-[36px]"
+            className="text-xs sm:text-sm text-indigo-100/90 max-w-[280px] sm:max-w-sm mx-auto leading-snug mb-2"
             style={{ animation: "textSlideUp 0.4s ease-out 0.1s both" }}
           >
             {slides[activeSlide].subtitle}
           </p>
 
-          <div className="flex justify-center gap-2 mt-2 sm:mt-4">
+          <div className="flex justify-center gap-1.5 mb-2.5 sm:mb-4">
             {slides.map((_, index) => (
               <button
                 key={index}
                 onClick={() => handleDotClick(index)}
-                className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 ${
-                  index === activeSlide ? "w-5 sm:w-6 bg-white" : "w-1.5 sm:w-2 bg-white/40 hover:bg-white/60"
-                }`}
+                className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 ${index === activeSlide ? "w-5 sm:w-6 bg-white" : "w-1.5 sm:w-2 bg-white/40 hover:bg-white/60"
+                  }`}
                 aria-label={`Go to slide ${index + 1}`}
               />
             ))}
@@ -190,7 +188,7 @@ export default function ShowcaseCarousel({ onSelectSignUp, onSelectSignIn, isMob
 
           {/* Action Buttons for Mobile Onboarding View */}
           {onSelectSignUp && onSelectSignIn && (
-            <div className="flex md:hidden flex-col gap-2 mt-3 w-full max-w-xs mx-auto z-20 pb-2">
+            <div className="flex md:hidden flex-col gap-2 mt-2 w-full max-w-xs mx-auto z-20 pb-4">
               <button
                 type="button"
                 onClick={onSelectSignUp}
@@ -282,37 +280,37 @@ function Slide1Dashboard() {
 
             <div className="grid grid-cols-4 gap-1">
               {[
-                { 
+                {
                   icon: (
                     <svg className="w-2 h-2 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
-                  ), 
-                  label: "2 Selesai" 
+                  ),
+                  label: "2 Selesai"
                 },
-                { 
+                {
                   icon: (
                     <svg className="w-2 h-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                  ), 
-                  label: "4 Dijadwalkan" 
+                  ),
+                  label: "4 Dijadwalkan"
                 },
-                { 
+                {
                   icon: (
                     <svg className="w-2 h-2 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                  ), 
-                  label: "1 Diperbarui" 
+                  ),
+                  label: "1 Diperbarui"
                 },
-                { 
+                {
                   icon: (
                     <svg className="w-2 h-2 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                  ), 
-                  label: "1 Terlambat" 
+                  ),
+                  label: "1 Terlambat"
                 },
               ].map((item, i) => (
                 <div key={i} className="p-1 border border-slate-100 bg-white rounded flex flex-col items-start">
