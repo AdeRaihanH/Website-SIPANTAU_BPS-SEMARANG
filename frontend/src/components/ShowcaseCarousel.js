@@ -142,8 +142,8 @@ export default function ShowcaseCarousel({ onSelectSignUp, onSelectSignIn, isMob
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`relative w-full flex-1 flex flex-col justify-center md:justify-between overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 select-none touch-pan-y ${isMobileFullScreen
-            ? "min-h-screen h-screen rounded-none p-5 sm:p-8 shadow-none border-none"
+        className={`relative w-full flex-1 flex flex-col justify-between overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 select-none touch-pan-y ${isMobileFullScreen
+            ? "min-h-screen h-screen rounded-none px-6 pt-6 pb-20 sm:p-8 shadow-none border-none"
             : "max-w-[550px] min-h-[460px] md:min-h-[650px] md:h-[650px] rounded-[2.5rem] p-6 sm:p-8 shadow-2xl shadow-indigo-200 transform scale-95 md:scale-100 origin-top"
           }`}
       >
@@ -152,15 +152,15 @@ export default function ShowcaseCarousel({ onSelectSignUp, onSelectSignIn, isMob
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-300/20 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
 
-        {/* Dynamic Display Area */}
-        <div className="relative flex-shrink-0 flex items-center justify-center w-full min-h-[200px] sm:min-h-[250px] md:min-h-[340px] my-auto transform scale-[0.82] sm:scale-95 md:scale-100 origin-center">
+        {/* Dynamic Display Area - Naturally centered graphic */}
+        <div className="relative flex-1 flex items-center justify-center w-full min-h-0 py-2 transform scale-[0.82] sm:scale-95 md:scale-100 origin-center">
           {activeSlide === 0 && <Slide1Dashboard />}
           {activeSlide === 1 && <Slide2TaskDetail />}
           {activeSlide === 2 && <Slide3SettingsProfile />}
         </div>
 
-        {/* Bottom Text, Pagination & Mobile Actions */}
-        <div className="relative z-10 text-center text-white mt-2 sm:mt-4 shrink-0 my-auto" key={textKey}>
+        {/* Bottom Text, Pagination & Mobile Actions - Text and both buttons lifted together */}
+        <div className="relative z-10 text-center text-white shrink-0 pt-2 pb-2 mb-6" key={textKey}>
           <h3
             className="text-lg sm:text-2xl font-extrabold tracking-tight mb-1.5 min-h-[28px]"
             style={{ animation: "textSlideUp 0.4s ease-out both" }}
@@ -168,13 +168,13 @@ export default function ShowcaseCarousel({ onSelectSignUp, onSelectSignIn, isMob
             {slides[activeSlide].title}
           </h3>
           <p
-            className="text-xs sm:text-sm text-indigo-100/90 max-w-xs sm:max-w-sm mx-auto leading-relaxed min-h-[38px]"
+            className="text-xs sm:text-sm text-indigo-100/90 max-w-xs sm:max-w-sm mx-auto leading-relaxed mb-3 min-h-[36px]"
             style={{ animation: "textSlideUp 0.4s ease-out 0.1s both" }}
           >
             {slides[activeSlide].subtitle}
           </p>
 
-          <div className="flex justify-center gap-2 my-3 sm:mt-4">
+          <div className="flex justify-center gap-2 mb-4">
             {slides.map((_, index) => (
               <button
                 key={index}
@@ -188,18 +188,18 @@ export default function ShowcaseCarousel({ onSelectSignUp, onSelectSignIn, isMob
 
           {/* Action Buttons for Mobile Onboarding View */}
           {onSelectSignUp && onSelectSignIn && (
-            <div className="flex md:hidden flex-col gap-2.5 mt-3 w-full max-w-xs mx-auto z-20">
+            <div className="flex md:hidden flex-col gap-2.5 w-full max-w-xs mx-auto z-20">
               <button
                 type="button"
                 onClick={onSelectSignUp}
-                className="w-full bg-white hover:bg-slate-50 active:bg-slate-100 text-violet-700 font-extrabold py-3 px-6 rounded-full text-xs shadow-lg transition-all cursor-pointer transform active:scale-95"
+                className="w-full bg-white hover:bg-slate-50 active:bg-slate-100 text-violet-700 font-extrabold py-3 px-6 rounded-2xl text-xs shadow-lg transition-all cursor-pointer transform active:scale-95"
               >
                 Sign Up
               </button>
               <button
                 type="button"
                 onClick={onSelectSignIn}
-                className="w-full bg-white/20 hover:bg-white/30 active:bg-white/40 text-white font-bold py-3 px-6 rounded-full text-xs border border-white/40 backdrop-blur-sm transition-all cursor-pointer transform active:scale-95"
+                className="w-full bg-white/20 hover:bg-white/30 active:bg-white/40 text-white font-bold py-3 px-6 rounded-2xl text-xs border border-white/40 backdrop-blur-sm transition-all cursor-pointer transform active:scale-95"
               >
                 Login
               </button>
@@ -347,7 +347,7 @@ function Slide1Dashboard() {
       </div>
 
       <div
-        className="absolute top-[3%] right-[30px] bg-white rounded-lg px-2.5 py-1.5 shadow-xl border border-slate-100 flex items-center gap-1.5 z-20"
+        className="absolute top-[3%] right-[20px] bg-white rounded-lg px-2.5 py-1.5 shadow-xl border border-slate-100 flex items-center gap-1.5 z-20"
         style={{
           animation: "badgeBerandaOut 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both",
         }}
