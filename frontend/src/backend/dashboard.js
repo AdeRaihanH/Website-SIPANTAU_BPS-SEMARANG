@@ -143,6 +143,11 @@ export async function logActivity(userId, description, taskId = null, explicitGr
     });
 
   if (error) {
-    console.error("Failed to log activity:", error);
+    console.error("Failed to log activity:", {
+      message: error?.message || error?.error_description || "(no message)",
+      details: error?.details || null,
+      hint: error?.hint || null,
+      code: error?.code || null
+    });
   }
 }

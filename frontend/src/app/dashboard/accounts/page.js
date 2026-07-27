@@ -3,6 +3,7 @@
 import React, { useState, useEffect, use } from "react";
 import { getAllUsers, updateUserStatus, updateUserProfile, deleteUsers } from "../../../backend/admin";
 import { getActiveUser, signUpUser } from "../../../backend/auth";
+import { supabase } from "../../../backend/client";
 
 export default function AccountsPage({ searchParams }) {
   const resolvedSearchParams = use(searchParams);
@@ -124,6 +125,10 @@ export default function AccountsPage({ searchParams }) {
     }
 
     try {
+      // Save admin session before creating new user (signUp auto-logs in as new user)
+      const { data: currentSession } = await supabase.auth.getSession();
+      const sessionToRestore = currentSession?.session;
+
       await signUpUser({
         email: newAccount.email,
         password: newAccount.password || "password123",
@@ -134,6 +139,11 @@ export default function AccountsPage({ searchParams }) {
         major: newAccount.major || "-",
         role: newAccount.role
       });
+
+      // Restore admin session after signUp (which auto-logs in as the new user)
+      if (sessionToRestore) {
+        await supabase.auth.setSession(sessionToRestore);
+      }
 
       await loadUsers();
       setShowAddModal(false);
