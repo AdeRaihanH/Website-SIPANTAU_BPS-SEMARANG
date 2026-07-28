@@ -46,6 +46,9 @@ export default function DashboardLayout({ children }) {
             userRole: newRole,
             avatar: newAvatar
           }));
+          // Sync nama & email ke key terpisah untuk dibaca komponen task/komentar
+          localStorage.setItem("sipantau_name", newName);
+          localStorage.setItem("sipantau_email", user.email || "");
         } catch (e) {}
       }
     } catch (error) {
