@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUpUser, signInUser } from "../backend/auth";
+import { supabase } from "../backend/client";
 
 export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordChange, initialSignUp = false }) {
   const router = useRouter();
@@ -151,6 +152,19 @@ export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordCha
 
     setIsForgotLoading(true);
     try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sipantau_reset_email", forgotEmail);
+      }
+
+      // Try triggering Supabase resetPasswordForEmail
+      try {
+        await supabase.auth.resetPasswordForEmail(forgotEmail, {
+          redirectTo: `${typeof window !== "undefined" ? window.location.origin : ""}/reset-password?email=${encodeURIComponent(forgotEmail)}`,
+        });
+      } catch (sErr) {
+        console.warn("Supabase resetPasswordForEmail notice:", sErr);
+      }
+
       const response = await fetch('/api/email', {
         method: 'POST',
         headers: {
@@ -167,8 +181,6 @@ export default function AuthForm({ defaultRole = "pemagang", onForgotPasswordCha
       }
 
       setForgotSuccess(true);
-      // Removed the automatic redirection. 
-      // The user must click the link in their email to access the reset-password page.
     } catch (err) {
       alert(err.message);
     } finally {
