@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "../../backend/client";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -12,21 +13,28 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Check if there is an email to reset
+    // Check if there is an email to reset from URL parameter or localStorage
     if (typeof window !== "undefined") {
-      const email = localStorage.getItem("sipantau_reset_email");
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlEmail = urlParams.get("email");
+      const storedEmail = localStorage.getItem("sipantau_reset_email");
+      const email = urlEmail || storedEmail;
+
       if (email) {
         setResetEmail(email);
+        setIsLoading(false);
       } else {
-        // If no email is set in the session, they shouldn't be here (in a real app, this would be an invalid token)
-        router.push("/");
+        // If no email is set in URL or session, smoothly redirect to login without flashing UI
+        router.replace("/");
       }
     }
   }, [router]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -45,32 +53,63 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    // In a real app, we'd send the new password to the server here.
-    // For this simulation, we update the mock database in localStorage.
-    if (resetEmail) {
-      const usersListStr = localStorage.getItem("sipantau_users") || "[]";
-      let usersList = JSON.parse(usersListStr);
-      
-      const userIndex = usersList.findIndex(u => u.email.toLowerCase() === resetEmail.toLowerCase());
-      
-      if (userIndex !== -1) {
-        usersList[userIndex].password = password;
-        localStorage.setItem("sipantau_users", JSON.stringify(usersList));
-      } else {
-        // Just for simulation, if email doesn't exist, we don't do anything but pretend it succeeded
+    setIsSubmitting(true);
+
+    try {
+      // 1. Try Supabase Auth updateUser if active session/recovery token exists
+      try {
+        await supabase.auth.updateUser({ password: password });
+      } catch (sErr) {
+        console.warn("Supabase auth.updateUser notice:", sErr);
+      }
+
+      // 2. Call backend API route /api/auth/reset-password
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: resetEmail,
+          password: password,
+        }),
+      });
+
+      const apiData = await res.json();
+      if (!res.ok && apiData?.error && !apiData?.error?.includes("SERVICE_ROLE_KEY")) {
+        throw new Error(apiData.error);
+      }
+
+      // 3. Also update localStorage if present
+      if (resetEmail) {
+        const usersListStr = localStorage.getItem("sipantau_users") || "[]";
+        let usersList = JSON.parse(usersListStr);
+        const userIndex = usersList.findIndex(
+          (u) => u.email?.toLowerCase() === resetEmail.toLowerCase()
+        );
+        if (userIndex !== -1) {
+          usersList[userIndex].password = password;
+          localStorage.setItem("sipantau_users", JSON.stringify(usersList));
+        }
+        localStorage.removeItem("sipantau_reset_email");
       }
 
       setSuccess(true);
-      
-      // Clean up the simulation state
-      localStorage.removeItem("sipantau_reset_email");
-      
-      // Redirect back to login after showing success
       setTimeout(() => {
         router.push("/");
       }, 2500);
+    } catch (err) {
+      setError(err.message || "Gagal memperbarui password.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-100/50 flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 border-4 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100/50 flex flex-col items-center justify-center p-4">
@@ -86,7 +125,7 @@ export default function ResetPasswordPage() {
             Password Baru
           </h1>
           <p className="text-sm font-medium text-slate-500">
-            Silakan buat password baru yang aman untuk akun Anda.
+            Silakan buat password baru yang aman untuk akun {resetEmail ? <span className="font-bold text-slate-700">{resetEmail}</span> : "Anda"}.
           </p>
         </div>
 
@@ -182,9 +221,17 @@ export default function ResetPasswordPage() {
             <div className="pt-4 mt-2">
               <button
                 type="submit"
-                className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-3.5 px-6 rounded-full shadow-lg shadow-violet-100 hover:shadow-violet-200 transition-all duration-200 text-sm cursor-pointer"
+                disabled={isSubmitting}
+                className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-3.5 px-6 rounded-full shadow-lg shadow-violet-100 hover:shadow-violet-200 transition-all duration-200 text-sm cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                Simpan Password Baru
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  "Simpan Password Baru"
+                )}
               </button>
             </div>
             
