@@ -12,16 +12,22 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if there is an email to reset
+    // Check if there is an email to reset from URL parameter or localStorage
     if (typeof window !== "undefined") {
-      const email = localStorage.getItem("sipantau_reset_email");
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlEmail = urlParams.get("email");
+      const storedEmail = localStorage.getItem("sipantau_reset_email");
+      const email = urlEmail || storedEmail;
+
       if (email) {
         setResetEmail(email);
+        setIsLoading(false);
       } else {
-        // If no email is set in the session, they shouldn't be here (in a real app, this would be an invalid token)
-        router.push("/");
+        // If no email is set in URL or session, smoothly redirect to login without flashing UI
+        router.replace("/");
       }
     }
   }, [router]);
@@ -72,6 +78,14 @@ export default function ResetPasswordPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-100/50 flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 border-4 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100/50 flex flex-col items-center justify-center p-4">
       {/* Background Decorators */}
@@ -86,7 +100,7 @@ export default function ResetPasswordPage() {
             Password Baru
           </h1>
           <p className="text-sm font-medium text-slate-500">
-            Silakan buat password baru yang aman untuk akun Anda.
+            Silakan buat password baru yang aman untuk akun {resetEmail ? <span className="font-bold text-slate-700">{resetEmail}</span> : "Anda"}.
           </p>
         </div>
 
