@@ -1,10 +1,21 @@
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "./client";
 
 /**
  * Sign up a new user
  */
 export async function signUpUser({ email, password, name, phone, address, institution, major, role }) {
-  const { data, error } = await supabase.auth.signUp({
+  // Use isolated client with persistSession: false to preserve active admin session
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+  const tempClient = createClient(supabaseUrl, supabasePublishableKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  const { data, error } = await tempClient.auth.signUp({
     email,
     password,
     options: {
@@ -22,7 +33,7 @@ export async function signUpUser({ email, password, name, phone, address, instit
   if (error) throw error;
   
   if (data?.user) {
-    // Update profiles table with extra fields not handled by trigger
+    // Update profiles table with extra fields
     await supabase.from("profiles").update({
       full_name: name,
       status: "pending",

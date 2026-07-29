@@ -151,10 +151,6 @@ export default function AccountsPage({ searchParams }) {
     }
 
     try {
-      // Save admin session before creating new user (signUp auto-logs in as new user)
-      const { data: currentSession } = await supabase.auth.getSession();
-      const sessionToRestore = currentSession?.session;
-
       clearUsersCache();
       await signUpUser({
         email: newAccount.email,
@@ -166,11 +162,6 @@ export default function AccountsPage({ searchParams }) {
         major: newAccount.major || "-",
         role: newAccount.role
       });
-
-      // Restore admin session after signUp (which auto-logs in as the new user)
-      if (sessionToRestore) {
-        await supabase.auth.setSession(sessionToRestore);
-      }
 
       await loadUsers({ forceRefresh: true });
       setShowAddModal(false);
